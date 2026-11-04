@@ -815,6 +815,21 @@ export function Lecteur({
         >
           Menu
         </button>
+        {/*
+          Accéléré d'un tapotement, sans ouvrir le menu : un bouton qui bascule,
+          puisqu'un doigt ne peut pas rester posé dessus en jouant. La vitesse
+          est celle de la liste du menu, ou ×3 si elle est sur ×1.
+        */}
+        <button
+          type="button"
+          onClick={() => accelerer(!accelere)}
+          aria-pressed={accelere}
+          className={`rounded-lg border px-3 py-1.5 text-xs ${
+            accelere ? "border-accent-600 bg-accent-600/15 text-accent-400" : "border-ink-700 text-ink-200"
+          }`}
+        >
+          {accelere ? `×${vitesse > 1 ? vitesse : VITESSE_TOUCHE} ▶▶` : "▶▶"}
+        </button>
         <a
           href={jeu.retour}
           className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200"
