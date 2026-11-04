@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/guard";
 import { etatCapacite } from "@/lib/link/capacite";
-import { descriptionDuSite, nomDuSite } from "@/lib/parametres";
+import { descriptionDuSite, lireParametre, nomDuSite } from "@/lib/parametres";
 import { Reglages } from "./reglages";
 
 export const metadata: Metadata = { title: "Réglages" };
@@ -14,5 +14,12 @@ export const dynamic = "force-dynamic";
  */
 export default async function ReglagesPage() {
   await requireAdmin();
-  return <Reglages nom={nomDuSite()} description={descriptionDuSite()} capacite={etatCapacite()} />;
+  return (
+    <Reglages
+      nom={nomDuSite()}
+      description={descriptionDuSite()}
+      application={lireParametre("nom_application") ?? ""}
+      capacite={etatCapacite()}
+    />
+  );
 }

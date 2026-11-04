@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { requireUser } from "@/lib/auth/guard";
+import { BandeauVoirComme } from "@/components/bandeau-voir-comme";
 import { BarreBasse } from "@/components/barre-basse";
 import { SiteHeader } from "@/components/site-header";
 
@@ -12,6 +13,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      {user.vuPar && <BandeauVoirComme user={user} />}
       <SiteHeader user={user} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8">{children}</main>
       {/* Marge basse sur téléphone : la barre de navigation fixe ne doit pas

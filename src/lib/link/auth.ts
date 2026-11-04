@@ -32,6 +32,7 @@ export async function compteDepuisCookie(enTete: string | undefined): Promise<Co
   const ligne = await db
     .select({
       expiresAt: sessions.expiresAt,
+      actingAsUserId: sessions.actingAsUserId,
       id: users.id,
       pseudo: users.pseudo,
       role: users.role,
@@ -44,5 +45,18 @@ export async function compteDepuisCookie(enTete: string | undefined): Promise<Co
     .get();
 
   if (!ligne || !ligne.isActive || ligne.expiresAt.getTime() <= Date.now()) return null;
+
+  // « Voir comme » (voir `getCurrentUser`) : un administrateur qui regarde le
+  // site comme un autre compte entre aussi dans les salons sous ce compte.
+  if (ligne.actingAsUserId && ligne.role === "ADMIN") {
+    const autre = await db
+      .select({ id: users.id, pseudo: users.pseudo, role: users.role, isActive: users.isActive, accessMode: users.accessMode })
+      .from(users)
+      .where(eq(users.id, ligne.actingAsUserId))
+      .get();
+    if (autre && autre.isActive) {
+      return { id: autre.id, pseudo: autre.pseudo, role: autre.role, accessMode: autre.accessMode };
+    }
+  }
   return { id: ligne.id, pseudo: ligne.pseudo, role: ligne.role, accessMode: ligne.accessMode };
 }

@@ -8,10 +8,13 @@ import type { EtatCapacite } from "@/lib/link/capacite";
 export function Reglages({
   nom,
   description,
+  application,
   capacite,
 }: {
   nom: string;
   description: string;
+  /** Nom sous l'icône une fois le site installé sur un téléphone ; vide = nom du site. */
+  application: string;
   capacite: EtatCapacite;
 }) {
   const [retour, action, enCours] = useActionState<Resultat | null, FormData>(
@@ -31,6 +34,13 @@ export function Reglages({
           </Field>
           <Field label="Phrase d'accueil" htmlFor="description" hint="Sous le nom, sur la page de connexion.">
             <Input id="description" name="description" defaultValue={description} maxLength={120} />
+          </Field>
+          <Field
+            label="Nom de l'application installée"
+            htmlFor="application"
+            hint="Sous l'icône, quand le site est ajouté à l'écran d'accueil d'un téléphone. Vide : le nom du site. Un téléphone n'affiche qu'une douzaine de caractères."
+          >
+            <Input id="application" name="application" defaultValue={application} maxLength={40} placeholder={nom} />
           </Field>
           <Button type="submit" disabled={enCours} className="self-start">
             {enCours ? "Enregistrement…" : "Enregistrer"}

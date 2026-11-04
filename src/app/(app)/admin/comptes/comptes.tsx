@@ -14,6 +14,7 @@ import {
   remettreAZero,
   renvoyerInvitation,
   revoquerInvitation,
+  voirLeSiteComme,
   type Resultat,
 } from "@/lib/admin/actions";
 import { MODES_ACCES, type ModeAcces } from "@/lib/modes-acces";
@@ -286,6 +287,11 @@ export function Comptes({
                   le site se retrouverait sans administrateur. */}
               {compte.id !== moi && (
                 <>
+                  {compte.isActive && (
+                    <Petit onClick={() => demarrer(() => voirLeSiteComme(compte.id))} disabled={enCours}>
+                      Voir le site comme {compte.pseudo}
+                    </Petit>
+                  )}
                   <Petit
                     onClick={() => agir(() => basculerAdministration(compte.id))}
                     disabled={enCours}

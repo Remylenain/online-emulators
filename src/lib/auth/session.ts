@@ -55,6 +55,22 @@ export type SessionUser = {
   role: "USER" | "ADMIN";
   /** Ce que le compte voit du catalogue (voir `src/lib/acces.ts`). */
   accessMode: "normal" | "restreint" | "testeur";
+  /**
+   * Posé quand un administrateur regarde le site comme ce compte (« voir
+   * comme ») : les pages servent ce compte, mais c'est l'administrateur qui
+   * est derrière, et le bandeau le lui rappelle.
+   */
+  vuPar?: { id: string; pseudo: string };
+};
+
+const COLONNES_COMPTE = {
+  id: users.id,
+  pseudo: users.pseudo,
+  email: users.email,
+  avatarPath: users.avatarPath,
+  role: users.role,
+  isActive: users.isActive,
+  accessMode: users.accessMode,
 };
 
 /**
@@ -72,13 +88,8 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     .select({
       sessionId: sessions.id,
       expiresAt: sessions.expiresAt,
-      id: users.id,
-      pseudo: users.pseudo,
-      email: users.email,
-      avatarPath: users.avatarPath,
-      role: users.role,
-      isActive: users.isActive,
-      accessMode: users.accessMode,
+      actingAsUserId: sessions.actingAsUserId,
+      ...COLONNES_COMPTE,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -104,6 +115,24 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     await db.update(sessions).set({ expiresAt }).where(eq(sessions.id, sessionId));
   }
 
+  // « Voir comme » : l'administrateur reçoit le compte qu'il regarde. Si ce
+  // compte a disparu ou été désactivé entre-temps, on revient à lui sans bruit.
+  if (row.actingAsUserId && row.role === "ADMIN") {
+    const autre = await db.select(COLONNES_COMPTE).from(users).where(eq(users.id, row.actingAsUserId)).get();
+    if (autre && autre.isActive) {
+      return {
+        id: autre.id,
+        pseudo: autre.pseudo,
+        email: autre.email,
+        avatarPath: autre.avatarPath,
+        role: autre.role,
+        accessMode: autre.accessMode,
+        vuPar: { id: row.id, pseudo: row.pseudo },
+      };
+    }
+    await db.update(sessions).set({ actingAsUserId: null }).where(eq(sessions.id, sessionId));
+  }
+
   return {
     id: row.id,
     pseudo: row.pseudo,
@@ -112,6 +141,33 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     role: row.role,
     accessMode: row.accessMode,
   };
+}
+
+/**
+ * « Voir comme » : la session courante sert désormais `userId`, ou redevient
+ * la sienne avec `null`. Réservé à un administrateur ; la cible ne peut pas
+ * être lui-même, ni un compte désactivé.
+ */
+export async function voirComme(userId: string | null): Promise<string | null> {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  if (!token) return "Non connecté.";
+  const sessionId = hashToken(token);
+  const session = await db
+    .select({ userId: sessions.userId, role: users.role })
+    .from(sessions)
+    .innerJoin(users, eq(users.id, sessions.userId))
+    .where(eq(sessions.id, sessionId))
+    .get();
+  if (!session || session.role !== "ADMIN") return "Réservé à l'administrateur.";
+  if (userId !== null) {
+    if (userId === session.userId) return "C'est déjà ton compte.";
+    const cible = await db.select({ isActive: users.isActive }).from(users).where(eq(users.id, userId)).get();
+    if (!cible) return "Compte introuvable.";
+    if (!cible.isActive) return "Ce compte est désactivé.";
+  }
+  await db.update(sessions).set({ actingAsUserId: userId }).where(eq(sessions.id, sessionId));
+  return null;
 }
 
 export async function destroyCurrentSession(): Promise<void> {

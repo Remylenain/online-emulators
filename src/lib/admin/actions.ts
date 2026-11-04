@@ -5,11 +5,13 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { games, playSessions, ratings, saveFiles, saveStates, sessions, userGames, users } from "@/db/schema";
 import fs from "node:fs/promises";
 import { MODES_ACCES, type ModeAcces } from "@/lib/acces";
 import { requireAdmin } from "@/lib/auth/guard";
+import { voirComme } from "@/lib/auth/session";
 import { paths } from "@/lib/paths";
 import {
   creerLienInscription,
@@ -212,6 +214,19 @@ export async function creerInvitation(plafond: number): Promise<Resultat> {
   };
 }
 
+/**
+ * « Voir comme » : regarder le site avec les yeux d'un autre compte — son
+ * catalogue selon son mode d'accès, ses parties, ses salons. Tout ce qu'on y
+ * fait (jouer, noter) compte pour ce compte ; le bandeau le rappelle, et le
+ * bouton du bandeau ramène à soi.
+ */
+export async function voirLeSiteComme(userId: string): Promise<void> {
+  await requireAdmin();
+  const refus = await voirComme(userId);
+  if (refus) throw new Error(refus);
+  redirect("/");
+}
+
 /** Nom et phrase d'accueil du site, affichés partout. */
 export async function definirNomDuSite(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
@@ -223,7 +238,11 @@ export async function definirNomDuSite(_etat: unknown, donnees: FormData): Promi
   if (description.length > 120) {
     return { ok: false, message: "La description ne peut pas dépasser 120 caractères." };
   }
-  definirIdentite(nom, description);
+  const application = String(donnees.get("application") ?? "").trim();
+  if (application.length > 40) {
+    return { ok: false, message: "Le nom de l'application ne peut pas dépasser 40 caractères." };
+  }
+  definirIdentite(nom, description, application);
   revalidatePath("/", "layout");
   return { ok: true, message: "Réglages enregistrés." };
 }

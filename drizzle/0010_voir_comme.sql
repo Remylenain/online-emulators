@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `acting_as_user_id` text REFERENCES users(id);

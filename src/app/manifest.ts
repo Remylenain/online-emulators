@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { descriptionDuSite, nomDuSite } from "@/lib/parametres";
+import { descriptionDuSite, nomApplication } from "@/lib/parametres";
 
 /**
  * Manifeste d'application web : c'est lui qui permet d'ajouter le site à
@@ -14,10 +14,12 @@ import { descriptionDuSite, nomDuSite } from "@/lib/parametres";
 export const dynamic = "force-dynamic";
 
 export default function manifest(): MetadataRoute.Manifest {
-  const nom = nomDuSite();
+  // Le même nom dans les deux champs : c'est ce que l'administrateur a
+  // choisi de voir sous l'icône, le téléphone l'abrège lui-même s'il le faut.
+  const nom = nomApplication();
   return {
     name: nom,
-    short_name: nom.length <= 12 ? nom : nom.split(/\s+/)[0]!,
+    short_name: nom,
     description: descriptionDuSite(),
     lang: "fr",
     start_url: "/",

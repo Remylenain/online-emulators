@@ -90,6 +90,12 @@ export const sessions = sqliteTable(
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
     userAgent: text("user_agent"),
     ipHash: text("ip_hash"),
+    /**
+     * « Voir comme » : un administrateur qui regarde le site avec les yeux
+     * d'un autre compte. La session reste la sienne (c'est lui qui est
+     * connecté), mais les pages servent ce compte-ci tant que c'est posé.
+     */
+    actingAsUserId: text("acting_as_user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
   (table) => [

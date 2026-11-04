@@ -29,6 +29,7 @@ import {
   destroyAllSessions,
   destroyCurrentSession,
   setSessionCookie,
+  voirComme,
 } from "./session";
 
 export type FormState = {
@@ -140,6 +141,12 @@ function safeNext(value: FormDataEntryValue | null): string {
 export async function logout(): Promise<void> {
   await destroyCurrentSession();
   redirect("/connexion");
+}
+
+/** Fin de « voir comme » : l'administrateur retrouve son propre compte. */
+export async function revenirAMonCompte(): Promise<void> {
+  await voirComme(null);
+  redirect("/admin/comptes");
 }
 
 // ---------------------------------------------------------------------------

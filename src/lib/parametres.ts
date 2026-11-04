@@ -13,6 +13,7 @@ import { captchaEnabled, mailEnabled } from "@/lib/env";
 const INSCRIPTIONS_OUVERTES = "inscriptions_ouvertes";
 const NOM_DU_SITE = "nom_du_site";
 const DESCRIPTION_DU_SITE = "description_du_site";
+const NOM_APPLICATION = "nom_application";
 
 export const NOM_PAR_DEFAUT = "Online Emulators";
 export const DESCRIPTION_PAR_DEFAUT = "Bibliothèque privée de rom hacks et de traductions.";
@@ -53,7 +54,16 @@ export function descriptionDuSite(): string {
   return lireParametre(DESCRIPTION_DU_SITE)?.trim() || DESCRIPTION_PAR_DEFAUT;
 }
 
-export function definirIdentite(nom: string, description: string): void {
+/**
+ * Le nom de l'application une fois installée sur un téléphone (sous l'icône,
+ * dans le manifeste). Facultatif : à défaut, c'est le nom du site.
+ */
+export function nomApplication(): string {
+  return lireParametre(NOM_APPLICATION)?.trim() || nomDuSite();
+}
+
+export function definirIdentite(nom: string, description: string, application = ""): void {
   ecrireParametre(NOM_DU_SITE, nom.trim());
   ecrireParametre(DESCRIPTION_DU_SITE, description.trim());
+  ecrireParametre(NOM_APPLICATION, application.trim());
 }
