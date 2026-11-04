@@ -58,6 +58,7 @@ export function Comptes({
   liens: LienInscription[];
   inscriptions: { ouvertes: boolean; ouvrables: boolean };
 }) {
+  const [ouvert, setOuvert] = useState<string | null>(null);
   const [importPour, setImportPour] = useState<string | null>(null);
   const [attribuerPour, setAttribuerPour] = useState<string | null>(null);
   const [plafond, setPlafond] = useState<number>(1);
@@ -76,6 +77,34 @@ export function Comptes({
     <section className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold text-ink-50">Comptes</h2>
 
+      {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
+      {retour?.ok && <Acces resultat={retour} />}
+
+      <ul className="flex flex-col divide-y divide-ink-800 overflow-hidden rounded-panel border border-ink-800">
+        {comptes.map((compte) => (
+          <FicheCompte
+            key={compte.id}
+            compte={compte}
+            moi={moi}
+            jeux={jeux}
+            ouverte={ouvert === compte.id}
+            surOuverture={() => {
+              setOuvert(ouvert === compte.id ? null : compte.id);
+              setImportPour(null);
+              setAttribuerPour(null);
+            }}
+            enCours={enCours}
+            agir={agir}
+            demarrer={demarrer}
+            importPour={importPour}
+            setImportPour={setImportPour}
+            attribuerPour={attribuerPour}
+            setAttribuerPour={setAttribuerPour}
+          />
+        ))}
+      </ul>
+
+      <h3 className="mt-4 text-sm font-semibold text-ink-200">Nouveaux comptes</h3>
       <Panel>
         <form action={action} className="flex flex-col gap-4">
           <h3 className="text-sm font-semibold text-ink-200">Créer un compte</h3>
@@ -195,146 +224,207 @@ export function Comptes({
         </div>
       </Panel>
 
-      {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
-      {retour?.ok && <Acces resultat={retour} />}
-
-      <ul className="flex flex-col divide-y divide-ink-800 overflow-hidden rounded-panel border border-ink-800">
-        {comptes.map((compte) => (
-          <li
-            key={compte.id}
-            className="flex flex-wrap items-center gap-x-4 gap-y-2 bg-ink-900/40 px-4 py-3"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2">
-                <span className="truncate text-sm font-medium text-ink-50">
-                  {compte.pseudo}
-                </span>
-                {compte.role === "ADMIN" && (
-                  <span className="rounded border border-accent-600/50 px-1.5 py-0.5 text-[10px] text-accent-400">
-                    admin
-                  </span>
-                )}
-                {!compte.isActive && (
-                  <span className="rounded border border-red-900 px-1.5 py-0.5 text-[10px] text-red-300">
-                    désactivé
-                  </span>
-                )}
-                {compte.accessMode !== "normal" && (
-                  <span className="rounded border border-ink-700 px-1.5 py-0.5 text-[10px] text-ink-400">
-                    {compte.accessMode === "restreint" ? "restreint" : "testeur"} · {compte.jeux.length} jeu
-                    {compte.jeux.length > 1 ? "x" : ""}
-                  </span>
-                )}
-              </span>
-              <span className="block truncate text-xs text-ink-700">
-                {compte.email ?? "sans adresse e-mail"} · {compte.parties} partie
-                {compte.parties > 1 ? "s" : ""} sauvegardée
-                {compte.parties > 1 ? "s" : ""}
-              </span>
-              {/* L'identifiant est le nom du dossier du compte dans `saves/` et
-                  `states/` sur le serveur : c'est par lui qu'on retrouve ses
-                  fichiers. `select-all` le sélectionne d'un clic. */}
-              <span
-                className="block truncate font-mono text-[11px] text-ink-700 select-all"
-                title="Nom du dossier de ses sauvegardes sur le serveur"
-              >
-                {compte.id}
-              </span>
-            </span>
-
-            <div className="flex flex-wrap items-center gap-1">
-              <select
-                value={compte.accessMode}
-                onChange={(e) => agir(() => definirModeAcces(compte.id, e.target.value))}
-                disabled={enCours}
-                aria-label="Accès au catalogue"
-                title="Ce que le compte voit du catalogue"
-                className="rounded border border-ink-700 bg-ink-950 px-2 py-1 text-xs text-ink-200"
-              >
-                {MODES_ACCES.map((m) => (
-                  <option key={m.valeur} value={m.valeur}>
-                    Accès {m.libelle.toLowerCase()}
-                  </option>
-                ))}
-              </select>
-              {compte.accessMode !== "normal" && (
-                <Petit
-                  onClick={() => setAttribuerPour(attribuerPour === compte.id ? null : compte.id)}
-                  disabled={enCours}
-                >
-                  Jeux attribués
-                </Petit>
-              )}
-              <Petit
-                onClick={() => agir(() => renvoyerInvitation(compte.id))}
-                disabled={enCours}
-              >
-                Lien d&apos;accès
-              </Petit>
-              <Petit
-                onClick={() => agir(() => reinitialiserMotDePasse(compte.id))}
-                disabled={enCours}
-              >
-                Nouveau mot de passe
-              </Petit>
-              <Petit
-                onClick={() => setImportPour(importPour === compte.id ? null : compte.id)}
-                disabled={enCours}
-              >
-                Importer une sauvegarde
-              </Petit>
-              {/* On ne se retire pas ses propres droits ni son propre accès :
-                  le site se retrouverait sans administrateur. */}
-              {compte.id !== moi && (
-                <>
-                  {compte.isActive && (
-                    <Petit onClick={() => demarrer(() => voirLeSiteComme(compte.id))} disabled={enCours}>
-                      Voir le site comme {compte.pseudo}
-                    </Petit>
-                  )}
-                  <Petit
-                    onClick={() => agir(() => basculerAdministration(compte.id))}
-                    disabled={enCours}
-                  >
-                    {compte.role === "ADMIN" ? "Retirer admin" : "Passer admin"}
-                  </Petit>
-                  <Petit
-                    onClick={() => agir(() => basculerActivation(compte.id))}
-                    disabled={enCours}
-                    danger={compte.isActive}
-                  >
-                    {compte.isActive ? "Désactiver" : "Réactiver"}
-                  </Petit>
-                </>
-              )}
-              <Petit
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `Remettre à zéro le compte de ${compte.pseudo} ? Sauvegardes, copies de secours, ` +
-                        "points de reprise, temps de jeu et notes seront effacés. Le compte et son mot de passe restent.",
-                    )
-                  ) {
-                    agir(() => remettreAZero(compte.id));
-                  }
-                }}
-                disabled={enCours}
-                danger
-              >
-                Remettre à zéro
-              </Petit>
-            </div>
-
-            {importPour === compte.id && (
-              <ImportSauvegarde compte={compte} jeux={jeux} surFin={() => setImportPour(null)} />
-            )}
-            {attribuerPour === compte.id && compte.accessMode !== "normal" && (
-              <AttributionJeux compte={compte} jeux={jeux} surFin={() => setAttribuerPour(null)} />
-            )}
-          </li>
-        ))}
-      </ul>
     </section>
+  );
+}
+
+/**
+ * Un compte dans la liste : une ligne qui se lit (pseudo, état, adresse,
+ * parties), et un seul bouton « Gérer » qui déplie les actions, rangées par
+ * sujet. Avant, neuf petits boutons s'alignaient sur la ligne et mordaient
+ * sur les noms dès que l'écran se resserrait.
+ */
+function FicheCompte({
+  compte,
+  moi,
+  jeux,
+  ouverte,
+  surOuverture,
+  enCours,
+  agir,
+  demarrer,
+  importPour,
+  setImportPour,
+  attribuerPour,
+  setAttribuerPour,
+}: {
+  compte: Compte;
+  moi: string;
+  jeux: JeuImportable[];
+  ouverte: boolean;
+  surOuverture: () => void;
+  enCours: boolean;
+  agir: (operation: () => Promise<Resultat>) => void;
+  demarrer: (operation: () => Promise<void>) => void;
+  importPour: string | null;
+  setImportPour: (id: string | null) => void;
+  attribuerPour: string | null;
+  setAttribuerPour: (id: string | null) => void;
+}) {
+  const pluriel = compte.parties > 1 ? "s" : "";
+
+  return (
+    <li className="bg-ink-900/40">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-sm font-medium text-ink-50">{compte.pseudo}</span>
+            {compte.role === "ADMIN" && <Badge tone="accent">admin</Badge>}
+            {!compte.isActive && <Badge tone="danger">désactivé</Badge>}
+            {compte.accessMode !== "normal" && (
+              <Badge>
+                {compte.accessMode === "restreint" ? "restreint" : "testeur"} · {compte.jeux.length} jeu
+                {compte.jeux.length > 1 ? "x" : ""}
+              </Badge>
+            )}
+          </div>
+          <div className="truncate text-xs text-ink-700">
+            {compte.email ?? "sans adresse e-mail"} · {compte.parties} partie{pluriel} sauvegardée{pluriel} · depuis le{" "}
+            {formatDate(compte.createdAt)}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={surOuverture}
+          aria-expanded={ouverte}
+          className={`shrink-0 rounded-md border px-3 py-1.5 text-xs transition-colors ${
+            ouverte
+              ? "border-ink-400 bg-ink-800 text-ink-50"
+              : "border-ink-700 text-ink-200 hover:border-ink-400 hover:text-ink-50"
+          }`}
+        >
+          {ouverte ? "Fermer" : "Gérer"}
+        </button>
+      </div>
+
+      {ouverte && (
+        <div className="grid gap-5 border-t border-ink-800 bg-ink-950/40 px-4 py-4 sm:grid-cols-2">
+          <Groupe titre="Accès au catalogue">
+            <select
+              value={compte.accessMode}
+              onChange={(e) => agir(() => definirModeAcces(compte.id, e.target.value))}
+              disabled={enCours}
+              aria-label="Accès au catalogue"
+              className="rounded border border-ink-700 bg-ink-950 px-2 py-1 text-xs text-ink-200"
+            >
+              {MODES_ACCES.map((m) => (
+                <option key={m.valeur} value={m.valeur}>
+                  Accès {m.libelle.toLowerCase()}
+                </option>
+              ))}
+            </select>
+            {compte.accessMode !== "normal" && (
+              <Petit
+                onClick={() => setAttribuerPour(attribuerPour === compte.id ? null : compte.id)}
+                disabled={enCours}
+              >
+                Jeux attribués ({compte.jeux.length})
+              </Petit>
+            )}
+          </Groupe>
+
+          <Groupe titre="Connexion">
+            <Petit onClick={() => agir(() => renvoyerInvitation(compte.id))} disabled={enCours}>
+              Lien d&apos;accès
+            </Petit>
+            <Petit onClick={() => agir(() => reinitialiserMotDePasse(compte.id))} disabled={enCours}>
+              Nouveau mot de passe
+            </Petit>
+            {compte.id !== moi && compte.isActive && (
+              <Petit onClick={() => demarrer(() => voirLeSiteComme(compte.id))} disabled={enCours}>
+                Voir le site comme {compte.pseudo}
+              </Petit>
+            )}
+          </Groupe>
+
+          <Groupe titre="Sauvegardes">
+            <Petit
+              onClick={() => setImportPour(importPour === compte.id ? null : compte.id)}
+              disabled={enCours}
+            >
+              Importer une sauvegarde
+            </Petit>
+            <Petit
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Remettre à zéro le compte de ${compte.pseudo} ? Sauvegardes, copies de secours, ` +
+                      "points de reprise, temps de jeu et notes seront effacés. Le compte et son mot de passe restent.",
+                  )
+                ) {
+                  agir(() => remettreAZero(compte.id));
+                }
+              }}
+              disabled={enCours}
+              danger
+            >
+              Remettre à zéro
+            </Petit>
+          </Groupe>
+
+          <Groupe titre="Compte">
+            {/* On ne se retire pas ses propres droits ni son propre accès :
+                le site se retrouverait sans administrateur. */}
+            {compte.id !== moi ? (
+              <>
+                <Petit onClick={() => agir(() => basculerAdministration(compte.id))} disabled={enCours}>
+                  {compte.role === "ADMIN" ? "Retirer admin" : "Passer admin"}
+                </Petit>
+                <Petit
+                  onClick={() => agir(() => basculerActivation(compte.id))}
+                  disabled={enCours}
+                  danger={compte.isActive}
+                >
+                  {compte.isActive ? "Désactiver" : "Réactiver"}
+                </Petit>
+              </>
+            ) : (
+              <span className="text-xs text-ink-700">C&apos;est toi.</span>
+            )}
+            {/* L'identifiant est le nom du dossier du compte dans `saves/` et
+                `states/` sur le serveur : c'est par lui qu'on retrouve ses
+                fichiers. `select-all` le sélectionne d'un clic. */}
+            <span
+              className="w-full truncate font-mono text-[11px] text-ink-700 select-all"
+              title="Nom du dossier de ses sauvegardes sur le serveur"
+            >
+              dossier {compte.id}
+            </span>
+          </Groupe>
+
+          {importPour === compte.id && (
+            <div className="sm:col-span-2">
+              <ImportSauvegarde compte={compte} jeux={jeux} surFin={() => setImportPour(null)} />
+            </div>
+          )}
+          {attribuerPour === compte.id && compte.accessMode !== "normal" && (
+            <div className="sm:col-span-2">
+              <AttributionJeux compte={compte} jeux={jeux} surFin={() => setAttribuerPour(null)} />
+            </div>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function Groupe({ titre, children }: { titre: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h4 className="text-[11px] font-medium uppercase tracking-wide text-ink-700">{titre}</h4>
+      <div className="flex flex-wrap items-center gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+function Badge({ tone, children }: { tone?: "accent" | "danger"; children: React.ReactNode }) {
+  const couleurs = {
+    accent: "border-accent-600/50 text-accent-400",
+    danger: "border-red-900 text-red-300",
+    neutre: "border-ink-700 text-ink-400",
+  };
+  return (
+    <span className={`rounded border px-1.5 py-0.5 text-[10px] ${couleurs[tone ?? "neutre"]}`}>{children}</span>
   );
 }
 
