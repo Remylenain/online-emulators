@@ -20,8 +20,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
----
-
-Cette licence couvre le code propre au projet. Les cœurs d'émulation
-redistribués ou installés avec lui ont chacun leur propre licence, détaillée
-dans THIRD_PARTY_NOTICES.md.
