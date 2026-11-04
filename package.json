@@ -19,6 +19,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "library:scan": "node --env-file=.env scripts/scan-library.ts",
+    "link:capacite": "node --env-file=.env --import ./outils/node/charge-ts.mjs scripts/capacite-link.ts",
     "user:create": "node --env-file=.env scripts/create-user.ts",
     "db:seed": "node --env-file=.env scripts/seed.ts"
   },

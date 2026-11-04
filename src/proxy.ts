@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE } from "@/lib/auth/cookie";
+import { attributsCookieSession, SESSION_COOKIE, SESSION_DURATION_MS } from "@/lib/auth/cookie";
 
 /**
  * Premier filtre : renvoie vers la connexion toute requête sans cookie de
@@ -9,6 +9,12 @@ import { SESSION_COOKIE } from "@/lib/auth/cookie";
  * La vérification réelle a lieu dans chaque page, via `requireUser()`. Le rôle
  * de ce filtre est d'éviter d'exécuter le rendu d'une page privée pour un
  * visiteur manifestement non connecté.
+ *
+ * Il repose aussi le cookie de session avec une échéance neuve à chaque
+ * passage : c'est la moitié « navigateur » de la prolongation glissante, dont
+ * la moitié « base » est dans `getCurrentUser`. Un rendu de page n'a pas le
+ * droit de poser un cookie, ce filtre si. Reposer un cookie dont la session
+ * est morte ne change rien : la page suivante renverra à la connexion.
  */
 const PUBLIC_PATHS = ["/connexion", "/mot-de-passe-oublie", "/reinitialiser", "/inscription"];
 
@@ -19,8 +25,11 @@ export default function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (request.cookies.has(SESSION_COOKIE)) {
-    return NextResponse.next();
+  const jeton = request.cookies.get(SESSION_COOKIE)?.value;
+  if (jeton) {
+    const reponse = NextResponse.next();
+    reponse.cookies.set(SESSION_COOKIE, jeton, attributsCookieSession(new Date(Date.now() + SESSION_DURATION_MS)));
+    return reponse;
   }
 
   const target = request.nextUrl.clone();

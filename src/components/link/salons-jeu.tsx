@@ -15,9 +15,11 @@ import { Alert, Button } from "@/components/ui";
 type Reponse = {
   enAttente: { id: string; hote: string; depuis: number }[];
   mien: { id: string; jeu: string; etat: string } | null;
+  /** Salons qu'on peut encore ouvrir sur ce serveur ; null = pas de limite mesurée. */
+  libres: number | null;
 };
 
-export function SalonsJeu({ jeuId }: { jeuId: string }) {
+export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: string }) {
   const router = useRouter();
   const [salons, setSalons] = useState<Reponse | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -27,7 +29,9 @@ export function SalonsJeu({ jeuId }: { jeuId: string }) {
 
   useEffect(() => {
     let annule = false;
-    fetch(`/link/salons?jeu=${encodeURIComponent(jeuId)}`, { cache: "no-store" })
+    fetch(`/link/salons?jeu=${encodeURIComponent(jeuId)}&console=${encodeURIComponent(consoleSlug)}`, {
+      cache: "no-store",
+    })
       .then(async (reponse) => {
         if (!reponse.ok) throw new Error();
         const corps = (await reponse.json()) as Reponse;
@@ -41,7 +45,7 @@ export function SalonsJeu({ jeuId }: { jeuId: string }) {
     return () => {
       annule = true;
     };
-  }, [jeuId]);
+  }, [jeuId, consoleSlug]);
 
   async function creer() {
     setOccupe(true);
@@ -76,6 +80,7 @@ export function SalonsJeu({ jeuId }: { jeuId: string }) {
 
   const mienIci = salons.mien && salons.mien.jeu === jeuId ? salons.mien : null;
   const autres = salons.enAttente.filter((salon) => salon.id !== mienIci?.id);
+  const complet = salons.libres === 0;
 
   return (
     <section className="flex flex-col gap-3 rounded-panel border border-ink-800 bg-ink-900/40 p-4">
@@ -95,8 +100,14 @@ export function SalonsJeu({ jeuId }: { jeuId: string }) {
         </Button>
       ) : (
         <div className="flex flex-col gap-3">
+          {complet && (
+            <Alert tone="info">
+              Le serveur est au complet pour le moment : tous les salons sont pris. Réessaie dans
+              quelques minutes, ou rejoins un salon déjà ouvert.
+            </Alert>
+          )}
           <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={() => void creer()} disabled={occupe || Boolean(salons.mien)}>
+            <Button onClick={() => void creer()} disabled={occupe || complet || Boolean(salons.mien)}>
               Ouvrir un salon
             </Button>
             <label className="flex items-center gap-2 text-xs text-ink-200">
@@ -112,6 +123,12 @@ export function SalonsJeu({ jeuId }: { jeuId: string }) {
             {salons.mien && (
               <span className="text-xs text-ink-400">
                 Tu es déjà dans un salon sur un autre jeu ({salons.mien.id}).
+              </span>
+            )}
+            {!salons.mien && salons.libres !== null && salons.libres > 0 && (
+              <span className="text-xs text-ink-400">
+                {salons.libres === 1 ? "Dernier salon disponible" : `${salons.libres} salons disponibles`} sur le
+                serveur
               </span>
             )}
           </div>

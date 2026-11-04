@@ -199,6 +199,26 @@ scan est idempotent, et chaque avertissement qu'il affiche désigne un dossier
 qu'il a écarté — ROM absente, ambiguë, lien symbolique mort, ou `game.json`
 invalide.
 
+### Limiter le nombre de salons de câble link
+
+Chaque salon fait tourner deux consoles sur le serveur, à 60 images par
+seconde. Pour que le site ne s'écroule pas si tout le monde ouvre un salon en
+même temps, on mesure une fois ce qu'un salon coûte, et le serveur refuse
+d'en ouvrir au-delà de ce que le processeur peut tenir :
+
+```sh
+cd /opt/online-emulators
+sudo -u jeux node --env-file=/etc/online-emulators.env     --import ./outils/node/charge-ts.mjs scripts/capacite-link.ts --appliquer
+```
+
+Le script lance un salon GB/GBC puis un salon GBA sur un jeu de la
+bibliothèque, pendant une quinzaine de secondes chacun, sans toucher aux
+sauvegardes, et enregistre le coût relevé dans les réglages : la limite
+s'applique aussitôt. La part du processeur laissée au câble link (65 % par
+défaut) se règle dans Administration → Réglages, qui montre aussi combien de
+salons restent possibles à l'instant. À refaire après un changement de
+machine ou de cœur d'émulation.
+
 ## Sauvegardes
 
 Le timer `sauvegarde-online-emulators.timer` tourne chaque nuit à 04:30 et garde

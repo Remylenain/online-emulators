@@ -179,7 +179,7 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
           <TaPartie stats={stats} />
 
           {/* Le câble link, pour les consoles dont le serveur sait relier deux consoles. */}
-          {CONSOLES_LINK.has(console.slug) && <SalonsJeu jeuId={game.id} />}
+          {CONSOLES_LINK.has(console.slug) && <SalonsJeu jeuId={game.id} consoleSlug={console.slug} />}
 
           <div className="flex flex-col gap-2">
             <h2 className="text-sm font-semibold text-ink-200">Ton avis</h2>

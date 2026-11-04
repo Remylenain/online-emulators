@@ -24,6 +24,7 @@ import {
 } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { mailEnabled } from "@/lib/env";
+import { definirMargeLink, MARGE_MAX, MARGE_MIN } from "@/lib/link/capacite";
 import { definirIdentite, definirInscriptionsOuvertes, inscriptionsOuvrables } from "@/lib/parametres";
 import {
   manifestSchema,
@@ -225,6 +226,21 @@ export async function definirNomDuSite(_etat: unknown, donnees: FormData): Promi
   definirIdentite(nom, description);
   revalidatePath("/", "layout");
   return { ok: true, message: "Réglages enregistrés." };
+}
+
+/**
+ * Part du processeur laissée au câble link. Les coûts par salon, eux, se
+ * mesurent sur le serveur (`npm run link:capacite -- --appliquer`).
+ */
+export async function definirMargeCableLink(_etat: unknown, donnees: FormData): Promise<Resultat> {
+  await requireAdmin();
+  const marge = Number(donnees.get("marge"));
+  if (!Number.isInteger(marge) || marge < MARGE_MIN || marge > MARGE_MAX) {
+    return { ok: false, message: `La marge doit être un entier entre ${MARGE_MIN} et ${MARGE_MAX} %.` };
+  }
+  definirMargeLink(marge);
+  revalidatePath("/admin/reglages");
+  return { ok: true, message: "Marge enregistrée : la limite s'applique dès maintenant." };
 }
 
 /**

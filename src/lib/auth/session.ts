@@ -3,12 +3,11 @@ import { cookies } from "next/headers";
 import { createHash, randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { passwordResetTokens, sessions, users } from "@/db/schema";
-import { SESSION_COOKIE } from "./cookie";
+import { attributsCookieSession, SESSION_COOKIE, SESSION_DURATION_MS } from "./cookie";
 import { generateToken, hashToken } from "./tokens";
 
 export { SESSION_COOKIE };
 
-const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 jours
 /** En deçà de ce reliquat, la session est prolongée à l'usage. */
 const SESSION_RENEW_THRESHOLD_MS = 15 * 24 * 60 * 60 * 1000;
 
@@ -40,13 +39,7 @@ export async function createSession(
 
 export async function setSessionCookie(token: string, expiresAt: Date): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: expiresAt,
-  });
+  store.set(SESSION_COOKIE, token, attributsCookieSession(expiresAt));
 }
 
 export async function clearSessionCookie(): Promise<void> {
@@ -102,10 +95,13 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!row.isActive) return null;
 
   // Prolongation glissante : un joueur régulier n'est jamais déconnecté.
+  // Seule la base est prolongée ici : on est en plein rendu d'une page, et
+  // Next n'y laisse pas poser de cookie (ça faisait une erreur 500 sur toutes
+  // les pages passé quinze jours de session). Le cookie, lui, est reposé à
+  // chaque requête par `proxy.ts`, qui a le droit de le faire.
   if (row.expiresAt.getTime() - Date.now() < SESSION_RENEW_THRESHOLD_MS) {
     const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
     await db.update(sessions).set({ expiresAt }).where(eq(sessions.id, sessionId));
-    await setSessionCookie(token, expiresAt);
   }
 
   return {

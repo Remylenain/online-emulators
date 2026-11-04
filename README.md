@@ -127,6 +127,7 @@ Réglages.
 | `npm run library:scan` | relire la bibliothèque |
 | `npm run user:create -- --pseudo <nom> --admin` | créer un compte en ligne de commande |
 | `npm run db:migrate` | appliquer les migrations après une mise à jour |
+| `npm run link:capacite -- --appliquer` | mesurer ce qu'un salon de câble link coûte au serveur, et limiter le nombre de salons en conséquence |
 | `npm run typecheck` | vérification TypeScript |
 
 ## Pile technique

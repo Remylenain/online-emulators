@@ -20,6 +20,7 @@ import { WebSocketServer } from "ws";
 import { compteDepuisCookie } from "./src/lib/link/auth.ts";
 import { salons } from "./src/lib/link/registre.ts";
 import { attacher, creerSalon, surveillerAbandons } from "./src/lib/link/salons.ts";
+import { famille, placesLibres } from "./src/lib/link/capacite.ts";
 import { salonsEnAttente, salonDuCompte } from "./src/lib/link/registre.ts";
 
 const { values } = parseArgs({
@@ -89,6 +90,9 @@ async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url
         depuis: salon.creeLe,
       })),
       mien: mien ? { id: mien.id, jeu: mien.jeu.id, etat: mien.etat } : null,
+      // Salons qu'on peut encore ouvrir pour ce jeu ; null tant que la
+      // capacité du serveur n'a pas été mesurée (pas de limite).
+      libres: placesLibres(famille(url.searchParams.get("console") ?? "")),
     });
     return true;
   }

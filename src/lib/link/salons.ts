@@ -11,6 +11,7 @@ import { paths } from "@/lib/paths";
 import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
 import { findConsole } from "@/lib/consoles";
 import type { Compte } from "./auth";
+import { refusCapacite } from "./capacite";
 import type { DescriptionCoeur } from "./moteurs";
 import { ENTETE_AUDIO, ENTETE_IMAGE, TRAME, type MessageServeur } from "./protocole";
 import { salonDuCompte, salons, type Salon } from "./registre";
@@ -58,6 +59,14 @@ function coeurTgbDual(): Coeur {
     typeSpecial: 0x101, // RETRO_GAME_TYPE_GAMEBOY_LINK_2P
     srams: [0x100, 0x300],
   };
+}
+
+/** Le cœur d'une console, `.wasm` compris, prêt à être envoyé à l'ouvrier. `null` sans câble link. */
+export async function descriptionCoeur(consoleSlug: string): Promise<DescriptionCoeur | null> {
+  const coeur = COEURS[consoleSlug];
+  if (!coeur) return null;
+  const wasm = await fs.readFile(coeur.js.replace(/\.c?js$/, ".wasm"));
+  return { ...coeur, wasm: copie(wasm) } satisfies DescriptionCoeur;
 }
 
 /** Un salon sans personne depuis ce délai est clos, sauvegardes enregistrées. */
@@ -118,6 +127,11 @@ export async function creerSalon(jeuId: string, compte: Compte, prive: boolean):
     .get();
   if (!jeu) return { erreur: "Jeu introuvable." };
   if (!COEURS[jeu.consoleSlug]) return { erreur: "Le câble link n'est pas encore disponible pour cette console." };
+  const complet = refusCapacite(jeu.consoleSlug);
+  if (complet) {
+    console.log(`[link] salon refusé à ${compte.pseudo} sur ${jeu.titre} : serveur au complet`);
+    return { erreur: complet };
+  }
 
   const salon: Salon = {
     id: nouveauCode(),
@@ -215,14 +229,13 @@ export async function attacher(salon: Salon, compte: Compte, prise: WebSocket): 
 async function demarrer(salon: Salon): Promise<void> {
   const etat = interne(salon);
   if (etat.ouvrier) return;
-  const coeur = COEURS[salon.jeu.consoleSlug]!;
-
-  const [rom, wasm, s1, s2] = await Promise.all([
+  const [rom, coeur, s1, s2] = await Promise.all([
     fs.readFile(paths.library(salon.jeu.romPath)),
-    fs.readFile(coeur.js.replace(/\.c?js$/, ".wasm")),
+    descriptionCoeur(salon.jeu.consoleSlug),
     lireSauvegarde(salon.places[0].userId, salon.jeu.id),
     lireSauvegarde(salon.places[1]!.userId, salon.jeu.id),
   ]);
+  if (!coeur) throw new Error(`Pas de cœur link pour ${salon.jeu.consoleSlug}.`);
 
   const ouvrier = new Worker(new URL("./ouvrier.ts", import.meta.url));
   etat.ouvrier = ouvrier;
@@ -267,7 +280,7 @@ async function demarrer(salon: Salon): Promise<void> {
   ];
   ouvrier.postMessage({
     t: "demarrer",
-    coeur: { ...coeur, wasm: copie(wasm) } satisfies DescriptionCoeur,
+    coeur,
     rom: copie(rom),
     nom: path.basename(salon.jeu.romPath),
     saves: sauvegardes,

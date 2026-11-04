@@ -8,15 +8,19 @@
  * Reçoit :
  *   { t: "demarrer", ... }      la ROM, les deux sauvegardes, le cœur
  *   { t: "boutons", joueur, masque }
+ *   { t: "mesure" }             répond par la part du temps passée à travailler
+ *                               depuis la mesure précédente (pour `link:capacite`)
  *   { t: "arreter" }            répond par les deux SRAM, puis s'arrête
  *
  * Émet :
  *   { t: "pret", largeur, hauteur, ips, frequence }
+ *   { t: "mesure", utilisation }                        entre 0 et 1
  *   { t: "image", joueur, largeur, hauteur, donnees }   un écran changé
  *   { t: "audio", joueur, frequence, pcm }              Int16 mono ; joueur null = pour les deux
  *   { t: "srams", srams: [ArrayBuffer, ArrayBuffer] }
  *   { t: "erreur", message }
  */
+import { performance } from "node:perf_hooks";
 import { parentPort } from "node:worker_threads";
 import { deflateRawSync } from "node:zlib";
 import { demarrerMoteur, type DescriptionCoeur } from "./moteurs.ts";
@@ -29,7 +33,11 @@ type Demarrage = {
   saves: [ArrayBuffer | null, ArrayBuffer | null];
 };
 
-type Entrant = Demarrage | { t: "boutons"; joueur: 0 | 1; masque: number } | { t: "arreter" };
+type Entrant =
+  | Demarrage
+  | { t: "boutons"; joueur: 0 | 1; masque: number }
+  | { t: "mesure" }
+  | { t: "arreter" };
 
 const port = parentPort;
 if (!port) throw new Error("Cet ouvrier doit être lancé comme fil de travail.");
@@ -50,10 +58,18 @@ async function demarrer(ordre: Demarrage): Promise<void> {
 
   const boutons: [number, number] = [0, 0];
   let arret: (() => void) | null = null;
+  // Occupation de ce fil : le temps passé dans `tic` rapporté au temps total.
+  // C'est la part d'un cœur qu'un salon consomme, telle que `link:capacite`
+  // la relève.
+  let repere = performance.eventLoopUtilization();
 
   port!.on("message", (message: Entrant) => {
     if (message.t === "boutons") {
       boutons[message.joueur] = message.masque;
+    } else if (message.t === "mesure") {
+      const depuis = performance.eventLoopUtilization(repere);
+      repere = performance.eventLoopUtilization();
+      port!.postMessage({ t: "mesure", utilisation: depuis.utilization });
     } else if (message.t === "arreter") {
       arret = () => {
         const srams = moteur.srams().map((sram) =>
