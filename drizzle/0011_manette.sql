@@ -1,0 +1,1 @@
+ALTER TABLE `keymaps` ADD `gamepad` text;

@@ -6,6 +6,7 @@ import { Alert, Button } from "@/components/ui";
 import { Manette } from "@/components/player/manette";
 import type { Bouton } from "@/lib/emulator/adapter";
 import { toucheDeEvenement, type Touche } from "@/lib/consoles";
+import { useManette } from "@/components/player/use-manette";
 import {
   BITS,
   ENTETE_AUDIO,
@@ -32,11 +33,14 @@ import {
 export function SalonLink({
   salonId,
   touches,
+  manette,
   spectateur = false,
   retour,
 }: {
   salonId: string;
   touches: Record<Touche, string>;
+  /** Disposition de la manette ; l'accéléré n'a pas de sens ici. */
+  manette: Record<Touche, string>;
   /** Regarder sans jouer : deux écrans, pas de touches, pas de fin de session. */
   spectateur?: boolean;
   retour: string;
@@ -80,6 +84,15 @@ export function SalonLink({
     },
     [envoyer],
   );
+
+  // La manette, comme le clavier : seuls les boutons de la console comptent.
+  const surToucheManette = useCallback(
+    (touche: Touche, enfonce: boolean) => {
+      if (touche in BITS) bouton(touche as Bouton, enfonce);
+    },
+    [bouton],
+  );
+  useManette(manette, surToucheManette, !spectateur);
 
   // Connexion, et tout ce qui en découle.
   useEffect(() => {

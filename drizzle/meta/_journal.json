@@ -78,6 +78,13 @@
       "when": 1793822502159,
       "tag": "0010_voir_comme",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793828738217,
+      "tag": "0011_manette",
+      "breakpoints": true
     }
   ]
 }

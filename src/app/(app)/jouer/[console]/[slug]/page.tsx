@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { getCurrentUser } from "@/lib/auth/session";
 import { gameBySlug } from "@/lib/catalog";
 import { DEFAULT_KEYMAP, findConsole, type Touche } from "@/lib/consoles";
+import { MANETTE_PAR_DEFAUT } from "@/lib/manette";
 
 type Params = { console: string; slug: string };
 
@@ -40,7 +41,7 @@ export default async function PlayPage({ params }: { params: Promise<Params> }) 
   // plutôt que dans le navigateur : le lecteur doit pouvoir démarrer avec les
   // bonnes touches dès la première image, sans attendre une requête.
   const enregistree = await db
-    .select({ mapping: keymaps.mapping })
+    .select({ mapping: keymaps.mapping, gamepad: keymaps.gamepad })
     .from(keymaps)
     .where(and(eq(keymaps.userId, user.id), eq(keymaps.consoleSlug, console.slug)))
     .get();
@@ -52,6 +53,14 @@ export default async function PlayPage({ params }: { params: Promise<Params> }) 
     } catch {
       // Disposition illisible : on repart du défaut plutôt que de bloquer la
       // partie. Elle sera réécrite à la prochaine modification.
+    }
+  }
+  let manette: Record<Touche, string> = MANETTE_PAR_DEFAUT;
+  if (enregistree?.gamepad) {
+    try {
+      manette = { ...MANETTE_PAR_DEFAUT, ...JSON.parse(enregistree.gamepad) };
+    } catch {
+      // Même traitement que le clavier.
     }
   }
 
@@ -121,6 +130,7 @@ export default async function PlayPage({ params }: { params: Promise<Params> }) 
         gachettes: console.hasShoulderButtons,
       }}
       touches={touches}
+      manette={manette}
       habillages={habillages}
       habillageInitial={habillageInitial}
     />

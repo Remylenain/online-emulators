@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FichierSauvegarde } from "./fichier-sauvegarde";
 import { ChoixHabillage, type Habillage } from "./habillage";
 import { Manette } from "./manette";
+import { ManetteConfig } from "./manette-config";
 import { Touches } from "./touches";
+import { useManette } from "./use-manette";
 import { INTERVALLE_AUTO, Savestates } from "./savestates";
 import { EmulateurMgba } from "@/lib/emulator/mgba";
 import { choisirHabillage } from "@/lib/bezel/actions";
@@ -85,12 +87,15 @@ export function Lecteur({
   jeu,
   console: consoleInfo,
   touches: touchesInitiales,
+  manette: manetteInitiale,
   habillages,
   habillageInitial,
 }: {
   jeu: JeuLecteur;
   console: ConsoleLecteur;
   touches: Record<Touche, string>;
+  /** Disposition de la manette (API Gamepad), même principe que les touches. */
+  manette: Record<Touche, string>;
   /** Les habillages de cette console, dans l'ordre du scan. */
   habillages: Habillage[];
   /** Celui du compte, ou `null` pour aucun. */
@@ -101,6 +106,7 @@ export function Lecteur({
    * agir immédiatement, sans recharger la page ni redemander au serveur.
    */
   const [touches, setTouches] = useState(touchesInitiales);
+  const [dispositionManette, setDispositionManette] = useState(manetteInitiale);
   const [habillageId, setHabillageId] = useState(habillageInitial);
   const habillage = habillages.find((h) => h.id === habillageId) ?? null;
   const changerHabillage = useCallback(
@@ -397,6 +403,19 @@ export function Lecteur({
     emulateur.vitesse(actif ? (reglee > 1 ? reglee : VITESSE_TOUCHE) : reglee);
     setAccelere(actif);
   }, []);
+
+  /**
+   * La manette, traduite comme le clavier : l'accéléré à tenir, le reste
+   * va au cœur.
+   */
+  const surToucheManette = useCallback(
+    (touche: Touche, enfonce: boolean) => {
+      if (touche === "FAST") accelerer(enfonce);
+      else emulateurRef.current?.bouton(touche, enfonce);
+    },
+    [accelerer],
+  );
+  const { branchee: manetteBranchee } = useManette(dispositionManette, surToucheManette);
 
   /**
    * Le clavier, traduit en boutons de console.
@@ -762,6 +781,13 @@ export function Lecteur({
           surChangement={setTouches}
         />
       )}
+      <ManetteConfig
+        consoleSlug={jeu.consoleSlug}
+        boutons={consoleInfo.gachettes ? BOUTONS_AVEC_GACHETTES : BOUTONS_SIMPLES}
+        disposition={dispositionManette}
+        branchee={manetteBranchee}
+        surChangement={setDispositionManette}
+      />
       {/*
         Les emplacements du cœur et ceux du site sont deux choses différentes.
         Le cœur ne sert que de passage : on lui fait toujours écrire et relire
@@ -909,7 +935,13 @@ export function Lecteur({
               : "flex min-h-0 flex-1 flex-col justify-start pt-2"
           }
         >
-          {enPartie ? (
+          {enPartie && manetteBranchee ? (
+            // Une vraie manette est branchée : l'écran reste au jeu, il ne
+            // reste que Menu, Quitter et l'accéléré.
+            <div className={paysage ? "pointer-events-auto absolute bottom-3 left-3 flex gap-2" : "flex justify-center gap-2 px-3 py-4"}>
+              {boutonsLecteur}
+            </div>
+          ) : enPartie ? (
             <Manette
               gachettes={consoleInfo.gachettes}
               surBouton={appuyerBouton}

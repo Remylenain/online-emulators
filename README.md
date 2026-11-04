@@ -16,12 +16,14 @@ le droit de partager.
 
 - **Lecteur dans le navigateur** (mGBA en WebAssembly) : sauvegarde
   synchronisée par compte, points de reprise manuels et automatiques,
-  avance rapide, touches personnalisables, manette tactile sur téléphone,
-  habillages d'écran.
+  avance rapide (liste, touche à tenir ou bouton tactile), volume, touches
+  et manette (USB ou Bluetooth) personnalisables, manette tactile sur
+  téléphone, habillages d'écran.
 - **Câble link** : deux joueurs, deux navigateurs, les deux consoles tournent
   sur le serveur — TGB Dual pour GB et GBC, mGBA Splitscreen pour GBA.
   Échanges et combats comme avec un vrai câble. Salons publics ou privés
-  avec code.
+  avec code, jusqu'à cinq spectateurs par salon, nombre de salons limité
+  à ce que le serveur peut tenir.
 - **Comptes** : création par l'administrateur, liens d'invitation valables
   24 h pour un ou plusieurs comptes, ou inscriptions ouvertes à tous avec
   e-mail confirmé et captcha, au choix. Réinitialisation de mot de passe par

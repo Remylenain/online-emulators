@@ -6,6 +6,7 @@ import { keymaps } from "@/db/schema";
 import { SalonLink } from "@/components/link/salon-link";
 import { requireUser } from "@/lib/auth/guard";
 import { DEFAULT_KEYMAP, type Touche } from "@/lib/consoles";
+import { MANETTE_PAR_DEFAUT } from "@/lib/manette";
 import { salons } from "@/lib/link/registre";
 
 export const metadata: Metadata = { title: "Câble link" };
@@ -57,7 +58,7 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
   }
 
   const enregistree = await db
-    .select({ mapping: keymaps.mapping })
+    .select({ mapping: keymaps.mapping, gamepad: keymaps.gamepad })
     .from(keymaps)
     .where(and(eq(keymaps.userId, user.id), eq(keymaps.consoleSlug, salon.jeu.consoleSlug)))
     .get();
@@ -69,11 +70,20 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
       // Disposition illisible : le défaut fera l'affaire.
     }
   }
+  let manette: Record<Touche, string> = MANETTE_PAR_DEFAUT;
+  if (enregistree?.gamepad) {
+    try {
+      manette = { ...MANETTE_PAR_DEFAUT, ...JSON.parse(enregistree.gamepad) };
+    } catch {
+      // Idem.
+    }
+  }
 
   return (
     <SalonLink
       salonId={salon.id}
       touches={touches}
+      manette={manette}
       spectateur={spectateur}
       retour={`/jeux/${salon.jeu.consoleSlug}/${salon.jeu.slug}`}
     />

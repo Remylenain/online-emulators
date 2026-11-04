@@ -397,6 +397,8 @@ export const keymaps = sqliteTable(
       .references(() => consoles.slug, { onDelete: "cascade" }),
     /** Mapping sérialisé en JSON : touche du clavier vers bouton de la console. */
     mapping: text("mapping").notNull(),
+    /** Même chose pour la manette (API Gamepad), en JSON ; null = disposition par défaut. */
+    gamepad: text("gamepad"),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
   (table) => [uniqueIndex("keymaps_user_console_unique").on(table.userId, table.consoleSlug)],
