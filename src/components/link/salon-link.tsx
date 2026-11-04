@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Button } from "@/components/ui";
 import { Manette } from "@/components/player/manette";
 import type { Bouton } from "@/lib/emulator/adapter";
-import { toucheDeEvenement, type ButtonName } from "@/lib/consoles";
+import { toucheDeEvenement, type Touche } from "@/lib/consoles";
 import {
   BITS,
   ENTETE_AUDIO,
@@ -36,7 +36,7 @@ export function SalonLink({
   retour,
 }: {
   salonId: string;
-  touches: Record<ButtonName, string>;
+  touches: Record<Touche, string>;
   /** Regarder sans jouer : deux écrans, pas de touches, pas de fin de session. */
   spectateur?: boolean;
   retour: string;
@@ -220,13 +220,15 @@ export function SalonLink({
     }
 
     const inverse = Object.fromEntries(
-      Object.entries(touches).map(([nom, touche]) => [touche, nom as ButtonName]),
-    ) as Record<string, ButtonName>;
+      Object.entries(touches).map(([nom, touche]) => [touche, nom as Touche]),
+    ) as Record<string, Touche>;
     const clavier = (evenement: KeyboardEvent, enfonce: boolean) => {
       const nom = inverse[toucheDeEvenement(evenement)] ?? inverse[evenement.code];
-      if (!nom) return;
+      // Les actions du lecteur (accélérer) n'existent pas sur le câble link :
+      // le serveur tient la cadence pour les deux joueurs.
+      if (!nom || !(nom in BITS)) return;
       evenement.preventDefault();
-      bouton(nom, enfonce);
+      bouton(nom as Bouton, enfonce);
     };
     const bas = (e: KeyboardEvent) => {
       armerSon();

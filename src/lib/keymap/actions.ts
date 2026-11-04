@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { keymaps } from "@/db/schema";
 import { newId } from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/guard";
-import { BUTTONS, CONSOLE_SLUGS, DEFAULT_KEYMAP, type ButtonName } from "@/lib/consoles";
+import { ACTIONS, BUTTONS, CONSOLE_SLUGS, DEFAULT_KEYMAP, type ButtonName } from "@/lib/consoles";
 
 /**
  * Disposition clavier d'un compte, par console.
@@ -15,7 +15,7 @@ import { BUTTONS, CONSOLE_SLUGS, DEFAULT_KEYMAP, type ButtonName } from "@/lib/c
  * console, et une colonne par bouton figerait le modèle pour rien.
  */
 
-const BOUTONS = [...BUTTONS.common, ...BUTTONS.shoulder] as const;
+const BOUTONS = [...BUTTONS.common, ...BUTTONS.shoulder, ...ACTIONS] as const;
 
 const schema = z.object({
   console: z.enum(CONSOLE_SLUGS as [string, ...string[]]),

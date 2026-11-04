@@ -7,7 +7,7 @@ import { Lecteur } from "@/components/player/lecteur";
 import { requireUser } from "@/lib/auth/guard";
 import { getCurrentUser } from "@/lib/auth/session";
 import { gameBySlug } from "@/lib/catalog";
-import { DEFAULT_KEYMAP, findConsole, type ButtonName } from "@/lib/consoles";
+import { DEFAULT_KEYMAP, findConsole, type Touche } from "@/lib/consoles";
 
 type Params = { console: string; slug: string };
 
@@ -45,7 +45,7 @@ export default async function PlayPage({ params }: { params: Promise<Params> }) 
     .where(and(eq(keymaps.userId, user.id), eq(keymaps.consoleSlug, console.slug)))
     .get();
 
-  let touches: Record<ButtonName, string> = DEFAULT_KEYMAP;
+  let touches: Record<Touche, string> = DEFAULT_KEYMAP;
   if (enregistree) {
     try {
       touches = { ...DEFAULT_KEYMAP, ...JSON.parse(enregistree.mapping) };

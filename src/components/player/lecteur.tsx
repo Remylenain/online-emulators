@@ -9,7 +9,7 @@ import { INTERVALLE_AUTO, Savestates } from "./savestates";
 import { EmulateurMgba } from "@/lib/emulator/mgba";
 import { choisirHabillage } from "@/lib/bezel/actions";
 import type { Bouton, Emulateur } from "@/lib/emulator/adapter";
-import { BUTTONS, toucheDeEvenement, type ButtonName } from "@/lib/consoles";
+import { BUTTONS, keyLabel, toucheDeEvenement, type ButtonName, type Touche } from "@/lib/consoles";
 
 const BOUTONS_SIMPLES = [...BUTTONS.common] as ButtonName[];
 const BOUTONS_AVEC_GACHETTES = [...BUTTONS.common, ...BUTTONS.shoulder] as ButtonName[];
@@ -90,7 +90,7 @@ export function Lecteur({
 }: {
   jeu: JeuLecteur;
   console: ConsoleLecteur;
-  touches: Record<ButtonName, string>;
+  touches: Record<Touche, string>;
   /** Les habillages de cette console, dans l'ordre du scan. */
   habillages: Habillage[];
   /** Celui du compte, ou `null` pour aucun. */
@@ -120,7 +120,30 @@ export function Lecteur({
   const [progression, setProgression] = useState("Préparation…");
   const [erreur, setErreur] = useState<string | null>(null);
   const [vitesse, setVitesse] = useState(1);
+  const vitesseRef = useRef(1);
+  /** La touche d'accélération est tenue. */
+  const [accelere, setAccelere] = useState(false);
   const [muet, setMuet] = useState(false);
+  const muetRef = useRef(false);
+  /**
+   * Le volume, de 0 à 100, retenu dans le navigateur : on ne le règle pas à
+   * chaque partie. Lu après le montage pour que le rendu serveur et le
+   * premier rendu client restent identiques.
+   */
+  const [volume, setVolume] = useState(100);
+  const volumeRef = useRef(100);
+  useEffect(() => {
+    try {
+      const retenu = Number(localStorage.getItem(CLE_VOLUME));
+      if (Number.isInteger(retenu) && retenu >= 0 && retenu <= 100) {
+        volumeRef.current = retenu;
+        setVolume(retenu);
+        emulateurRef.current?.volume(muetRef.current ? 0 : retenu);
+      }
+    } catch {
+      // Stockage indisponible : 100 % fera l'affaire.
+    }
+  }, []);
   const [sauvegarde, setSauvegarde] = useState<EtatSauvegarde>({ etat: "inconnu" });
   /**
    * La disposition a-t-elle été arrêtée ? Le démarrage du cœur l'attend.
@@ -312,6 +335,7 @@ export function Lecteur({
         });
 
         emulateurRef.current = emulateur;
+        emulateur.volume(muetRef.current ? 0 : volumeRef.current);
 
         // Le cœur a pu redimensionner son canvas en chargeant le jeu.
         if (canvas.width > 0 && canvas.height > 0) {
@@ -362,6 +386,19 @@ export function Lecteur({
   }, [envoyerSauvegarde]);
 
   /**
+   * La touche d'accélération, tenue : le jeu passe à la vitesse accélérée
+   * choisie dans la liste, ou ×3 si la liste est sur ×1 ; relâchée, il
+   * revient à la vitesse de la liste.
+   */
+  const accelerer = useCallback((actif: boolean) => {
+    const emulateur = emulateurRef.current;
+    if (!emulateur) return;
+    const reglee = vitesseRef.current;
+    emulateur.vitesse(actif ? (reglee > 1 ? reglee : VITESSE_TOUCHE) : reglee);
+    setAccelere(actif);
+  }, []);
+
+  /**
    * Le clavier, traduit en boutons de console.
    *
    * Deux raisons de le faire ici plutôt que de laisser le cœur écouter :
@@ -380,9 +417,9 @@ export function Lecteur({
    * `keydown`, dont le cœur n'a que faire — le bouton est déjà enfoncé.
    */
   useEffect(() => {
-    const parTouche = new Map<string, Bouton>();
+    const parTouche = new Map<string, Touche>();
     for (const [bouton, touche] of Object.entries(touches)) {
-      parTouche.set(touche, bouton as Bouton);
+      parTouche.set(touche, bouton as Touche);
     }
 
     function dansUnChamp(cible: EventTarget | null): boolean {
@@ -395,14 +432,16 @@ export function Lecteur({
       if (!bouton || dansUnChamp(evenement.target)) return;
       evenement.preventDefault();
       if (evenement.repeat) return;
-      emulateurRef.current?.bouton(bouton, true);
+      if (bouton === "FAST") accelerer(true);
+      else emulateurRef.current?.bouton(bouton, true);
     }
 
     function relacher(evenement: KeyboardEvent) {
       const bouton = parTouche.get(toucheDeEvenement(evenement));
       if (!bouton || dansUnChamp(evenement.target)) return;
       evenement.preventDefault();
-      emulateurRef.current?.bouton(bouton, false);
+      if (bouton === "FAST") accelerer(false);
+      else emulateurRef.current?.bouton(bouton, false);
     }
 
     /**
@@ -412,7 +451,8 @@ export function Lecteur({
      */
     function toutRelacher() {
       for (const bouton of parTouche.values()) {
-        emulateurRef.current?.bouton(bouton, false);
+        if (bouton === "FAST") accelerer(false);
+        else emulateurRef.current?.bouton(bouton, false);
       }
     }
 
@@ -424,7 +464,7 @@ export function Lecteur({
       window.removeEventListener("keyup", relacher);
       window.removeEventListener("blur", toutRelacher);
     };
-  }, [touches]);
+  }, [touches, accelerer]);
 
   /**
    * La manette tactile s'affiche sur les appareils dont le pointeur est
@@ -599,17 +639,29 @@ export function Lecteur({
   const changerVitesse = useCallback((multiplicateur: number) => {
     const emulateur = emulateurRef.current;
     if (!emulateur) return;
+    vitesseRef.current = multiplicateur;
     emulateur.vitesse(multiplicateur);
     setVitesse(multiplicateur);
+  }, []);
+
+  const changerVolume = useCallback((pourcentage: number) => {
+    volumeRef.current = pourcentage;
+    setVolume(pourcentage);
+    try {
+      localStorage.setItem(CLE_VOLUME, String(pourcentage));
+    } catch {
+      // Sans stockage, le réglage vaut pour cette partie seulement.
+    }
+    if (!muetRef.current) emulateurRef.current?.volume(pourcentage);
   }, []);
 
   const basculerSon = useCallback(() => {
     const emulateur = emulateurRef.current;
     if (!emulateur) return;
-    setMuet((precedent) => {
-      emulateur.volume(precedent ? 100 : 0);
-      return !precedent;
-    });
+    const muetMaintenant = !muetRef.current;
+    muetRef.current = muetMaintenant;
+    emulateur.volume(muetMaintenant ? 0 : volumeRef.current);
+    setMuet(muetMaintenant);
   }, []);
 
   const reinitialiser = useCallback(() => {
@@ -668,10 +720,13 @@ export function Lecteur({
         promettait donc une reprise qu'il ne tenait pas.
       */}
       <Commande onClick={() => void envoyerSauvegarde(true)}>Envoyer au serveur</Commande>
-      <ChoixVitesse valeur={vitesse} surChoix={changerVitesse} />
-      <Commande onClick={basculerSon} actif={muet}>
-        {muet ? "Son coupé" : "Son"}
-      </Commande>
+      <ChoixVitesse
+        valeur={vitesse}
+        accelere={accelere}
+        surChoix={changerVitesse}
+        toucheAcceleration={tactile ? null : touches.FAST}
+      />
+      <Volume valeur={volume} muet={muet} surChangement={changerVolume} surMuet={basculerSon} />
     </div>
   );
 
@@ -1041,22 +1096,38 @@ function EtatDeSauvegarde({
 }
 
 const VITESSES = [1, 2, 3, 4, 5];
+/** Vitesse appliquée par la touche d'accélération quand la liste est sur ×1. */
+const VITESSE_TOUCHE = 3;
+const CLE_VOLUME = "oe_volume";
 
-/** Vitesse de jeu, de ×1 à ×5. Mise en évidence comme un bouton actif dès qu'elle dépasse ×1. */
+/**
+ * Vitesse de jeu, de ×1 à ×5. Mise en évidence comme un bouton actif dès
+ * qu'elle dépasse ×1, ou tant que la touche d'accélération est tenue.
+ */
 function ChoixVitesse({
   valeur,
+  accelere,
   surChoix,
+  toucheAcceleration,
 }: {
   valeur: number;
+  accelere: boolean;
   surChoix: (multiplicateur: number) => void;
+  /** Touche à tenir pour accélérer, pour l'infobulle ; null sur tactile. */
+  toucheAcceleration: string | null | undefined;
 }) {
   return (
     <select
       value={valeur}
       onChange={(evenement) => surChoix(Number(evenement.target.value))}
       aria-label="Vitesse de jeu"
+      title={
+        toucheAcceleration
+          ? `Maintiens ${keyLabel(toucheAcceleration)} pour accélérer le temps d'un instant`
+          : undefined
+      }
       className={`rounded-lg border bg-ink-950 px-3 py-1.5 text-sm transition-colors ${
-        valeur > 1
+        valeur > 1 || accelere
           ? "border-accent-600 text-accent-400"
           : "border-ink-700 text-ink-200 hover:border-ink-400 hover:text-ink-50"
       }`}
@@ -1067,6 +1138,39 @@ function ChoixVitesse({
         </option>
       ))}
     </select>
+  );
+}
+
+/** Le son : un bouton pour le couper, un curseur de 0 à 100 %. */
+function Volume({
+  valeur,
+  muet,
+  surChangement,
+  surMuet,
+}: {
+  valeur: number;
+  muet: boolean;
+  surChangement: (pourcentage: number) => void;
+  surMuet: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Commande onClick={surMuet} actif={muet}>
+        {muet ? "Son coupé" : "Son"}
+      </Commande>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={valeur}
+        onChange={(evenement) => surChangement(Number(evenement.target.value))}
+        disabled={muet}
+        aria-label="Volume"
+        className="w-24 accent-accent-500 disabled:opacity-40"
+      />
+      <span className="w-10 font-mono text-xs text-ink-400">{muet ? 0 : valeur} %</span>
+    </div>
   );
 }
 

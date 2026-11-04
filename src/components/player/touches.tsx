@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { enregistrerTouches, retablirTouches } from "@/lib/keymap/actions";
 import {
+  ACTIONS,
   DEFAULT_KEYMAP,
   keyLabel,
   toucheDeEvenement,
   type ButtonName,
+  type Touche,
 } from "@/lib/consoles";
 
-const LIBELLES: Record<ButtonName, string> = {
+const LIBELLES: Record<Touche, string> = {
   A: "A",
   B: "B",
   START: "Start",
@@ -20,6 +22,7 @@ const LIBELLES: Record<ButtonName, string> = {
   RIGHT: "Droite",
   L: "L",
   R: "R",
+  FAST: "Accélérer (maintenir)",
 };
 
 /**
@@ -38,10 +41,10 @@ export function Touches({
 }: {
   consoleSlug: string;
   boutons: ButtonName[];
-  touches: Record<ButtonName, string>;
-  surChangement: (touches: Record<ButtonName, string>) => void;
+  touches: Record<Touche, string>;
+  surChangement: (touches: Record<Touche, string>) => void;
 }) {
-  const [enAttente, setEnAttente] = useState<ButtonName | null>(null);
+  const [enAttente, setEnAttente] = useState<Touche | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   /**
@@ -75,7 +78,7 @@ export function Touches({
 
       setEnAttente(null);
       setMessage(null);
-      surChangement(suivantes as Record<ButtonName, string>);
+      surChangement(suivantes as Record<Touche, string>);
 
       const resultat = await enregistrerTouches(consoleSlug, suivantes);
       if (!resultat.ok) setMessage(resultat.message ?? "Enregistrement refusé.");
@@ -108,7 +111,7 @@ export function Touches({
       )}
 
       <ul className="flex flex-wrap gap-2">
-        {boutons.map((bouton) => {
+        {[...boutons, ...ACTIONS].map((bouton) => {
           const attend = enAttente === bouton;
           const touche = touches[bouton];
 

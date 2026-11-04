@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { keymaps } from "@/db/schema";
 import { SalonLink } from "@/components/link/salon-link";
 import { requireUser } from "@/lib/auth/guard";
-import { DEFAULT_KEYMAP, type ButtonName } from "@/lib/consoles";
+import { DEFAULT_KEYMAP, type Touche } from "@/lib/consoles";
 import { salons } from "@/lib/link/registre";
 
 export const metadata: Metadata = { title: "Câble link" };
@@ -61,7 +61,7 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
     .from(keymaps)
     .where(and(eq(keymaps.userId, user.id), eq(keymaps.consoleSlug, salon.jeu.consoleSlug)))
     .get();
-  let touches: Record<ButtonName, string> = DEFAULT_KEYMAP;
+  let touches: Record<Touche, string> = DEFAULT_KEYMAP;
   if (enregistree) {
     try {
       touches = { ...DEFAULT_KEYMAP, ...JSON.parse(enregistree.mapping) };

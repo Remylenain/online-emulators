@@ -68,6 +68,16 @@ export const BUTTONS = {
 
 export type ButtonName = (typeof BUTTONS.common)[number] | (typeof BUTTONS.shoulder)[number];
 
+/**
+ * Les actions du lecteur qui ont une touche sans être des boutons de la
+ * console : elles se configurent avec les boutons, mais la manette tactile
+ * et le cœur ne les connaissent pas. `FAST` accélère tant qu'on la tient.
+ */
+export const ACTIONS = ["FAST"] as const;
+export type ActionName = (typeof ACTIONS)[number];
+/** Tout ce qui se voit attribuer une touche. */
+export type Touche = ButtonName | ActionName;
+
 export function buttonsFor(definition: ConsoleDefinition): ButtonName[] {
   return definition.hasShoulderButtons
     ? [...BUTTONS.common, ...BUTTONS.shoulder]
@@ -110,7 +120,7 @@ export function toucheDeEvenement(evenement: {
  * Les lettres sont celles imprimées sur le clavier du joueur, quelle que soit
  * sa disposition — voir `toucheDeEvenement`.
  */
-export const DEFAULT_KEYMAP: Record<ButtonName, string> = {
+export const DEFAULT_KEYMAP: Record<Touche, string> = {
   A: "a",
   B: "z",
   START: "Enter",
@@ -121,6 +131,7 @@ export const DEFAULT_KEYMAP: Record<ButtonName, string> = {
   RIGHT: "ArrowRight",
   L: "q",
   R: "s",
+  FAST: "ShiftLeft",
 };
 
 /** Libellé lisible d'une touche, pour l'écran de configuration. */
