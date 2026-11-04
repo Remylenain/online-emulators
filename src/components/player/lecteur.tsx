@@ -392,15 +392,14 @@ export function Lecteur({
   }, [envoyerSauvegarde]);
 
   /**
-   * La touche d'accélération, tenue : le jeu passe à la vitesse accélérée
-   * choisie dans la liste, ou ×3 si la liste est sur ×1 ; relâchée, il
-   * revient à la vitesse de la liste.
+   * Accéléré passager : le jeu passe à `cible` (×4 pour la touche tenue, ×3
+   * pour le bouton tactile), sans toucher à la vitesse de la liste, à
+   * laquelle il revient dès qu'on arrête.
    */
-  const accelerer = useCallback((actif: boolean) => {
+  const accelerer = useCallback((actif: boolean, cible: number) => {
     const emulateur = emulateurRef.current;
     if (!emulateur) return;
-    const reglee = vitesseRef.current;
-    emulateur.vitesse(actif ? (reglee > 1 ? reglee : VITESSE_TOUCHE) : reglee);
+    emulateur.vitesse(actif ? cible : vitesseRef.current);
     setAccelere(actif);
   }, []);
 
@@ -410,7 +409,7 @@ export function Lecteur({
    */
   const surToucheManette = useCallback(
     (touche: Touche, enfonce: boolean) => {
-      if (touche === "FAST") accelerer(enfonce);
+      if (touche === "FAST") accelerer(enfonce, VITESSE_TOUCHE);
       else emulateurRef.current?.bouton(touche, enfonce);
     },
     [accelerer],
@@ -451,7 +450,7 @@ export function Lecteur({
       if (!bouton || dansUnChamp(evenement.target)) return;
       evenement.preventDefault();
       if (evenement.repeat) return;
-      if (bouton === "FAST") accelerer(true);
+      if (bouton === "FAST") accelerer(true, VITESSE_TOUCHE);
       else emulateurRef.current?.bouton(bouton, true);
     }
 
@@ -459,7 +458,7 @@ export function Lecteur({
       const bouton = parTouche.get(toucheDeEvenement(evenement));
       if (!bouton || dansUnChamp(evenement.target)) return;
       evenement.preventDefault();
-      if (bouton === "FAST") accelerer(false);
+      if (bouton === "FAST") accelerer(false, VITESSE_TOUCHE);
       else emulateurRef.current?.bouton(bouton, false);
     }
 
@@ -470,7 +469,7 @@ export function Lecteur({
      */
     function toutRelacher() {
       for (const bouton of parTouche.values()) {
-        if (bouton === "FAST") accelerer(false);
+        if (bouton === "FAST") accelerer(false, VITESSE_TOUCHE);
         else emulateurRef.current?.bouton(bouton, false);
       }
     }
@@ -843,18 +842,18 @@ export function Lecteur({
         </button>
         {/*
           Accéléré d'un tapotement, sans ouvrir le menu : un bouton qui bascule,
-          puisqu'un doigt ne peut pas rester posé dessus en jouant. La vitesse
-          est celle de la liste du menu, ou ×3 si elle est sur ×1.
+          puisqu'un doigt ne peut pas rester posé dessus en jouant. ×3, sans
+          toucher à la vitesse de la liste du menu.
         */}
         <button
           type="button"
-          onClick={() => accelerer(!accelere)}
+          onClick={() => accelerer(!accelere, VITESSE_TACTILE)}
           aria-pressed={accelere}
           className={`rounded-lg border px-3 py-1.5 text-xs ${
             accelere ? "border-accent-600 bg-accent-600/15 text-accent-400" : "border-ink-700 text-ink-200"
           }`}
         >
-          {accelere ? `×${vitesse > 1 ? vitesse : VITESSE_TOUCHE} ▶▶` : "▶▶"}
+          {accelere ? `×${VITESSE_TACTILE} ▶▶` : "▶▶"}
         </button>
         <a
           href={jeu.retour}
@@ -1143,8 +1142,10 @@ function EtatDeSauvegarde({
 }
 
 const VITESSES = [1, 2, 3, 4, 5];
-/** Vitesse appliquée par la touche d'accélération quand la liste est sur ×1. */
-const VITESSE_TOUCHE = 3;
+/** Vitesse de la touche d'accélération tenue (Maj gauche par défaut). */
+const VITESSE_TOUCHE = 4;
+/** Vitesse du bouton ▶▶ de la disposition tactile. */
+const VITESSE_TACTILE = 3;
 const CLE_VOLUME = "oe_volume";
 
 /**
@@ -1170,7 +1171,7 @@ function ChoixVitesse({
       aria-label="Vitesse de jeu"
       title={
         toucheAcceleration
-          ? `Maintiens ${keyLabel(toucheAcceleration)} pour accélérer le temps d'un instant`
+          ? `Maintiens ${keyLabel(toucheAcceleration)} pour passer en ×4 le temps d'un instant`
           : undefined
       }
       className={`rounded-lg border bg-ink-950 px-3 py-1.5 text-sm transition-colors ${

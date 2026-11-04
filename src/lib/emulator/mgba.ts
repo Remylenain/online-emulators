@@ -309,6 +309,8 @@ export class EmulateurMgba implements Emulateur {
   }
 
   volume(pourcentage: number): void {
-    this.exige().setVolume(pourcentage);
+    // Le cœur attend un multiplicateur (1 = 100 %, jusqu'à 2), pas un
+    // pourcentage : lui passer 100 ne faisait rien de bon.
+    this.exige().setVolume(Math.max(0, Math.min(100, pourcentage)) / 100);
   }
 }
