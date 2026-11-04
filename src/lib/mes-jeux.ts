@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { games, playSessions, ratings, saveBackups, saveFiles, saveStates, users } from "@/db/schema";
+import { conditionAcces, type Visiteur } from "@/lib/acces";
 import { titreComplet, type JeuResume } from "@/lib/jeu-resume";
 import type { Copie } from "@/lib/saves";
 
@@ -37,7 +38,7 @@ export type TempsJeu = {
   derniere: Date;
 };
 
-export async function tempsDeJeu(userId: string): Promise<TempsJeu[]> {
+export async function tempsDeJeu(visiteur: Visiteur): Promise<TempsJeu[]> {
   const lignes = await db
     .select({
       ...colonnesJeu,
@@ -47,7 +48,7 @@ export async function tempsDeJeu(userId: string): Promise<TempsJeu[]> {
     })
     .from(playSessions)
     .innerJoin(games, eq(playSessions.gameId, games.id))
-    .where(eq(playSessions.userId, userId))
+    .where(and(eq(playSessions.userId, visiteur.id), conditionAcces(visiteur)))
     .groupBy(games.id)
     .orderBy(desc(sql`sum(${playSessions.durationSec})`))
     .all();
@@ -97,12 +98,12 @@ export async function tempsParCompte(): Promise<TempsCompte[]> {
 export type NoteJeu = { jeu: JeuResume; score: number; noteLe: Date };
 
 /** Les jeux notés, les mieux notés d'abord — c'est la liste des préférés. */
-export async function mesNotes(userId: string): Promise<NoteJeu[]> {
+export async function mesNotes(visiteur: Visiteur): Promise<NoteJeu[]> {
   const lignes = await db
     .select({ ...colonnesJeu, score: ratings.score, noteLe: ratings.updatedAt })
     .from(ratings)
     .innerJoin(games, eq(ratings.gameId, games.id))
-    .where(eq(ratings.userId, userId))
+    .where(and(eq(ratings.userId, visiteur.id), conditionAcces(visiteur)))
     .orderBy(desc(ratings.score), desc(ratings.updatedAt))
     .all();
 
@@ -236,12 +237,12 @@ export async function statsJeu(userId: string, gameId: string): Promise<StatsJeu
 export type PartieEnCours = { jeu: JeuResume; stats: StatsJeu };
 
 /** Le dernier jeu ouvert par le compte, avec ses chiffres : la tête de l'accueil. */
-export async function partieEnCours(userId: string): Promise<PartieEnCours | null> {
+export async function partieEnCours(visiteur: Visiteur): Promise<PartieEnCours | null> {
   const ligne = await db
     .select({ ...colonnesJeu, derniere: sql<number>`max(${playSessions.lastSeenAt})` })
     .from(playSessions)
     .innerJoin(games, eq(playSessions.gameId, games.id))
-    .where(and(eq(playSessions.userId, userId), eq(games.isPublished, true)))
+    .where(and(eq(playSessions.userId, visiteur.id), conditionAcces(visiteur)))
     .groupBy(games.id)
     .orderBy(desc(sql`max(${playSessions.lastSeenAt})`))
     .limit(1)
@@ -249,5 +250,5 @@ export async function partieEnCours(userId: string): Promise<PartieEnCours | nul
   if (!ligne) return null;
 
   const { derniere: _derniere, ...jeu } = ligne;
-  return { jeu, stats: await statsJeu(userId, jeu.id) };
+  return { jeu, stats: await statsJeu(visiteur.id, jeu.id) };
 }

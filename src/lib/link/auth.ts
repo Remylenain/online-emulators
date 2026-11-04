@@ -13,7 +13,12 @@ import { hashToken } from "@/lib/auth/tokens";
  * cookie absent, session inconnue, expirée ou compte désactivé, c'est non.
  * Pas de prolongation glissante : une session link ne dure pas trente jours.
  */
-export type Compte = { id: string; pseudo: string; role: "USER" | "ADMIN" };
+export type Compte = {
+  id: string;
+  pseudo: string;
+  role: "USER" | "ADMIN";
+  accessMode: "normal" | "restreint" | "testeur";
+};
 
 export async function compteDepuisCookie(enTete: string | undefined): Promise<Compte | null> {
   if (!enTete) return null;
@@ -31,6 +36,7 @@ export async function compteDepuisCookie(enTete: string | undefined): Promise<Co
       pseudo: users.pseudo,
       role: users.role,
       isActive: users.isActive,
+      accessMode: users.accessMode,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -38,5 +44,5 @@ export async function compteDepuisCookie(enTete: string | undefined): Promise<Co
     .get();
 
   if (!ligne || !ligne.isActive || ligne.expiresAt.getTime() <= Date.now()) return null;
-  return { id: ligne.id, pseudo: ligne.pseudo, role: ligne.role };
+  return { id: ligne.id, pseudo: ligne.pseudo, role: ligne.role, accessMode: ligne.accessMode };
 }

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, max, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { games, playSessions } from "@/db/schema";
+import { conditionAcces, type Visiteur } from "./acces";
 import { normalizeForSearch } from "./validation";
 
 import { TOUTES_LANGUES, TRI_PAR_DEFAUT, type SortKey } from "./catalog-options";
@@ -129,8 +130,12 @@ function trier(cartes: GameCard[], tri: SortKey): GameCard[] {
  * Nouveautés : par date de sortie déclarée si elle existe, sinon par date
  * d'ajout à la bibliothèque.
  */
-export async function latestGames(limit = 8, langue?: string): Promise<GameCard[]> {
-  const conditions = [eq(games.isPublished, true)];
+export async function latestGames(
+  visiteur: Visiteur,
+  limit = 8,
+  langue?: string,
+): Promise<GameCard[]> {
+  const conditions = [conditionAcces(visiteur)];
 
   // Les nouveautés suivent le même choix de langue que le catalogue : on ne
   // met pas en avant des jeux qu'on ne saurait pas lire.
@@ -154,12 +159,17 @@ export async function latestGames(limit = 8, langue?: string): Promise<GameCard[
 }
 
 /** Derniers jeux ouverts par ce compte, du plus récent au plus ancien. */
-export async function recentlyPlayed(userId: string, limit = 8): Promise<GameCard[]> {
+export async function recentlyPlayed(visiteur: Visiteur, limit = 8): Promise<GameCard[]> {
   return db
     .select({ ...cardColumns, lastSeenAt: max(playSessions.lastSeenAt) })
     .from(playSessions)
     .innerJoin(games, eq(games.id, playSessions.gameId))
-    .where(and(eq(playSessions.userId, userId), eq(games.isPublished, true)))
+    .where(
+      and(
+        eq(playSessions.userId, visiteur.id),
+        conditionAcces(visiteur),
+      ),
+    )
     .groupBy(games.id)
     .orderBy(desc(max(playSessions.lastSeenAt)))
     .limit(limit)
@@ -173,6 +183,7 @@ export async function recentlyPlayed(userId: string, limit = 8): Promise<GameCar
  * une recherche se partage, se met en favori, et survit à un rechargement.
  */
 export async function listConsoleGames(options: {
+  visiteur: Visiteur;
   consoleSlug: string;
   search?: string;
   sort?: SortKey;
@@ -181,7 +192,7 @@ export async function listConsoleGames(options: {
 }): Promise<{ jeux: GameCard[]; total: number }> {
   const conditions = [
     eq(games.consoleSlug, options.consoleSlug),
-    eq(games.isPublished, true),
+    conditionAcces(options.visiteur),
   ];
 
   /**
@@ -244,11 +255,13 @@ export async function listConsoleGames(options: {
 }
 
 /** Langues présentes dans le catalogue d'une console, pour alimenter le filtre. */
-export async function languesDisponibles(consoleSlug: string): Promise<string[]> {
+export async function languesDisponibles(visiteur: Visiteur, consoleSlug: string): Promise<string[]> {
   const lignes = await db
     .selectDistinct({ langue: games.language })
     .from(games)
-    .where(and(eq(games.consoleSlug, consoleSlug), eq(games.isPublished, true)))
+    .where(
+      and(eq(games.consoleSlug, consoleSlug), conditionAcces(visiteur)),
+    )
     .all();
 
   const courtes = new Set<string>();
@@ -265,7 +278,7 @@ export async function languesDisponibles(consoleSlug: string): Promise<string[]>
  * Rend un tableau vide si le slug ne désigne aucun ensemble — c'est ainsi que
  * la fiche de jeu distingue un groupe d'un jeu ordinaire.
  */
-export async function partiesDuGroupe(consoleSlug: string, groupSlug: string) {
+export async function partiesDuGroupe(visiteur: Visiteur, consoleSlug: string, groupSlug: string) {
   return db
     .select()
     .from(games)
@@ -273,7 +286,7 @@ export async function partiesDuGroupe(consoleSlug: string, groupSlug: string) {
       and(
         eq(games.consoleSlug, consoleSlug),
         eq(games.groupSlug, groupSlug),
-        eq(games.isPublished, true),
+        conditionAcces(visiteur),
       ),
     )
     .orderBy(asc(games.partNumber))
@@ -281,7 +294,7 @@ export async function partiesDuGroupe(consoleSlug: string, groupSlug: string) {
 }
 
 /** Fiche complète d'un jeu, pour sa page de présentation. */
-export async function gameBySlug(consoleSlug: string, slug: string) {
+export async function gameBySlug(visiteur: Visiteur, consoleSlug: string, slug: string) {
   return db
     .select()
     .from(games)
@@ -289,7 +302,7 @@ export async function gameBySlug(consoleSlug: string, slug: string) {
       and(
         eq(games.consoleSlug, consoleSlug),
         eq(games.slug, slug),
-        eq(games.isPublished, true),
+        conditionAcces(visiteur),
       ),
     )
     .get();
@@ -308,9 +321,12 @@ export async function gameBySlug(consoleSlug: string, slug: string) {
  *    une console sans aucun jeu dans la langue demandée les montre tous, donc
  *    son compteur doit les compter tous.
  */
-export async function countByConsole(langue?: string): Promise<Record<string, number>> {
+export async function countByConsole(
+  visiteur: Visiteur,
+  langue?: string,
+): Promise<Record<string, number>> {
   const compter = async (filtrer: boolean) => {
-    const conditions = [eq(games.isPublished, true)];
+    const conditions = [conditionAcces(visiteur)];
     if (filtrer && langue && langue !== TOUTES_LANGUES) {
       conditions.push(
         sql`lower(coalesce(${games.language}, '')) like ${`${langue.toLowerCase()}%`}`,

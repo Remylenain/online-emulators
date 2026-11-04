@@ -60,6 +60,8 @@ export type SessionUser = {
   email: string | null;
   avatarPath: string | null;
   role: "USER" | "ADMIN";
+  /** Ce que le compte voit du catalogue (voir `src/lib/acces.ts`). */
+  accessMode: "normal" | "restreint" | "testeur";
 };
 
 /**
@@ -83,6 +85,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       avatarPath: users.avatarPath,
       role: users.role,
       isActive: users.isActive,
+      accessMode: users.accessMode,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -111,6 +114,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     email: row.email,
     avatarPath: row.avatarPath,
     role: row.role,
+    accessMode: row.accessMode,
   };
 }
 

@@ -7,12 +7,16 @@ import {
   creerCompte,
   creerInvitation,
   definirInscriptions,
+  definirJeuxAttribues,
+  definirModeAcces,
   importerSauvegarde,
   reinitialiserMotDePasse,
+  remettreAZero,
   renvoyerInvitation,
   revoquerInvitation,
   type Resultat,
 } from "@/lib/admin/actions";
+import { MODES_ACCES, type ModeAcces } from "@/lib/modes-acces";
 import { INSCRIPTION_PLAFONDS } from "@/lib/auth/inscription";
 import type { LienInscription } from "@/lib/auth/invitations";
 import { formatDate } from "@/lib/format";
@@ -24,8 +28,11 @@ export type Compte = {
   email: string | null;
   role: string;
   isActive: boolean;
+  accessMode: ModeAcces;
   createdAt: Date;
   parties: number;
+  /** Jeux attribués, pour un compte restreint ou testeur. */
+  jeux: string[];
 };
 
 /**
@@ -35,7 +42,7 @@ export type Compte = {
  * ici seulement. Le mot de passe est tiré au hasard et affiché **une seule
  * fois** — il n'est écrit nulle part ailleurs, pas même dans un journal.
  */
-export type JeuImportable = { id: string; titre: string; console: string };
+export type JeuImportable = { id: string; titre: string; console: string; publie: boolean };
 
 export function Comptes({
   comptes,
@@ -51,6 +58,7 @@ export function Comptes({
   inscriptions: { ouvertes: boolean; ouvrables: boolean };
 }) {
   const [importPour, setImportPour] = useState<string | null>(null);
+  const [attribuerPour, setAttribuerPour] = useState<string | null>(null);
   const [plafond, setPlafond] = useState<number>(1);
   const [creation, action, enCreation] = useActionState<Resultat | null, FormData>(
     creerCompte,
@@ -210,6 +218,12 @@ export function Comptes({
                     désactivé
                   </span>
                 )}
+                {compte.accessMode !== "normal" && (
+                  <span className="rounded border border-ink-700 px-1.5 py-0.5 text-[10px] text-ink-400">
+                    {compte.accessMode === "restreint" ? "restreint" : "testeur"} · {compte.jeux.length} jeu
+                    {compte.jeux.length > 1 ? "x" : ""}
+                  </span>
+                )}
               </span>
               <span className="block truncate text-xs text-ink-700">
                 {compte.email ?? "sans adresse e-mail"} · {compte.parties} partie
@@ -227,7 +241,29 @@ export function Comptes({
               </span>
             </span>
 
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap items-center gap-1">
+              <select
+                value={compte.accessMode}
+                onChange={(e) => agir(() => definirModeAcces(compte.id, e.target.value))}
+                disabled={enCours}
+                aria-label="Accès au catalogue"
+                title="Ce que le compte voit du catalogue"
+                className="rounded border border-ink-700 bg-ink-950 px-2 py-1 text-xs text-ink-200"
+              >
+                {MODES_ACCES.map((m) => (
+                  <option key={m.valeur} value={m.valeur}>
+                    Accès {m.libelle.toLowerCase()}
+                  </option>
+                ))}
+              </select>
+              {compte.accessMode !== "normal" && (
+                <Petit
+                  onClick={() => setAttribuerPour(attribuerPour === compte.id ? null : compte.id)}
+                  disabled={enCours}
+                >
+                  Jeux attribués
+                </Petit>
+              )}
               <Petit
                 onClick={() => agir(() => renvoyerInvitation(compte.id))}
                 disabled={enCours}
@@ -265,10 +301,29 @@ export function Comptes({
                   </Petit>
                 </>
               )}
+              <Petit
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Remettre à zéro le compte de ${compte.pseudo} ? Sauvegardes, copies de secours, ` +
+                        "points de reprise, temps de jeu et notes seront effacés. Le compte et son mot de passe restent.",
+                    )
+                  ) {
+                    agir(() => remettreAZero(compte.id));
+                  }
+                }}
+                disabled={enCours}
+                danger
+              >
+                Remettre à zéro
+              </Petit>
             </div>
 
             {importPour === compte.id && (
               <ImportSauvegarde compte={compte} jeux={jeux} surFin={() => setImportPour(null)} />
+            )}
+            {attribuerPour === compte.id && compte.accessMode !== "normal" && (
+              <AttributionJeux compte={compte} jeux={jeux} surFin={() => setAttribuerPour(null)} />
             )}
           </li>
         ))}
@@ -320,6 +375,70 @@ function LigneLien({
         </Petit>
       )}
     </li>
+  );
+}
+
+/**
+ * Les jeux attribués à un compte restreint ou testeur.
+ *
+ * Un compte restreint choisit parmi tous les jeux ; un testeur voit déjà le
+ * catalogue publié, on ne lui propose donc que les jeux non publiés.
+ */
+function AttributionJeux({
+  compte,
+  jeux,
+  surFin,
+}: {
+  compte: Compte;
+  jeux: JeuImportable[];
+  surFin: () => void;
+}) {
+  const [resultat, action, enCours] = useActionState<Resultat | null, FormData>(
+    definirJeuxAttribues,
+    null,
+  );
+  const proposes = compte.accessMode === "testeur" ? jeux.filter((j) => !j.publie) : jeux;
+
+  return (
+    <form action={action} className="flex w-full flex-col gap-3 rounded-lg border border-ink-800 p-3">
+      <input type="hidden" name="userId" value={compte.id} />
+      <span className="text-xs text-ink-400">
+        {compte.accessMode === "testeur"
+          ? "Jeux non publiés que ce testeur peut voir, en plus du catalogue."
+          : "Les seuls jeux que ce compte verra."}
+      </span>
+      {resultat && <Alert tone={resultat.ok ? "success" : "error"}>{resultat.message}</Alert>}
+      {proposes.length === 0 ? (
+        <span className="text-xs text-ink-700">Aucun jeu à proposer.</span>
+      ) : (
+        <ul className="grid max-h-72 gap-1 overflow-y-auto sm:grid-cols-2">
+          {proposes.map((jeu) => (
+            <li key={jeu.id}>
+              <label className="flex items-center gap-2 text-xs text-ink-200">
+                <input
+                  type="checkbox"
+                  name="jeux"
+                  value={jeu.id}
+                  defaultChecked={compte.jeux.includes(jeu.id)}
+                  className="size-4"
+                />
+                <span className="uppercase text-ink-700">{jeu.console}</span>
+                <span className="truncate">{jeu.titre}</span>
+                {!jeu.publie && <span className="text-[10px] text-ink-700">non publié</span>}
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2">
+        <Button type="submit" disabled={enCours}>
+          {enCours ? "Enregistrement…" : "Enregistrer"}
+        </Button>
+        <Button type="button" variant="ghost" onClick={surFin}>
+          Fermer
+        </Button>
+      </div>
+    </form>
   );
 }
 

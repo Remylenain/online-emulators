@@ -8,6 +8,7 @@ import { SalonsJeu } from "@/components/link/salons-jeu";
 import { Notes } from "@/components/notes";
 import { nomDeLangue } from "@/lib/catalog-options";
 import { requireUser } from "@/lib/auth/guard";
+import { getCurrentUser } from "@/lib/auth/session";
 import { gameBySlug, partiesDuGroupe } from "@/lib/catalog";
 import { findConsole, type ConsoleDefinition } from "@/lib/consoles";
 import { formatDate, formatDuree } from "@/lib/format";
@@ -24,12 +25,14 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { console: consoleSlug, slug } = await params;
-  const game = await gameBySlug(consoleSlug, slug);
+  const user = await getCurrentUser();
+  if (!user) return {};
+  const game = await gameBySlug(user, consoleSlug, slug);
   if (game) return { title: game.title };
 
   // Le slug peut désigner un ensemble plutôt qu'un jeu : son titre vaut celui
   // de la page, sans quoi l'onglet n'afficherait que le nom du site.
-  const parties = await partiesDuGroupe(consoleSlug, slug);
+  const parties = await partiesDuGroupe(user, consoleSlug, slug);
   const titre = parties[0]?.groupTitle;
   return { title: titre ? titre : undefined };
 }
@@ -41,7 +44,7 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
   const console = findConsole(consoleSlug);
   if (!console) notFound();
 
-  const game = await gameBySlug(consoleSlug, slug);
+  const game = await gameBySlug(user, consoleSlug, slug);
 
   /**
    * Le slug peut désigner un jeu, ou un ensemble de parties.
@@ -51,7 +54,7 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
    * Un jeu l'emporte s'il existe sous ce nom.
    */
   if (!game) {
-    const parties = await partiesDuGroupe(consoleSlug, slug);
+    const parties = await partiesDuGroupe(user, consoleSlug, slug);
     if (parties.length === 0) notFound();
     return <FicheGroupe console={console} parties={parties} />;
   }

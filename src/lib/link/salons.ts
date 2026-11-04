@@ -2,10 +2,11 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Worker } from "node:worker_threads";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { WebSocket } from "ws";
 import { db } from "@/db";
 import { games } from "@/db/schema";
+import { conditionAcces, jeuAccessible } from "@/lib/acces";
 import { paths } from "@/lib/paths";
 import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
 import { findConsole } from "@/lib/consoles";
@@ -111,12 +112,11 @@ export async function creerSalon(jeuId: string, compte: Compte, prive: boolean):
       slug: games.slug,
       consoleSlug: games.consoleSlug,
       romPath: games.romPath,
-      isPublished: games.isPublished,
     })
     .from(games)
-    .where(eq(games.id, jeuId))
+    .where(and(eq(games.id, jeuId), conditionAcces(compte)))
     .get();
-  if (!jeu || !jeu.isPublished) return { erreur: "Jeu introuvable." };
+  if (!jeu) return { erreur: "Jeu introuvable." };
   if (!COEURS[jeu.consoleSlug]) return { erreur: "Le câble link n'est pas encore disponible pour cette console." };
 
   const salon: Salon = {
@@ -134,10 +134,13 @@ export async function creerSalon(jeuId: string, compte: Compte, prive: boolean):
 }
 
 /** Place d'un compte dans un salon, en l'y asseyant s'il reste une chaise. */
-function placer(salon: Salon, compte: Compte): 0 | 1 | Refus {
+async function placer(salon: Salon, compte: Compte): Promise<0 | 1 | Refus> {
   const index = salon.places.findIndex((place) => place?.userId === compte.id);
   if (index !== -1) return index as 0 | 1;
   if (salon.etat !== "attente") return { erreur: "Ce salon est déjà complet." };
+  // L'invité doit lui aussi avoir accès au jeu : un compte restreint n'entre
+  // pas dans un salon sur un jeu qu'il ne voit pas.
+  if (!(await jeuAccessible(compte, salon.jeu.id))) return { erreur: "Jeu introuvable." };
   if (salonDuCompte(compte.id)) return { erreur: "Tu es déjà dans un autre salon." };
   salon.places[1] = { userId: compte.id, pseudo: compte.pseudo, connexions: 0, absentDepuis: Date.now() };
   return 1;
@@ -151,7 +154,7 @@ function placer(salon: Salon, compte: Compte): 0 | 1 | Refus {
  * que la partie s'arrête.
  */
 export async function attacher(salon: Salon, compte: Compte, prise: WebSocket): Promise<void> {
-  const place = placer(salon, compte);
+  const place = await placer(salon, compte);
   if (typeof place !== "number") {
     envoyer(prise, { t: "erreur", message: place.erreur });
     prise.close();

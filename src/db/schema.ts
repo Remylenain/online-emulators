@@ -41,6 +41,17 @@ export const users = sqliteTable(
       .notNull()
       .default("USER"),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    /**
+     * Ce que le compte voit du catalogue :
+     * - `normal` : tous les jeux publiés ;
+     * - `restreint` : seulement les jeux listés dans `user_games` — pour faire
+     *   essayer le site sans ouvrir toute la bibliothèque ;
+     * - `testeur` : les jeux publiés, plus ceux de `user_games` — pour faire
+     *   tester un jeu avant sa publication.
+     */
+    accessMode: text("access_mode", { enum: ["normal", "restreint", "testeur"] })
+      .notNull()
+      .default("normal"),
     /** Lien d'inscription par lequel le compte est né, s'il est né ainsi. */
     inviteId: text("invite_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
@@ -52,6 +63,20 @@ export const users = sqliteTable(
     uniqueIndex("users_pseudo_unique").on(sql`lower(${table.pseudo})`),
     uniqueIndex("users_email_unique").on(sql`lower(${table.email})`),
   ],
+);
+
+/** Les jeux attribués à un compte restreint ou testeur (voir `users.access_mode`). */
+export const userGames = sqliteTable(
+  "user_games",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    gameId: text("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.gameId] })],
 );
 
 export const sessions = sqliteTable(

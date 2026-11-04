@@ -74,7 +74,8 @@ export default async function TempsPage({
 }
 
 async function Detail({ id, pseudo }: { id: string; pseudo: string }) {
-  const lignes = await tempsDeJeu(id);
+  // Vue d'administration : tout le catalogue, quel que soit le mode du compte.
+  const lignes = await tempsDeJeu({ id, accessMode: "normal" });
 
   return (
     <div className="flex flex-col gap-3">

@@ -3,11 +3,14 @@
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { games, sessions, users } from "@/db/schema";
+import { games, playSessions, ratings, saveFiles, saveStates, sessions, userGames, users } from "@/db/schema";
+import fs from "node:fs/promises";
+import { MODES_ACCES, type ModeAcces } from "@/lib/acces";
 import { requireAdmin } from "@/lib/auth/guard";
+import { paths } from "@/lib/paths";
 import {
   creerLienInscription,
   INSCRIPTION_PLAFONDS,
@@ -256,6 +259,103 @@ export async function revoquerInvitation(id: string): Promise<Resultat> {
   return fait
     ? { ok: true, message: "Lien révoqué : il ne créera plus de compte." }
     : { ok: false, message: "Ce lien était déjà révoqué, ou n'existe pas." };
+}
+
+/** Ce que le compte voit du catalogue : normal, restreint ou testeur. */
+export async function definirModeAcces(userId: string, mode: string): Promise<Resultat> {
+  await requireAdmin();
+  if (!MODES_ACCES.some((m) => m.valeur === mode)) return { ok: false, message: "Mode inconnu." };
+  const resultat = db
+    .update(users)
+    .set({ accessMode: mode as ModeAcces, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .run();
+  if (resultat.changes === 0) return { ok: false, message: "Compte introuvable." };
+  revalidatePath("/admin/comptes");
+  const libelle = MODES_ACCES.find((m) => m.valeur === mode)!;
+  return { ok: true, message: `Accès ${libelle.libelle.toLowerCase()} : ${libelle.detail}.` };
+}
+
+/** Les jeux attribués à un compte restreint ou testeur : la liste cochée remplace l'ancienne. */
+export async function definirJeuxAttribues(_etat: unknown, donnees: FormData): Promise<Resultat> {
+  await requireAdmin();
+  const userId = String(donnees.get("userId") ?? "");
+  const choisis = donnees.getAll("jeux").map(String);
+
+  const compte = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).get();
+  if (!compte) return { ok: false, message: "Compte introuvable." };
+
+  // Seuls des identifiants de jeux existants : la liste vient d'un formulaire.
+  const valides =
+    choisis.length === 0
+      ? []
+      : (await db.select({ id: games.id }).from(games).where(inArray(games.id, choisis)).all()).map(
+          (g) => g.id,
+        );
+
+  db.transaction((tx) => {
+    tx.delete(userGames).where(eq(userGames.userId, userId)).run();
+    if (valides.length > 0) {
+      tx.insert(userGames)
+        .values(valides.map((gameId) => ({ userId, gameId })))
+        .run();
+    }
+  });
+  revalidatePath("/admin/comptes");
+  return {
+    ok: true,
+    message: `${valides.length} jeu${valides.length > 1 ? "x" : ""} attribué${valides.length > 1 ? "s" : ""}.`,
+  };
+}
+
+/**
+ * Remise à zéro d'un compte : sauvegardes, copies de secours, points de
+ * reprise, temps de jeu et notes disparaissent. Le compte, son pseudo, son
+ * mot de passe et ses réglages restent. Pour repartir d'une page blanche —
+ * un compte de démonstration qu'on prête, par exemple.
+ */
+export async function remettreAZero(userId: string): Promise<Resultat> {
+  await requireAdmin();
+  const compte = await db
+    .select({ id: users.id, pseudo: users.pseudo })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  if (!compte) return { ok: false, message: "Compte introuvable." };
+
+  // Les jeux touchés, pour recalculer ensuite leurs compteurs dénormalisés.
+  const touches = new Set<string>();
+  for (const table of [playSessions, ratings] as const) {
+    for (const l of await db.select({ gameId: table.gameId }).from(table).where(eq(table.userId, userId)).all()) {
+      touches.add(l.gameId);
+    }
+  }
+
+  db.transaction((tx) => {
+    // Les copies de secours suivent la sauvegarde par cascade.
+    tx.delete(saveFiles).where(eq(saveFiles.userId, userId)).run();
+    tx.delete(saveStates).where(eq(saveStates.userId, userId)).run();
+    tx.delete(playSessions).where(eq(playSessions.userId, userId)).run();
+    tx.delete(ratings).where(eq(ratings.userId, userId)).run();
+    for (const gameId of touches) {
+      tx.update(games)
+        .set({
+          playCount: sql`(select count(*) from ${playSessions} where ${playSessions.gameId} = ${gameId})`,
+          ratingAvg: sql`coalesce((select avg(${ratings.score}) from ${ratings} where ${ratings.gameId} = ${gameId}), 0)`,
+          ratingCount: sql`(select count(*) from ${ratings} where ${ratings.gameId} = ${gameId})`,
+        })
+        .where(eq(games.id, gameId))
+        .run();
+    }
+  });
+
+  // Les fichiers, une fois la base d'accord : saves/<compte>/ et states/<compte>/.
+  await fs.rm(paths.data(path.posix.join("saves", userId)), { recursive: true, force: true });
+  await fs.rm(paths.data(path.posix.join("states", userId)), { recursive: true, force: true });
+
+  revalidatePath("/admin/comptes");
+  revalidatePath("/admin/temps");
+  return { ok: true, message: `Compte de ${compte.pseudo} remis à zéro.` };
 }
 
 export async function basculerActivation(userId: string): Promise<Resultat> {

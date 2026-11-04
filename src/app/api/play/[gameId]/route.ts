@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db";
-import { games } from "@/db/schema";
+import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
 import { marquerPartie } from "@/lib/play";
 
@@ -19,12 +17,7 @@ export async function POST(_request: Request, context: { params: Promise<{ gameI
 
   const { gameId } = await context.params;
 
-  const jeu = await db
-    .select({ isPublished: games.isPublished })
-    .from(games)
-    .where(eq(games.id, gameId))
-    .get();
-  if (!jeu?.isPublished) return new NextResponse("Introuvable", { status: 404 });
+  if (!(await jeuAccessible(viewer, gameId))) return new NextResponse("Introuvable", { status: 404 });
 
   return NextResponse.json(await marquerPartie(viewer.id, gameId), {
     headers: { "Cache-Control": "no-store" },

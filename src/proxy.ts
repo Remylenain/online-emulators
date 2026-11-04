@@ -38,5 +38,5 @@ export const config = {
    * Tout sauf les ressources internes de Next, les fichiers du cœur wasm et
    * les quelques fichiers servis à la racine.
    */
-  matcher: ["/((?!_next/|mgba/|favicon|robots\\.txt|icon).*)"],
+  matcher: ["/((?!_next/|mgba/|favicon|robots\\.txt|icon|manifest\\.webmanifest|apple-touch-icon).*)"],
 };

@@ -52,7 +52,7 @@ export default async function ConsolePage({
   const sort = isSortKey(query.tri) ? query.tri : TRI_PAR_DEFAUT;
   const view: ViewMode = isViewMode(query.vue) ? query.vue : "grille";
 
-  const langues = await languesDisponibles(console.slug);
+  const langues = await languesDisponibles(user, console.slug);
 
   /**
    * Le français s'affiche par défaut, mais seulement s'il y a du français sur
@@ -63,6 +63,7 @@ export default async function ConsolePage({
   const langue = query.langue ?? defaut;
 
   const { jeux, total } = await listConsoleGames({
+    visiteur: user,
     consoleSlug: console.slug,
     search,
     sort,

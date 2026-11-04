@@ -64,6 +64,13 @@
       "when": 1793801590996,
       "tag": "0008_inscriptions_ouvertes",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793807197310,
+      "tag": "0009_modes_d_acces",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { bezelChoices, bezels, keymaps } from "@/db/schema";
 import { Lecteur } from "@/components/player/lecteur";
 import { requireUser } from "@/lib/auth/guard";
+import { getCurrentUser } from "@/lib/auth/session";
 import { gameBySlug } from "@/lib/catalog";
 import { DEFAULT_KEYMAP, findConsole, type ButtonName } from "@/lib/consoles";
 
@@ -22,7 +23,8 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { console: consoleSlug, slug } = await params;
-  const game = await gameBySlug(consoleSlug, slug);
+  const user = await getCurrentUser();
+  const game = user ? await gameBySlug(user, consoleSlug, slug) : undefined;
   return { title: game ? game.title : undefined };
 }
 
@@ -31,7 +33,7 @@ export default async function PlayPage({ params }: { params: Promise<Params> }) 
 
   const { console: consoleSlug, slug } = await params;
   const console = findConsole(consoleSlug);
-  const game = console ? await gameBySlug(console.slug, slug) : undefined;
+  const game = console ? await gameBySlug(user, console.slug, slug) : undefined;
   if (!console || !game) notFound();
 
   // La disposition du compte si elle existe, sinon celle par défaut. Lue ici

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { games } from "@/db/schema";
+import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
 import { nomDeFichier } from "@/lib/format";
 import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
@@ -18,15 +19,6 @@ import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
  * de toute façon que sa propre partie à abîmer.
  */
 const TAILLE_MAX = 1_048_576;
-
-async function jeuPublie(gameId: string): Promise<boolean> {
-  const ligne = await db
-    .select({ isPublished: games.isPublished })
-    .from(games)
-    .where(eq(games.id, gameId))
-    .get();
-  return Boolean(ligne?.isPublished);
-}
 
 export async function GET(request: Request, context: { params: Promise<{ gameId: string }> }) {
   const viewer = await getCurrentUser();
@@ -66,7 +58,7 @@ export async function PUT(request: Request, context: { params: Promise<{ gameId:
   if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
 
   const { gameId } = await context.params;
-  if (!(await jeuPublie(gameId))) {
+  if (!(await jeuAccessible(viewer, gameId))) {
     return NextResponse.json({ erreur: "Jeu introuvable." }, { status: 404 });
   }
 

@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "@/db";
-import { games } from "@/db/schema";
+import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ecrireEtat, lireEtat, lireSegment, supprimerEtat } from "@/lib/states";
 
@@ -49,12 +47,7 @@ export async function PUT(request: Request, context: Contexte) {
   const { gameId, cible } = await resoudre(context);
   if (!cible) return NextResponse.json({ erreur: "Emplacement invalide." }, { status: 400 });
 
-  const jeu = await db
-    .select({ isPublished: games.isPublished })
-    .from(games)
-    .where(eq(games.id, gameId))
-    .get();
-  if (!jeu?.isPublished) {
+  if (!(await jeuAccessible(viewer, gameId))) {
     return NextResponse.json({ erreur: "Jeu introuvable." }, { status: 404 });
   }
 

@@ -855,15 +855,39 @@ export function Lecteur({
 
         {menuOuvert && (
           <div className="absolute inset-0 z-10 flex flex-col bg-ink-950/95 backdrop-blur">
-            <div className="flex shrink-0 items-center justify-between px-3 py-2">
+            <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
               <span className="text-sm font-semibold text-ink-50">Menu</span>
-              <button
-                type="button"
-                onClick={() => setMenuOuvert(false)}
-                className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200"
-              >
-                Fermer
-              </button>
+              <span className="flex gap-2">
+                {/*
+                  Plein écran, pour un navigateur qui garde sa barre d'adresse.
+                  Une fois le site ajouté à l'écran d'accueil, il se lance
+                  déjà en plein écran et le bouton n'a plus lieu d'être.
+                */}
+                {typeof document !== "undefined" &&
+                  document.fullscreenEnabled &&
+                  !window.matchMedia("(display-mode: standalone)").matches && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (document.fullscreenElement) void document.exitFullscreen();
+                        else void document.documentElement.requestFullscreen().catch(() => {});
+                        setMenuOuvert(false);
+                      }}
+                      className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200"
+                    >
+                      {typeof document !== "undefined" && document.fullscreenElement
+                        ? "Quitter le plein écran"
+                        : "Plein écran"}
+                    </button>
+                  )}
+                <button
+                  type="button"
+                  onClick={() => setMenuOuvert(false)}
+                  className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200"
+                >
+                  Fermer
+                </button>
+              </span>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 pb-6">
               {panneau}

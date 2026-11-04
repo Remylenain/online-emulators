@@ -4,6 +4,8 @@ import { requireUser } from "@/lib/auth/guard";
 import { countByConsole, latestGames, recentlyPlayed } from "@/lib/catalog";
 import { LANGUE_PAR_DEFAUT } from "@/lib/catalog-options";
 import { CONSOLES } from "@/lib/consoles";
+import { jeuAccessible } from "@/lib/acces";
+import type { SessionUser } from "@/lib/auth/session";
 import { formatDate, formatDuree } from "@/lib/format";
 import { salonDuCompte, salons } from "@/lib/link/registre";
 import { partieEnCours, titreComplet, type PartieEnCours } from "@/lib/mes-jeux";
@@ -15,10 +17,10 @@ import { partieEnCours, titreComplet, type PartieEnCours } from "@/lib/mes-jeux"
 export default async function HomePage() {
   const user = await requireUser();
   const [enCours, latest, recent, parConsole] = await Promise.all([
-    partieEnCours(user.id),
-    latestGames(8, LANGUE_PAR_DEFAUT),
-    recentlyPlayed(user.id, 9),
-    countByConsole(LANGUE_PAR_DEFAUT),
+    partieEnCours(user),
+    latestGames(user, 8, LANGUE_PAR_DEFAUT),
+    recentlyPlayed(user, 9),
+    countByConsole(user, LANGUE_PAR_DEFAUT),
   ]);
 
   // Le jeu en tête n'a pas à réapparaître juste dessous.
@@ -37,7 +39,7 @@ export default async function HomePage() {
         )}
       </section>
 
-      <Salons moi={user.id} />
+      <Salons moi={user} />
 
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold text-ink-50">Consoles</h2>
@@ -150,11 +152,14 @@ function Chiffre({ label, valeur }: { label: string; valeur: string }) {
  * mien s'il y en a un. Les salons vivent en mémoire dans le serveur, pas en
  * base : l'accueil les lit directement dans le registre.
  */
-function Salons({ moi }: { moi: string }) {
-  const mien = salonDuCompte(moi);
-  const ouverts = [...salons().values()]
+async function Salons({ moi }: { moi: SessionUser }) {
+  const mien = salonDuCompte(moi.id);
+  const candidats = [...salons().values()]
     .filter((s) => s.etat === "attente" && !s.prive && s.id !== mien?.id)
     .sort((a, b) => b.creeLe - a.creeLe);
+  // Un compte restreint ne voit que les salons des jeux qu'il peut lancer.
+  const visibles = await Promise.all(candidats.map((s) => jeuAccessible(moi, s.jeu.id)));
+  const ouverts = candidats.filter((_, i) => visibles[i]);
 
   if (!mien && ouverts.length === 0) return null;
 

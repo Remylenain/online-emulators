@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/guard";
+import type { SessionUser } from "@/lib/auth/session";
 import { formatDate, formatDuree } from "@/lib/format";
 import { mesNotes, mesSauvegardes, tempsDeJeu } from "@/lib/mes-jeux";
 import { LigneJeu } from "./ligne-jeu";
@@ -52,15 +53,15 @@ export default async function MesJeuxPage({
         ))}
       </nav>
 
-      {onglet === "temps" && <Temps userId={user.id} />}
-      {onglet === "notes" && <Notes userId={user.id} />}
+      {onglet === "temps" && <Temps visiteur={user} />}
+      {onglet === "notes" && <Notes visiteur={user} />}
       {onglet === "sauvegardes" && <Sauvegardes sauvegardes={await mesSauvegardes(user.id)} />}
     </div>
   );
 }
 
-async function Temps({ userId }: { userId: string }) {
-  const lignes = await tempsDeJeu(userId);
+async function Temps({ visiteur }: { visiteur: SessionUser }) {
+  const lignes = await tempsDeJeu(visiteur);
   if (lignes.length === 0) return <Vide>Tu n&apos;as encore lancé aucun jeu.</Vide>;
 
   const total = lignes.reduce((somme, l) => somme + l.secondes, 0);
@@ -88,8 +89,8 @@ async function Temps({ userId }: { userId: string }) {
   );
 }
 
-async function Notes({ userId }: { userId: string }) {
-  const lignes = await mesNotes(userId);
+async function Notes({ visiteur }: { visiteur: SessionUser }) {
+  const lignes = await mesNotes(visiteur);
   if (lignes.length === 0) {
     return <Vide>Tu n&apos;as noté aucun jeu. Les notes se donnent sur la fiche de chaque jeu.</Vide>;
   }

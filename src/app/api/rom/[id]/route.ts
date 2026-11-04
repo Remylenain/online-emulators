@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { games } from "@/db/schema";
+import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
 import { paths } from "@/lib/paths";
 
@@ -22,19 +23,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
 
   const { id } = await context.params;
+  if (!(await jeuAccessible(viewer, id))) return new NextResponse("Introuvable", { status: 404 });
 
   const game = await db
-    .select({
-      romPath: games.romPath,
-      romSize: games.romSize,
-      romSha1: games.romSha1,
-      isPublished: games.isPublished,
-    })
+    .select({ romPath: games.romPath, romSize: games.romSize, romSha1: games.romSha1 })
     .from(games)
     .where(eq(games.id, id))
     .get();
-
-  if (!game?.isPublished) return new NextResponse("Introuvable", { status: 404 });
+  if (!game) return new NextResponse("Introuvable", { status: 404 });
 
   let fichier: Buffer;
   try {

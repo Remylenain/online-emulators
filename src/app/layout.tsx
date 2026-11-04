@@ -12,6 +12,10 @@ export function generateMetadata(): Metadata {
     title: { default: nom, template: `%s — ${nom}` },
     description: descriptionDuSite(),
     robots: { index: false, follow: false },
+    manifest: "/manifest.webmanifest",
+    icons: { apple: "/apple-touch-icon.png" },
+    // Sur iPhone, l'ajout à l'écran d'accueil lance le site en plein écran.
+    appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: nom },
   };
 }
 
