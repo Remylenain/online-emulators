@@ -19,8 +19,9 @@ le droit de partager.
   avance rapide, touches personnalisables, manette tactile sur téléphone,
   habillages d'écran.
 - **Câble link** : deux joueurs, deux navigateurs, les deux consoles tournent
-  sur le serveur. Échanges et combats comme avec un vrai câble, sur GB, GBC
-  et GBA. Salons publics ou privés avec code.
+  sur le serveur — TGB Dual pour GB et GBC, mGBA Splitscreen pour GBA.
+  Échanges et combats comme avec un vrai câble. Salons publics ou privés
+  avec code.
 - **Comptes** : création par l'administrateur, liens d'invitation valables
   24 h pour un ou plusieurs comptes, ou inscriptions ouvertes à tous avec
   e-mail confirmé et captcha, au choix. Réinitialisation de mot de passe par
