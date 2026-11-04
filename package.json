@@ -1,0 +1,52 @@
+{
+  "name": "online-emulators",
+  "version": "0.1.0",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --import ./outils/node/charge-ts.mjs serveur.ts",
+    "dev:next": "next dev",
+    "build": "next build",
+    "core:install": "node scripts/install-core.ts",
+    "installer": "node --env-file-if-exists=.env scripts/installer.ts",
+    "start": "node --import ./outils/node/charge-ts.mjs serveur.ts",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "library:scan": "node --env-file=.env scripts/scan-library.ts",
+    "user:create": "node --env-file=.env scripts/create-user.ts",
+    "db:seed": "node --env-file=.env scripts/seed.ts"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.2.2",
+    "@thenick775/mgba-wasm": "^2.6.0",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.4",
+    "next": "^16.4.3",
+    "nodemailer": "^10.3.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sharp": "^0.35.5",
+    "ws": "^8.18.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "@types/nodemailer": "^8.0.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.1",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3"
+  }
+}

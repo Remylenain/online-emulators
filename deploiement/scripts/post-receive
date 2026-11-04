@@ -1,0 +1,97 @@
+#!/bin/bash
+# Hook de deploiement, installe dans /opt/online-emulators.git/hooks/.
+#
+# Le serveur n'a aucun acces a la forge : on pousse depuis son poste vers ce
+# depot nu, et le hook met a jour l'arbre de travail. Rien a configurer cote
+# forge, aucune cle de deploiement a confier au serveur.
+#
+#     git remote add serveur ssh://mon-serveur/opt/online-emulators.git
+#     git push serveur main
+#
+# Tourne sous l'utilisateur qui pousse, pas en root : seul le redemarrage du
+# service passe par sudo, via la regle deposee dans /etc/sudoers.d/.
+set -uo pipefail
+
+DEPOT="/opt/online-emulators.git"
+ARBRE="/opt/online-emulators"
+ENV_FILE="/etc/online-emulators.env"
+BRANCHE="main"
+
+echo
+echo "--- Deploiement d'Online Emulators ---"
+
+# Les hooks heritent de GIT_DIR : sans le vider, les commandes git suivantes
+# viseraient le depot nu au lieu de l'arbre de travail.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_QUARANTINE_PATH
+
+branche_poussee=non
+while read -r _ancien _nouveau ref; do
+    [ "$ref" = "refs/heads/$BRANCHE" ] && branche_poussee=oui
+done
+
+if [ "$branche_poussee" != oui ]; then
+    echo "Rien a faire : la branche $BRANCHE n'est pas concernee."
+    exit 0
+fi
+
+echo "Mise a jour de $ARBRE..."
+git --git-dir="$DEPOT" --work-tree="$ARBRE" checkout -f "$BRANCHE" || exit 1
+git --git-dir="$DEPOT" --work-tree="$ARBRE" log --oneline -1
+
+cd "$ARBRE" || exit 1
+
+# L'environnement sert a drizzle-kit et a la validation de configuration que
+# `next build` declenche en important les pages.
+if [ ! -r "$ENV_FILE" ]; then
+    echo "ERREUR : $ENV_FILE illisible." >&2
+    exit 1
+fi
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+
+echo "Dependances..."
+# `npm ci` et pas `npm install` : la version installee est exactement celle du
+# fichier de verrouillage teste en local.
+#
+# --include=dev est indispensable : le fichier d'environnement charge juste
+# au-dessus pose NODE_ENV=production, et npm saute alors les dependances de
+# developpement. Or la construction en a besoin — TypeScript, Tailwind — et les
+# migrations aussi, drizzle-kit en etant une.
+npm ci --include=dev --no-audit --no-fund || exit 1
+
+echo "Migrations..."
+# Sous l'identite du service, via un script dedie : le dossier de donnees
+# n'est ecrivable que par `jeux`, et SQLite a besoin d'ecrire dans le dossier
+# lui-meme pour y creer app.db-wal et app.db-shm. Voir migrer.sh.
+sudo -n -u jeux /opt/online-emulators/deploiement/scripts/migrer.sh || exit 1
+
+echo "Coeur d'emulation..."
+# mGBA n'est pas versionne : il est copie depuis node_modules vers public/.
+# Sans cette etape, le lecteur se chargerait sur un dossier vide.
+npm run core:install || exit 1
+
+echo "Construction..."
+npm run build || exit 1
+
+# Le service tourne sous l'utilisateur `jeux`, qui doit lire .next ; le cache
+# doit exister avant le demarrage, ProtectSystem=strict ne le creerait pas.
+mkdir -p .next/cache
+chgrp -R jeux .next 2>/dev/null || true
+chmod -R g+rX .next
+
+echo "Redemarrage du service..."
+sudo -n systemctl restart online-emulators || exit 1
+sleep 2
+# Sans sudo : lire l'etat d'une unite ne demande aucun privilege. Avec sudo, il
+# faudrait que les arguments correspondent au mot pres a la regle sudoers, et
+# un simple --quiet suffisait a la faire manquer — le service redemarrait bien,
+# mais le hook annoncait un echec.
+if systemctl is-active --quiet online-emulators; then
+    echo "--- En ligne : ${PUBLIC_URL:-adresse publique non renseignee} ---"
+else
+    echo "ERREUR : le service n'a pas demarre." >&2
+    echo "Diagnostic : sudo journalctl -u online-emulators -n 40" >&2
+    exit 1
+fi

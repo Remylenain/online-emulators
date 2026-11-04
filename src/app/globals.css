@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/*
+ * Palette sombre par défaut : on passe l'essentiel du temps sur un écran de
+ * jeu, un fond clair autour d'une image 160x144 fatigue vite.
+ */
+@theme {
+  --color-ink-950: oklch(0.17 0.015 265);
+  --color-ink-900: oklch(0.21 0.018 265);
+  --color-ink-800: oklch(0.27 0.02 265);
+  --color-ink-700: oklch(0.36 0.022 265);
+  --color-ink-400: oklch(0.65 0.02 265);
+  --color-ink-200: oklch(0.86 0.012 265);
+  --color-ink-50: oklch(0.97 0.006 265);
+
+  --color-accent-400: oklch(0.78 0.16 155);
+  --color-accent-500: oklch(0.7 0.17 155);
+  --color-accent-600: oklch(0.61 0.16 155);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-panel: 0.875rem;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-ink-950);
+  color: var(--color-ink-100, var(--color-ink-200));
+}
+
+/*
+ * Pendant une partie, les flèches et la barre d'espace ne doivent ni faire
+ * défiler la page ni être interprétées par le navigateur. La classe est posée
+ * sur <html> par le lecteur, et retirée à la sortie.
+ */
+html.is-playing,
+html.is-playing body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}

@@ -1,0 +1,76 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { noter, retirerNote } from "@/lib/ratings/actions";
+
+/**
+ * Les cinq étoiles d'un jeu.
+ *
+ * La moyenne reste affichée à côté de la note personnelle : savoir ce qu'en
+ * pensent les autres est la moitié de l'intérêt, et c'est ce qui alimente le
+ * tri « mieux notés » du catalogue.
+ */
+export function Notes({
+  gameId,
+  maNote,
+  moyenne,
+  nombre,
+}: {
+  gameId: string;
+  maNote: number | null;
+  moyenne: number;
+  nombre: number;
+}) {
+  const [note, setNote] = useState(maNote);
+  const [stats, setStats] = useState({ moyenne, nombre });
+  const [survol, setSurvol] = useState<number | null>(null);
+  const [enCours, demarrer] = useTransition();
+
+  function choisir(valeur: number) {
+    demarrer(async () => {
+      // Recliquer sa propre note la retire : c'est le geste attendu, et cela
+      // évite un bouton « retirer » de plus.
+      const resultat = valeur === note ? await retirerNote(gameId) : await noter(gameId, valeur);
+      if (!resultat.ok) return;
+      setNote(valeur === note ? null : valeur);
+      setStats({ moyenne: resultat.moyenne ?? 0, nombre: resultat.nombre ?? 0 });
+    });
+  }
+
+  const affichee = survol ?? note ?? 0;
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div
+        className="flex items-center gap-0.5"
+        onMouseLeave={() => setSurvol(null)}
+        role="group"
+        aria-label="Ta note"
+      >
+        {[1, 2, 3, 4, 5].map((valeur) => (
+          <button
+            key={valeur}
+            type="button"
+            disabled={enCours}
+            onClick={() => choisir(valeur)}
+            onMouseEnter={() => setSurvol(valeur)}
+            aria-label={`${valeur} sur 5`}
+            aria-pressed={note === valeur}
+            className={`text-2xl leading-none transition-colors disabled:opacity-50 ${
+              valeur <= affichee ? "text-accent-400" : "text-ink-700 hover:text-ink-400"
+            }`}
+          >
+            ★
+          </button>
+        ))}
+      </div>
+
+      <p className="text-xs text-ink-400">
+        {stats.nombre === 0
+          ? "Personne n'a encore noté ce jeu."
+          : `${stats.moyenne.toFixed(1)} sur 5 — ${stats.nombre} avis`}
+        {note !== null && <span className="ml-2 text-ink-700">ta note : {note}</span>}
+      </p>
+    </div>
+  );
+}

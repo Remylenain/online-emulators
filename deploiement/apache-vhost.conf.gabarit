@@ -1,0 +1,46 @@
+# Gabarit de vhost Apache : reverse proxy vers le serveur Next.
+#
+# installation.sh remplace @@DOMAINE@@, @@MAIL_ADMIN@@ et @@PORT@@ puis depose
+# le resultat dans /etc/apache2/sites-available/. Ces valeurs sont propres a
+# une installation : elles n'ont pas leur place dans le depot.
+#
+# Modules requis : proxy, proxy_http, proxy_wstunnel, rewrite, headers, ssl.
+<VirtualHost *:80>
+    ServerName @@DOMAINE@@
+    ServerAdmin @@MAIL_ADMIN@@
+
+    ErrorLog  ${APACHE_LOG_DIR}/online-emulators-error.log
+    CustomLog ${APACHE_LOG_DIR}/online-emulators-access.log combined
+
+    # Le challenge Let's Encrypt doit rester accessible sans auth ni proxy.
+    Alias /.well-known/acme-challenge /var/www/html/.well-known/acme-challenge
+    ProxyPass /.well-known/acme-challenge !
+    <Location /.well-known/acme-challenge>
+        Require all granted
+    </Location>
+
+    ProxyPreserveHost On
+    # upgrade=websocket : Apache 2.4.47+ bascule tout seul les requetes portant
+    # un en-tete Upgrade. Prepare le cable link a distance, qui passera par une
+    # WebSocket sur la meme origine que le reste du site.
+    ProxyPass        / http://127.0.0.1:@@PORT@@/ upgrade=websocket
+    ProxyPassReverse / http://127.0.0.1:@@PORT@@/
+
+    # Dynamique : correct dans le vhost :80 comme dans celui genere par certbot.
+    RequestHeader set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
+
+    # Envoi d'une sauvegarde ou d'un savestate depuis le navigateur. Les ROMs
+    # ne passent jamais par la : elles sont lues sur le disque du serveur.
+    LimitRequestBody 33554432
+
+    # L'application pose elle-meme X-Robots-Tag, Cross-Origin-Opener-Policy et
+    # Cross-Origin-Embedder-Policy (voir next.config.ts) : ne rien ajouter ici.
+    # Les en-tetes d'isolation ne doivent couvrir que /jouer et /mgba, sans quoi
+    # le captcha de la page de connexion, charge depuis Cloudflare, est bloque.
+
+    # Redirection vers HTTPS. certbot --apache ajoute les memes lignes dans la
+    # variante -le-ssl.conf qu'il genere a partir de ce fichier.
+    RewriteEngine on
+    RewriteCond %{SERVER_NAME} =@@DOMAINE@@
+    RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
+</VirtualHost>

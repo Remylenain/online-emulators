@@ -1,0 +1,47 @@
+# Gabarit du service applicatif : le serveur Next en mode production.
+#
+# installation.sh remplace @@PORT@@ puis depose le resultat dans
+# /etc/systemd/system/online-emulators.service.
+#
+# Le fichier d'environnement n'est pas dans le depot : il contient le secret
+# de session, les identifiants SMTP et l'URL publique du site.
+[Unit]
+Description=Online Emulators
+After=network.target
+
+[Service]
+Type=simple
+User=jeux
+Group=jeux
+WorkingDirectory=/opt/online-emulators
+EnvironmentFile=/etc/online-emulators.env
+# -H 127.0.0.1 : sans cette option, Next ecoute sur toutes les interfaces et
+# l'application devient joignable en clair sur le port @@PORT@@, par-dessus le
+# reverse proxy et sans HTTPS.
+# Le serveur du site enveloppe Next : c'est lui qui tient la WebSocket du
+# câble link. Voir serveur.ts.
+ExecStart=/usr/bin/node --import ./outils/node/charge-ts.mjs serveur.ts -H 127.0.0.1 -p @@PORT@@
+Restart=on-failure
+RestartSec=3
+
+# Durcissement
+NoNewPrivileges=true
+ProtectSystem=strict
+# read-only et non true : LIBRARY_DIR peut pointer vers un dossier de ROMs
+# situe dans /home, que le service doit pouvoir lire.
+ProtectHome=read-only
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+# AF_NETLINK compris : la resolution DNS de Node enumere les interfaces reseau
+# par netlink, et sans elle l'envoi des e-mails echoue a joindre le relais SMTP.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+# Les sauvegardes des joueurs, les avatars, les miniatures et la base SQLite.
+ReadWritePaths=/var/lib/online-emulators
+# Next ecrit son cache d'images optimisees sous .next/cache, que
+# ProtectSystem=strict rendrait sinon en lecture seule.
+ReadWritePaths=/opt/online-emulators/.next/cache
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,59 @@
+import { eq } from "drizzle-orm";
+import fs from "node:fs/promises";
+import { NextResponse } from "next/server";
+import { db } from "@/db";
+import { games } from "@/db/schema";
+import { getCurrentUser } from "@/lib/auth/session";
+import { paths } from "@/lib/paths";
+
+/**
+ * Sert la ROM d'un jeu au lecteur.
+ *
+ * Point sensible du site : c'est la seule route qui rend un jeu entier. Elle
+ * exige donc une session valide, comme le reste, et ne sert que des jeux
+ * publiés — dépublier un jeu doit suffire à le retirer de la circulation.
+ *
+ * Le chemin vient de la base et passe par `paths.library()`, qui refuse tout
+ * ce qui sortirait de LIBRARY_DIR : l'identifiant de l'URL ne désigne jamais
+ * un fichier directement.
+ */
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const viewer = await getCurrentUser();
+  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+
+  const { id } = await context.params;
+
+  const game = await db
+    .select({
+      romPath: games.romPath,
+      romSize: games.romSize,
+      romSha1: games.romSha1,
+      isPublished: games.isPublished,
+    })
+    .from(games)
+    .where(eq(games.id, id))
+    .get();
+
+  if (!game?.isPublished) return new NextResponse("Introuvable", { status: 404 });
+
+  let fichier: Buffer;
+  try {
+    fichier = await fs.readFile(paths.library(game.romPath));
+  } catch {
+    return new NextResponse("ROM absente du disque", { status: 404 });
+  }
+
+  return new NextResponse(new Uint8Array(fichier), {
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Content-Length": String(fichier.length),
+      // L'empreinte sert de validateur : une ROM ne change pas, et le
+      // navigateur peut la garder sans la redemander à chaque partie. Une
+      // nouvelle version du jeu change l'empreinte, donc l'étiquette.
+      ETag: `"${game.romSha1}"`,
+      // Privé : une ROM de 32 Mio ne doit pas finir dans un cache partagé.
+      // `immutable` évite la revalidation pendant la durée de vie du cache.
+      "Cache-Control": "private, max-age=604800, immutable",
+    },
+  });
+}

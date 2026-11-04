@@ -1,0 +1,12 @@
+# Le dépôt est édité sous Windows et déployé sous Linux : on normalise les
+# fins de ligne dans l'index pour éviter des diffs entiers sur un simple
+# aller-retour entre les deux.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.webp binary
+*.gb  binary
+*.gbc binary
+*.gba binary
+*.wasm binary

@@ -1,0 +1,47 @@
+# Dépendances et build
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets et configuration locale
+.env
+.env.*
+!.env.example
+
+# Base de données SQLite (données utilisateurs)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+prisma/dev.db*
+
+# Données hébergées : jamais dans le dépôt
+# (ROMs, jaquettes, sauvegardes, avatars, savestates)
+/library/
+/data/
+/bezels/
+/public/mgba/
+*.gb
+*.gbc
+*.gba
+*.sav
+*.srm
+*.state
+
+# Divers
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+.vscode/
+.idea/
+
+# Outillage local de l'assistant
+.claude/
+
+# Listes de jeux : le catalogue reste hors du depot
+/descriptions-*.txt
+/descriptions-*.md

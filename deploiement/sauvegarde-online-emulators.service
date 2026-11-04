@@ -1,0 +1,8 @@
+# Sauvegarde quotidienne. Lance par le timer du meme nom.
+[Unit]
+Description=Sauvegarde des comptes et des sauvegardes de jeu (Online Emulators)
+After=online-emulators.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/online-emulators/deploiement/scripts/sauvegarde.sh

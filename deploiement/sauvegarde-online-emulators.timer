@@ -1,0 +1,12 @@
+[Unit]
+Description=Sauvegarde quotidienne des donnees d'Online Emulators
+
+[Timer]
+# 04:30, soit apres la sauvegarde du catalogue de livres (04:15) pour ne pas
+# faire tourner les deux archivages en meme temps.
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
