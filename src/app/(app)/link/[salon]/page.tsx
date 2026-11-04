@@ -37,6 +37,25 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
     );
   }
 
+  // Qui n'a pas de place dans une partie commencée vient la regarder — si
+  // l'hôte l'a permis. Dans un salon qui attend encore, on prend la place.
+  const joueur = salon.places.some((place) => place?.userId === user.id);
+  const spectateur = !joueur && salon.etat === "en-jeu";
+  if (spectateur && !salon.spectateurs) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-12 text-center">
+        <p className="text-lg font-semibold text-ink-50">Ce salon est complet</p>
+        <p className="text-sm text-ink-400">
+          {salon.places[0].pseudo} et {salon.places[1]?.pseudo} jouent, et l&apos;hôte n&apos;a pas ouvert la
+          partie aux spectateurs.
+        </p>
+        <Link href={`/jeux/${salon.jeu.consoleSlug}/${salon.jeu.slug}`} className="text-sm text-accent-400 hover:underline">
+          Retour à la fiche du jeu
+        </Link>
+      </div>
+    );
+  }
+
   const enregistree = await db
     .select({ mapping: keymaps.mapping })
     .from(keymaps)
@@ -55,6 +74,7 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
     <SalonLink
       salonId={salon.id}
       touches={touches}
+      spectateur={spectateur}
       retour={`/jeux/${salon.jeu.consoleSlug}/${salon.jeu.slug}`}
     />
   );

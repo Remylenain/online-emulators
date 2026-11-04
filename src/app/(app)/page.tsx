@@ -7,7 +7,7 @@ import { CONSOLES } from "@/lib/consoles";
 import { jeuAccessible } from "@/lib/acces";
 import type { SessionUser } from "@/lib/auth/session";
 import { formatDate, formatDuree } from "@/lib/format";
-import { salonDuCompte, salons } from "@/lib/link/registre";
+import { salonDuCompte, salons, salonsRegardables } from "@/lib/link/registre";
 import { partieEnCours, titreComplet, type PartieEnCours } from "@/lib/mes-jeux";
 
 /**
@@ -160,8 +160,12 @@ async function Salons({ moi }: { moi: SessionUser }) {
   // Un compte restreint ne voit que les salons des jeux qu'il peut lancer.
   const visibles = await Promise.all(candidats.map((s) => jeuAccessible(moi, s.jeu.id)));
   const ouverts = candidats.filter((_, i) => visibles[i]);
+  // Et les parties en cours qu'on peut regarder.
+  const candidatsRegardables = salonsRegardables().filter((s) => s.id !== mien?.id);
+  const regardablesVisibles = await Promise.all(candidatsRegardables.map((s) => jeuAccessible(moi, s.jeu.id)));
+  const regardables = candidatsRegardables.filter((_, i) => regardablesVisibles[i]);
 
-  if (!mien && ouverts.length === 0) return null;
+  if (!mien && ouverts.length === 0 && regardables.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-4">
@@ -202,6 +206,29 @@ async function Salons({ moi }: { moi: SessionUser }) {
                 Rejoindre
               </Link>
             )}
+          </li>
+        ))}
+        {regardables.map((salon) => (
+          <li key={salon.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 bg-ink-900/40 px-4 py-3">
+            <span className="min-w-0 flex-1 text-sm text-ink-200">
+              <strong className="text-ink-50">{salon.places[0].pseudo}</strong> et{" "}
+              <strong className="text-ink-50">{salon.places[1]?.pseudo}</strong> jouent à{" "}
+              <Link
+                href={`/jeux/${salon.jeu.consoleSlug}/${salon.jeu.slug}`}
+                className="text-ink-50 hover:underline"
+              >
+                {salon.jeu.titre}
+              </Link>
+              <span className="ml-2 text-xs text-ink-700">
+                {salon.nombreSpectateurs} spectateur{salon.nombreSpectateurs > 1 ? "s" : ""}
+              </span>
+            </span>
+            <Link
+              href={`/link/${salon.id}`}
+              className="rounded-lg border border-ink-700 px-4 py-1.5 text-sm text-ink-200 hover:border-ink-400 hover:text-ink-50"
+            >
+              Regarder
+            </Link>
           </li>
         ))}
       </ul>

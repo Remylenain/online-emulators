@@ -41,9 +41,12 @@ export type MessageServeur =
       t: "etat";
       etat: EtatSalon;
       prive: boolean;
-      /** Place du destinataire : 0 ou 1. */
+      /** Place du destinataire : 0 ou 1. Sans valeur pour un spectateur. */
       joueur: 0 | 1;
+      /** Le destinataire regarde sans jouer : il reçoit les deux écrans. */
+      spectateur: boolean;
       joueurs: [Participant, Participant | null];
+      spectateurs: { ouverts: boolean; nombre: number; max: number };
       jeu: { titre: string; largeur: number; hauteur: number; gachettes: boolean };
     }
   | { t: "termine"; enregistre: boolean; raison: string }

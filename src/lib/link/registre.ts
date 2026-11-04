@@ -34,6 +34,13 @@ export type Salon = {
    * caractères tirés au sort, trop pour être devinés en essayant.
    */
   prive: boolean;
+  /**
+   * L'hôte a ouvert la partie aux spectateurs : d'autres comptes peuvent la
+   * regarder (les deux écrans, le son), sans jamais y toucher. Cinq au plus.
+   */
+  spectateurs: boolean;
+  /** Spectateurs connectés à l'instant ; tenu à jour par `salons.ts`. */
+  nombreSpectateurs: number;
   creeLe: number;
   /** Dernier moment où quelqu'un était là, pour clore les salons abandonnés. */
   derniereActivite: number;
@@ -55,6 +62,16 @@ export function salons(): Map<string, Salon> {
 export function salonsEnAttente(jeuId: string): Salon[] {
   return [...salons().values()]
     .filter((salon) => salon.jeu.id === jeuId && salon.etat === "attente" && !salon.prive)
+    .sort((a, b) => b.creeLe - a.creeLe);
+}
+
+/** Salons publics qu'on peut regarder : en jeu, ouverts aux spectateurs. Tous jeux si `jeuId` est omis. */
+export function salonsRegardables(jeuId?: string): Salon[] {
+  return [...salons().values()]
+    .filter(
+      (salon) =>
+        salon.etat === "en-jeu" && salon.spectateurs && !salon.prive && (jeuId === undefined || salon.jeu.id === jeuId),
+    )
     .sort((a, b) => b.creeLe - a.creeLe);
 }
 

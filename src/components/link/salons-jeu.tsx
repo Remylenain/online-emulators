@@ -17,6 +17,8 @@ type Reponse = {
   mien: { id: string; jeu: string; etat: string } | null;
   /** Salons qu'on peut encore ouvrir sur ce serveur ; null = pas de limite mesurée. */
   libres: number | null;
+  /** Parties en cours ouvertes aux spectateurs. */
+  regardables: { id: string; joueurs: [string, string]; spectateurs: number; max: number }[];
 };
 
 export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: string }) {
@@ -25,6 +27,7 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
   const [erreur, setErreur] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [prive, setPrive] = useState(false);
+  const [spectateurs, setSpectateurs] = useState(false);
   const [code, setCode] = useState("");
 
   useEffect(() => {
@@ -54,7 +57,7 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
       const reponse = await fetch("/link/salons", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jeu: jeuId, prive }),
+        body: JSON.stringify({ jeu: jeuId, prive, spectateurs }),
       });
       const corps = (await reponse.json()) as { id?: string; erreur?: string };
       if (!reponse.ok || !corps.id) throw new Error(corps.erreur ?? "Impossible de créer le salon.");
@@ -120,6 +123,16 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
               />
               Privé : invisible ici, on y entre avec le code
             </label>
+            <label className="flex items-center gap-2 text-xs text-ink-200">
+              <input
+                type="checkbox"
+                className="size-4"
+                checked={spectateurs}
+                onChange={(e) => setSpectateurs(e.target.checked)}
+                disabled={occupe || Boolean(salons.mien)}
+              />
+              Visible par les spectateurs (cinq au plus)
+            </label>
             {salons.mien && (
               <span className="text-xs text-ink-400">
                 Tu es déjà dans un salon sur un autre jeu ({salons.mien.id}).
@@ -153,6 +166,28 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
             </Button>
           </form>
         </div>
+      )}
+
+      {salons.regardables.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {salons.regardables.map((salon) => (
+            <li key={salon.id} className="flex items-center gap-3 text-sm">
+              <span className="text-ink-200">
+                {salon.joueurs[0]} et {salon.joueurs[1]} jouent
+                <span className="ml-2 text-xs text-ink-400">
+                  {salon.spectateurs}/{salon.max} spectateur{salon.max > 1 ? "s" : ""}
+                </span>
+              </span>
+              <Button
+                variant="ghost"
+                onClick={() => router.push(`/link/${salon.id}`)}
+                disabled={salon.spectateurs >= salon.max}
+              >
+                Regarder
+              </Button>
+            </li>
+          ))}
+        </ul>
       )}
 
       {autres.length > 0 && (

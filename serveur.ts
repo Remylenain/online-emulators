@@ -19,9 +19,9 @@ import next from "next";
 import { WebSocketServer } from "ws";
 import { compteDepuisCookie } from "./src/lib/link/auth.ts";
 import { salons } from "./src/lib/link/registre.ts";
-import { attacher, creerSalon, surveillerAbandons } from "./src/lib/link/salons.ts";
+import { attacher, creerSalon, MAX_SPECTATEURS, regarder, surveillerAbandons } from "./src/lib/link/salons.ts";
 import { famille, placesLibres } from "./src/lib/link/capacite.ts";
-import { salonsEnAttente, salonDuCompte } from "./src/lib/link/registre.ts";
+import { salonsEnAttente, salonDuCompte, salonsRegardables } from "./src/lib/link/registre.ts";
 
 const { values } = parseArgs({
   options: {
@@ -90,6 +90,13 @@ async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url
         depuis: salon.creeLe,
       })),
       mien: mien ? { id: mien.id, jeu: mien.jeu.id, etat: mien.etat } : null,
+      // Parties en cours qu'on peut regarder sur ce jeu.
+      regardables: salonsRegardables(jeu).map((salon) => ({
+        id: salon.id,
+        joueurs: [salon.places[0].pseudo, salon.places[1]?.pseudo ?? "?"],
+        spectateurs: salon.nombreSpectateurs,
+        max: MAX_SPECTATEURS,
+      })),
       // Salons qu'on peut encore ouvrir pour ce jeu ; null tant que la
       // capacité du serveur n'a pas été mesurée (pas de limite).
       libres: placesLibres(famille(url.searchParams.get("console") ?? "")),
@@ -105,7 +112,7 @@ async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url
       json(reponse, 400, { erreur: "Requête illisible." });
       return true;
     }
-    const resultat = await creerSalon(String(corps.jeu ?? ""), compte, corps.prive === true);
+    const resultat = await creerSalon(String(corps.jeu ?? ""), compte, corps.prive === true, corps.spectateurs === true);
     if ("erreur" in resultat) json(reponse, 409, resultat);
     else json(reponse, 201, { id: resultat.id });
     return true;
@@ -156,8 +163,9 @@ serveur.on("upgrade", (requete, socket, tete) => {
       socket.destroy();
       return;
     }
+    const entrer = url.searchParams.get("spectateur") === "1" ? regarder : attacher;
     wss.handleUpgrade(requete, socket, tete, (prise) => {
-      attacher(salon, compte, prise).catch((erreur: unknown) => {
+      entrer(salon, compte, prise).catch((erreur: unknown) => {
         // Une session qui ne démarre pas doit le dire au joueur, pas faire
         // tomber le serveur du site avec une promesse rejetée.
         console.error("[link] salon", salon.id, erreur);

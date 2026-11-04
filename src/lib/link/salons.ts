@@ -79,10 +79,17 @@ const ABANDON_MS = 10 * 60 * 1000;
 const HOTE_ABSENT_MS = 5 * 60 * 1000;
 /** Un salon jamais rejoint disparaît au bout de ce délai. */
 const ATTENTE_MAX_MS = 60 * 60 * 1000;
+/**
+ * Spectateurs par salon. Chacun reçoit les deux écrans : ce n'est pas du
+ * calcul en plus pour le serveur, mais c'est de la bande passante.
+ */
+export const MAX_SPECTATEURS = 5;
 
 type Interne = {
   ouvrier: Worker | null;
   prises: [Set<WebSocket>, Set<WebSocket>];
+  /** Les prises qui regardent sans jouer. */
+  spectateurs: Set<WebSocket>;
   geometrie: { largeur: number; hauteur: number } | null;
   /** Dernière image envoyée à chaque joueur : un nouvel onglet la reçoit d'emblée. */
   dernieresImages: [Buffer | null, Buffer | null];
@@ -93,6 +100,7 @@ function interne(salon: Salon): Interne {
   salon.interne ??= {
     ouvrier: null,
     prises: [new Set(), new Set()],
+    spectateurs: new Set(),
     geometrie: null,
     dernieresImages: [null, null],
     cloture: null,
@@ -110,7 +118,12 @@ function nouveauCode(): string {
 
 export type Refus = { erreur: string };
 
-export async function creerSalon(jeuId: string, compte: Compte, prive: boolean): Promise<Salon | Refus> {
+export async function creerSalon(
+  jeuId: string,
+  compte: Compte,
+  prive: boolean,
+  spectateurs: boolean,
+): Promise<Salon | Refus> {
   const deja = salonDuCompte(compte.id);
   if (deja) return { erreur: `Tu es déjà dans le salon ${deja.id}.` };
 
@@ -139,11 +152,15 @@ export async function creerSalon(jeuId: string, compte: Compte, prive: boolean):
     places: [{ userId: compte.id, pseudo: compte.pseudo, connexions: 0, absentDepuis: Date.now() }, null],
     etat: "attente",
     prive,
+    spectateurs,
+    nombreSpectateurs: 0,
     creeLe: Date.now(),
     derniereActivite: Date.now(),
   };
   salons().set(salon.id, salon);
-  console.log(`[link] ${salon.id} : salon ${prive ? "privé " : ""}ouvert par ${compte.pseudo} sur ${jeu.titre}`);
+  console.log(
+    `[link] ${salon.id} : salon ${prive ? "privé " : ""}ouvert par ${compte.pseudo} sur ${jeu.titre}${spectateurs ? ", spectateurs admis" : ""}`,
+  );
   return salon;
 }
 
@@ -226,6 +243,45 @@ export async function attacher(salon: Salon, compte: Compte, prise: WebSocket): 
   if (image && prise.readyState === prise.OPEN) prise.send(image);
 }
 
+/**
+ * Un navigateur vient regarder : les deux écrans et le son du joueur 1, et
+ * rien à envoyer. Un joueur du salon n'est pas un spectateur, il a sa place.
+ */
+export async function regarder(salon: Salon, compte: Compte, prise: WebSocket): Promise<void> {
+  const etat = interne(salon);
+  let refus: string | null = null;
+  if (salon.places.some((place) => place?.userId === compte.id)) refus = "Tu es joueur dans ce salon.";
+  else if (!salon.spectateurs) refus = "L'hôte n'a pas ouvert ce salon aux spectateurs.";
+  else if (salon.etat !== "en-jeu") refus = "La partie n'a pas commencé.";
+  else if (etat.spectateurs.size >= MAX_SPECTATEURS) refus = `Déjà ${MAX_SPECTATEURS} spectateurs : c'est le maximum.`;
+  else if (!(await jeuAccessible(compte, salon.jeu.id))) refus = "Jeu introuvable.";
+  if (refus) {
+    envoyer(prise, { t: "erreur", message: refus });
+    prise.close();
+    return;
+  }
+
+  etat.spectateurs.add(prise);
+  salon.nombreSpectateurs = etat.spectateurs.size;
+  console.log(`[link] ${salon.id} : ${compte.pseudo} regarde (${etat.spectateurs.size})`);
+
+  // Un spectateur n'a pas de boutons : ce qu'il envoie est ignoré.
+  prise.on("error", (erreur) => {
+    console.log(`[link] ${salon.id} : prise spectatrice de ${compte.pseudo} en erreur : ${erreur.message}`);
+  });
+  prise.on("close", () => {
+    etat.spectateurs.delete(prise);
+    salon.nombreSpectateurs = etat.spectateurs.size;
+    console.log(`[link] ${salon.id} : ${compte.pseudo} ne regarde plus (${etat.spectateurs.size})`);
+    diffuserEtat(salon);
+  });
+
+  diffuserEtat(salon);
+  for (const image of etat.dernieresImages) {
+    if (image && prise.readyState === prise.OPEN) prise.send(image);
+  }
+}
+
 async function demarrer(salon: Salon): Promise<void> {
   const etat = interne(salon);
   if (etat.ouvrier) return;
@@ -253,6 +309,8 @@ async function demarrer(salon: Salon): Promise<void> {
         const trame = trameImage(joueur, message.largeur as number, message.hauteur as number, message.donnees as ArrayBuffer);
         etat.dernieresImages[joueur] = trame;
         for (const prise of etat.prises[joueur]) envoyerBinaire(prise, trame);
+        // Les spectateurs voient les deux écrans.
+        for (const prise of etat.spectateurs) envoyerBinaire(prise, trame);
         break;
       }
       case "audio": {
@@ -261,6 +319,8 @@ async function demarrer(salon: Salon): Promise<void> {
         const joueur = message.joueur as 0 | 1 | null;
         const groupes = joueur === null ? etat.prises : [etat.prises[joueur]];
         for (const groupe of groupes) for (const prise of groupe) envoyerBinaire(prise, trame);
+        // Les spectateurs entendent le joueur 1 (ou le son commun).
+        if (joueur === null || joueur === 0) for (const prise of etat.spectateurs) envoyerBinaire(prise, trame);
         break;
       }
       case "erreur":
@@ -338,6 +398,7 @@ export function terminer(salon: Salon, raison: string, enregistrer = true): Prom
     console.log(`[link] ${salon.id} : fin (${raison}), sauvegardes ${ecrit ? "enregistrées" : "laissées telles quelles"}`);
     diffuser(salon, { t: "termine", enregistre: ecrit, raison });
     for (const groupe of etat.prises) for (const prise of groupe) prise.close();
+    for (const prise of etat.spectateurs) prise.close();
     salons().delete(salon.id);
   })();
   return etat.cloture;
@@ -398,7 +459,9 @@ function envoyer(prise: WebSocket, message: MessageServeur): void {
 }
 
 function diffuser(salon: Salon, message: MessageServeur): void {
-  for (const groupe of interne(salon).prises) for (const prise of groupe) envoyer(prise, message);
+  const etat = interne(salon);
+  for (const groupe of etat.prises) for (const prise of groupe) envoyer(prise, message);
+  for (const prise of etat.spectateurs) envoyer(prise, message);
 }
 
 function diffuserEtat(salon: Salon): void {
@@ -412,16 +475,14 @@ function diffuserEtat(salon: Salon): void {
     place ? { pseudo: place.pseudo, present: place.connexions > 0 } : null,
   ) as [{ pseudo: string; present: boolean }, { pseudo: string; present: boolean } | null];
 
+  const spectateurs = { ouverts: salon.spectateurs, nombre: etat.spectateurs.size, max: MAX_SPECTATEURS };
+  const jeu = { titre: salon.jeu.titre, ...geometrie, gachettes };
   for (const joueur of [0, 1] as const) {
     for (const prise of etat.prises[joueur]) {
-      envoyer(prise, {
-        t: "etat",
-        etat: salon.etat,
-        prive: salon.prive,
-        joueur,
-        joueurs,
-        jeu: { titre: salon.jeu.titre, ...geometrie, gachettes },
-      });
+      envoyer(prise, { t: "etat", etat: salon.etat, prive: salon.prive, joueur, spectateur: false, joueurs, spectateurs, jeu });
     }
+  }
+  for (const prise of etat.spectateurs) {
+    envoyer(prise, { t: "etat", etat: salon.etat, prive: salon.prive, joueur: 0, spectateur: true, joueurs, spectateurs, jeu });
   }
 }

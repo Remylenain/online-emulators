@@ -24,18 +24,24 @@ import {
  * renvoyer l'état des boutons dès qu'il change. Il n'y a pas de cœur
  * d'émulation ici, donc pas d'isolation cross-origin à exiger, et l'onglet
  * peut passer en arrière-plan sans que la partie s'arrête.
+ *
+ * En spectateur, même chose sans les boutons : les deux écrans arrivent,
+ * chacun dans son canvas, et le son du joueur 1.
  */
 
 export function SalonLink({
   salonId,
   touches,
+  spectateur = false,
   retour,
 }: {
   salonId: string;
   touches: Record<ButtonName, string>;
+  /** Regarder sans jouer : deux écrans, pas de touches, pas de fin de session. */
+  spectateur?: boolean;
   retour: string;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([null, null]);
   const priseRef = useRef<WebSocket | null>(null);
   const masqueRef = useRef(0);
   const audioRef = useRef<AudioContext | null>(null);
@@ -77,25 +83,30 @@ export function SalonLink({
 
   // Connexion, et tout ce qui en découle.
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const contexte = canvas?.getContext("2d");
-    if (!canvas || !contexte) return;
-
     const protocole = location.protocol === "https:" ? "wss" : "ws";
-    const prise = new WebSocket(`${protocole}://${location.host}/link/ws?salon=${encodeURIComponent(salonId)}`);
+    const prise = new WebSocket(
+      `${protocole}://${location.host}/link/ws?salon=${encodeURIComponent(salonId)}${spectateur ? "&spectateur=1" : ""}`,
+    );
     prise.binaryType = "arraybuffer";
     priseRef.current = prise;
 
     /**
-     * Les images arrivent plus vite qu'on ne les décompresse si l'onglet est
-     * à la peine : on ne garde que la dernière en attente. Mieux vaut sauter
-     * une image que de prendre du retard pour de bon.
+     * Un écran par canvas. Les images arrivent plus vite qu'on ne les
+     * décompresse si l'onglet est à la peine : on ne garde que la dernière en
+     * attente par écran. Mieux vaut sauter une image que de prendre du retard
+     * pour de bon.
      */
-    let enCours = false;
-    let enAttente: ArrayBuffer | null = null;
-    let image: ImageData | null = null;
+    type Ecran = { enCours: boolean; enAttente: ArrayBuffer | null; image: ImageData | null };
+    const ecrans: Ecran[] = [
+      { enCours: false, enAttente: null, image: null },
+      { enCours: false, enAttente: null, image: null },
+    ];
 
-    async function dessiner(trame: ArrayBuffer): Promise<void> {
+    async function dessiner(index: number, trame: ArrayBuffer): Promise<void> {
+      const canvas = canvasRefs.current[index];
+      const contexte = canvas?.getContext("2d");
+      if (!canvas || !contexte) return;
+      const ecran = ecrans[index]!;
       const vue = new DataView(trame);
       const largeur = vue.getUint16(2, true);
       const hauteur = vue.getUint16(4, true);
@@ -103,12 +114,12 @@ export function SalonLink({
       const brut = new Uint8Array(
         await new Response(comprime.stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer(),
       );
-      if (!image || image.width !== largeur || image.height !== hauteur) {
-        image = new ImageData(largeur, hauteur);
-        canvas!.width = largeur;
-        canvas!.height = hauteur;
+      if (!ecran.image || ecran.image.width !== largeur || ecran.image.height !== hauteur) {
+        ecran.image = new ImageData(largeur, hauteur);
+        canvas.width = largeur;
+        canvas.height = hauteur;
       }
-      const sortie = image.data;
+      const sortie = ecran.image.data;
       for (let i = 0, o = 0; i < brut.length; i += 2, o += 4) {
         const p = brut[i]! | (brut[i + 1]! << 8);
         sortie[o] = ((p >> 11) & 0x1f) << 3;
@@ -116,21 +127,25 @@ export function SalonLink({
         sortie[o + 2] = (p & 0x1f) << 3;
         sortie[o + 3] = 255;
       }
-      contexte!.putImageData(image, 0, 0);
+      contexte.putImageData(ecran.image, 0, 0);
     }
 
     function recevoirImage(trame: ArrayBuffer): void {
-      if (enCours) {
-        enAttente = trame;
+      // Un joueur ne reçoit que son écran, qu'il dessine dans le premier
+      // canvas ; un spectateur reçoit les deux, chacun dans le sien.
+      const index = spectateur ? new Uint8Array(trame, 1, 1)[0]! & 1 : 0;
+      const ecran = ecrans[index]!;
+      if (ecran.enCours) {
+        ecran.enAttente = trame;
         return;
       }
-      enCours = true;
-      dessiner(trame)
+      ecran.enCours = true;
+      dessiner(index, trame)
         .catch(() => {})
         .finally(() => {
-          enCours = false;
-          const suivante = enAttente;
-          enAttente = null;
+          ecran.enCours = false;
+          const suivante = ecran.enAttente;
+          ecran.enAttente = null;
           if (suivante) recevoirImage(suivante);
         });
     }
@@ -191,6 +206,18 @@ export function SalonLink({
       }
       void audioRef.current.resume();
     };
+    window.addEventListener("pointerdown", armerSon);
+
+    if (spectateur) {
+      // Rien à envoyer : ni touches, ni relâchement.
+      return () => {
+        window.removeEventListener("pointerdown", armerSon);
+        if (priseRef.current === prise) priseRef.current = null;
+        prise.close();
+        void audioRef.current?.close().catch(() => {});
+        audioRef.current = null;
+      };
+    }
 
     const inverse = Object.fromEntries(
       Object.entries(touches).map(([nom, touche]) => [touche, nom as ButtonName]),
@@ -215,7 +242,6 @@ export function SalonLink({
     window.addEventListener("keydown", bas);
     window.addEventListener("keyup", haut);
     window.addEventListener("blur", toutLacher);
-    window.addEventListener("pointerdown", armerSon);
 
     return () => {
       window.removeEventListener("keydown", bas);
@@ -227,20 +253,24 @@ export function SalonLink({
       void audioRef.current?.close().catch(() => {});
       audioRef.current = null;
     };
-  }, [salonId, touches, bouton, envoyer]);
+  }, [salonId, touches, bouton, envoyer, spectateur]);
 
   const jeu = etat?.jeu;
   const moi = etat?.joueur ?? 0;
   const autre = etat?.joueurs[1 - moi] ?? null;
+  const largeur = jeu?.largeur ?? 160;
+  const hauteur = jeu?.hauteur ?? 144;
 
   if (fin) {
     return (
       <div className="flex flex-col items-center gap-4 py-12 text-center">
         <p className="text-lg font-semibold text-ink-50">Session terminée</p>
         <p className="text-sm text-ink-400">
-          {fin.enregistre
-            ? "Les deux parties sont enregistrées sur vos comptes."
-            : "Les parties n'ont pas été enregistrées : vos sauvegardes d'avant la session sont intactes."}
+          {spectateur
+            ? "La partie est finie."
+            : fin.enregistre
+              ? "Les deux parties sont enregistrées sur vos comptes."
+              : "Les parties n'ont pas été enregistrées : vos sauvegardes d'avant la session sont intactes."}
           <br />
           <span className="text-ink-700">({fin.raison})</span>
         </p>
@@ -251,30 +281,65 @@ export function SalonLink({
     );
   }
 
-  const ecran = (
+  const canvas = (index: number, pleineLargeur: boolean) => (
     <canvas
-      ref={canvasRef}
-      width={jeu?.largeur ?? 160}
-      height={jeu?.hauteur ?? 144}
+      ref={(element) => {
+        canvasRefs.current[index] = element;
+      }}
+      width={largeur}
+      height={hauteur}
       className="mx-auto block bg-black"
       style={{
         imageRendering: "pixelated",
-        aspectRatio: `${jeu?.largeur ?? 160} / ${jeu?.hauteur ?? 144}`,
-        width: tactile
-          ? "100%"
-          : `min(100%, calc(70vh * ${jeu?.largeur ?? 160} / ${jeu?.hauteur ?? 144}))`,
+        aspectRatio: `${largeur} / ${hauteur}`,
+        width: pleineLargeur ? "100%" : `min(100%, calc(70vh * ${largeur} / ${hauteur}))`,
       }}
     />
   );
 
+  const ecran = spectateur ? (
+    // Les deux consoles côte à côte, l'une sous l'autre sur un téléphone.
+    <div className="grid gap-4 sm:grid-cols-2">
+      {([0, 1] as const).map((index) => (
+        <figure key={index} className="flex flex-col gap-1">
+          {canvas(index, true)}
+          <figcaption className="text-center text-xs text-ink-400">
+            {etat?.joueurs[index]?.pseudo ?? `Joueur ${index + 1}`}
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  ) : (
+    canvas(0, tactile)
+  );
+
+  const spectateurs = etat?.spectateurs;
   const bandeau = (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
       <span className="font-semibold text-ink-50">{jeu?.titre ?? "Salon"}</span>
       <span className="text-ink-400">
         salon <span className="font-mono text-ink-200">{salonId}</span>
       </span>
-      <Presence participant={etat?.joueurs[moi] ?? null} moi />
-      <Presence participant={autre} />
+      {spectateur ? (
+        <>
+          <Presence participant={etat?.joueurs[0] ?? null} />
+          <Presence participant={etat?.joueurs[1] ?? null} />
+          <span className="text-ink-400">tu regardes</span>
+        </>
+      ) : (
+        <>
+          <Presence participant={etat?.joueurs[moi] ?? null} moi />
+          <Presence participant={autre} />
+        </>
+      )}
+      {spectateurs && spectateurs.ouverts && (
+        <span className="text-xs text-ink-700">
+          {spectateurs.nombre === 0
+            ? "aucun spectateur"
+            : `${spectateurs.nombre} spectateur${spectateurs.nombre > 1 ? "s" : ""}`}{" "}
+          (sur {spectateurs.max})
+        </span>
+      )}
       {!connecte && <span className="text-red-300">déconnecté</span>}
     </div>
   );
@@ -290,18 +355,20 @@ export function SalonLink({
       >
         {muet ? "Son coupé" : "Son"}
       </Button>
-      <Button
-        onClick={() => {
-          if (confirm("Terminer la session ? Les deux parties seront enregistrées sur vos comptes.")) {
-            envoyer({ t: "terminer" });
-          }
-        }}
-        disabled={etat?.etat !== "en-jeu"}
-      >
-        Terminer et enregistrer
-      </Button>
+      {!spectateur && (
+        <Button
+          onClick={() => {
+            if (confirm("Terminer la session ? Les deux parties seront enregistrées sur vos comptes.")) {
+              envoyer({ t: "terminer" });
+            }
+          }}
+          disabled={etat?.etat !== "en-jeu"}
+        >
+          Terminer et enregistrer
+        </Button>
+      )}
       <Link href={retour} className="text-xs text-ink-400 hover:text-ink-200">
-        Quitter sans terminer
+        {spectateur ? "Arrêter de regarder" : "Quitter sans terminer"}
       </Link>
     </div>
   );
@@ -310,7 +377,7 @@ export function SalonLink({
     <div className="flex flex-col gap-4">
       {bandeau}
       {erreur && <Alert tone="error">{erreur}</Alert>}
-      {etat?.etat === "attente" && (
+      {etat?.etat === "attente" && !spectateur && (
         <Alert tone="info">
           {etat.prive
             ? "Salon privé : il n'apparaît pas sur la fiche du jeu. Donne ce code à ton partenaire, il le saisira dans « Rejoindre avec un code » : "
@@ -319,14 +386,19 @@ export function SalonLink({
         </Alert>
       )}
       {ecran}
-      {tactile && etat?.etat === "en-jeu" && (
+      {tactile && !spectateur && etat?.etat === "en-jeu" && (
         <Manette gachettes={etat.jeu.gachettes} surBouton={bouton} />
       )}
       {actions}
-      {!tactile && (
+      {!tactile && !spectateur && (
         <p className="text-xs text-ink-700">
           Les touches sont celles de ton compte pour cette console. Le jeu tourne sur le serveur :
           tu peux changer d&apos;onglet, la partie continue.
+        </p>
+      )}
+      {spectateur && (
+        <p className="text-xs text-ink-700">
+          Tu entends la console de {etat?.joueurs[0]?.pseudo ?? "gauche"}. Le son démarre au premier clic.
         </p>
       )}
     </div>
