@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Worker } from "node:worker_threads";
@@ -80,6 +80,13 @@ const HOTE_ABSENT_MS = 5 * 60 * 1000;
 /** Un salon jamais rejoint disparaît au bout de ce délai. */
 const ATTENTE_MAX_MS = 60 * 60 * 1000;
 /**
+ * Pendant la partie, les deux sauvegardes sont relues à cet intervalle et
+ * écrites si le jeu les a changées. Un salon qui tombe — redémarrage du
+ * serveur, fil de travail planté — ne coûte alors que quelques minutes, pas
+ * toute la session.
+ */
+const SAUVEGARDE_MS = Number(process.env.LINK_RELEVE_MS) || 2 * 60 * 1000;
+/**
  * Spectateurs par salon. Chacun reçoit les deux écrans : ce n'est pas du
  * calcul en plus pour le serveur, mais c'est de la bande passante.
  */
@@ -90,6 +97,10 @@ type Interne = {
   prises: [Set<WebSocket>, Set<WebSocket>];
   /** Les prises qui regardent sans jouer. */
   spectateurs: Set<WebSocket>;
+  /** La relève périodique des sauvegardes, tant que la partie tourne. */
+  releve: ReturnType<typeof setInterval> | null;
+  /** Empreinte du contenu de jeu de la dernière sauvegarde écrite ou lue, par place. */
+  corps: [string | null, string | null];
   geometrie: { largeur: number; hauteur: number } | null;
   /** Dernière image envoyée à chaque joueur : un nouvel onglet la reçoit d'emblée. */
   dernieresImages: [Buffer | null, Buffer | null];
@@ -101,6 +112,8 @@ function interne(salon: Salon): Interne {
     ouvrier: null,
     prises: [new Set(), new Set()],
     spectateurs: new Set(),
+    releve: null,
+    corps: [null, null],
     geometrie: null,
     dernieresImages: [null, null],
     cloture: null,
@@ -300,6 +313,9 @@ async function demarrer(salon: Salon): Promise<void> {
 
   ouvrier.on("message", (message: { t: string } & Record<string, unknown>) => {
     switch (message.t) {
+      case "instantane":
+        void releverSauvegardes(salon, message.srams as [ArrayBuffer, ArrayBuffer]);
+        break;
       case "pret":
         etat.geometrie = { largeur: message.largeur as number, hauteur: message.hauteur as number };
         diffuserEtat(salon);
@@ -338,6 +354,12 @@ async function demarrer(salon: Salon): Promise<void> {
     s1 ? copie(s1.donnees) : null,
     s2 ? copie(s2.donnees) : null,
   ];
+  // Point de départ de la relève : ce que les comptes ont déjà.
+  etat.corps = [s1 ? empreinteDuJeu(s1.donnees) : null, s2 ? empreinteDuJeu(s2.donnees) : null];
+  etat.releve = setInterval(() => {
+    if (salon.etat === "en-jeu") etat.ouvrier?.postMessage({ t: "instantane" });
+  }, SAUVEGARDE_MS);
+  etat.releve.unref();
   ouvrier.postMessage({
     t: "demarrer",
     coeur,
@@ -345,6 +367,39 @@ async function demarrer(salon: Salon): Promise<void> {
     nom: path.basename(salon.jeu.romPath),
     saves: sauvegardes,
   });
+}
+
+/**
+ * Empreinte de ce que le jeu a écrit, sans le pied d'horloge.
+ *
+ * Une sauvegarde GBA avec horloge se termine par seize octets que mGBA
+ * rafraîchit à chaque lecture : comparées telles quelles, deux lectures
+ * d'une partie où rien n'a été sauvegardé seraient toujours différentes, et
+ * la relève écrirait — et userait les copies de secours — toutes les deux
+ * minutes pour rien.
+ */
+function empreinteDuJeu(donnees: Uint8Array): string {
+  const corps = donnees.length % 1024 === 16 ? donnees.subarray(0, donnees.length - 16) : donnees;
+  return createHash("sha1").update(corps).digest("hex");
+}
+
+/** Écrit, pour chaque joueur, la sauvegarde que le jeu a changée depuis la dernière fois. */
+async function releverSauvegardes(salon: Salon, srams: [ArrayBuffer, ArrayBuffer]): Promise<void> {
+  const etat = interne(salon);
+  if (salon.etat !== "en-jeu" || etat.cloture) return;
+  for (const [i, place] of salon.places.entries()) {
+    const donnees = new Uint8Array(srams[i]!);
+    if (!place || donnees.length === 0) continue;
+    const somme = empreinteDuJeu(donnees);
+    if (somme === etat.corps[i]) continue;
+    try {
+      await ecrireSauvegarde(place.userId, salon.jeu.id, donnees, null);
+      etat.corps[i] = somme;
+      console.log(`[link] ${salon.id} : sauvegarde de ${place.pseudo} relevée en cours de partie`);
+    } catch (erreur) {
+      console.error(`[link] ${salon.id} : relève de ${place.pseudo} impossible`, erreur);
+    }
+  }
 }
 
 function copie(donnees: Uint8Array): ArrayBuffer {
@@ -363,6 +418,8 @@ export function terminer(salon: Salon, raison: string, enregistrer = true): Prom
 
   etat.cloture = (async () => {
     salon.etat = "termine";
+    if (etat.releve) clearInterval(etat.releve);
+    etat.releve = null;
     let ecrit = false;
 
     const ouvrier = etat.ouvrier;

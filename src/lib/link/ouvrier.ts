@@ -10,6 +10,7 @@
  *   { t: "boutons", joueur, masque }
  *   { t: "mesure" }             répond par la part du temps passée à travailler
  *                               depuis la mesure précédente (pour `link:capacite`)
+ *   { t: "instantane" }         répond par les deux SRAM, sans s'arrêter
  *   { t: "arreter" }            répond par les deux SRAM, puis s'arrête
  *
  * Émet :
@@ -17,7 +18,8 @@
  *   { t: "mesure", utilisation }                        entre 0 et 1
  *   { t: "image", joueur, largeur, hauteur, donnees }   un écran changé
  *   { t: "audio", joueur, frequence, pcm }              Int16 mono ; joueur null = pour les deux
- *   { t: "srams", srams: [ArrayBuffer, ArrayBuffer] }
+ *   { t: "instantane", srams: [ArrayBuffer, ArrayBuffer] }   en cours de partie
+ *   { t: "srams", srams: [ArrayBuffer, ArrayBuffer] }        à l'arrêt
  *   { t: "erreur", message }
  */
 import { performance } from "node:perf_hooks";
@@ -37,6 +39,7 @@ type Entrant =
   | Demarrage
   | { t: "boutons"; joueur: 0 | 1; masque: number }
   | { t: "mesure" }
+  | { t: "instantane" }
   | { t: "arreter" };
 
 const port = parentPort;
@@ -58,6 +61,10 @@ async function demarrer(ordre: Demarrage): Promise<void> {
 
   const boutons: [number, number] = [0, 0];
   let arret: (() => void) | null = null;
+  const lireSrams = () =>
+    moteur.srams().map((sram) =>
+      sram ? sram.buffer.slice(sram.byteOffset, sram.byteOffset + sram.byteLength) : new ArrayBuffer(0),
+    ) as [ArrayBuffer, ArrayBuffer];
   // Occupation de ce fil : le temps passé dans `tic` rapporté au temps total.
   // C'est la part d'un cœur qu'un salon consomme, telle que `link:capacite`
   // la relève.
@@ -70,11 +77,13 @@ async function demarrer(ordre: Demarrage): Promise<void> {
       const depuis = performance.eventLoopUtilization(repere);
       repere = performance.eventLoopUtilization();
       port!.postMessage({ t: "mesure", utilisation: depuis.utilization });
+    } else if (message.t === "instantane") {
+      // Entre deux tics, donc entre deux images : les mémoires sont cohérentes.
+      const srams = lireSrams();
+      port!.postMessage({ t: "instantane", srams }, srams);
     } else if (message.t === "arreter") {
       arret = () => {
-        const srams = moteur.srams().map((sram) =>
-          sram ? sram.buffer.slice(sram.byteOffset, sram.byteOffset + sram.byteLength) : new ArrayBuffer(0),
-        ) as [ArrayBuffer, ArrayBuffer];
+        const srams = lireSrams();
         port!.postMessage({ t: "srams", srams }, srams);
         moteur.arreter();
       };
