@@ -92,6 +92,34 @@ export async function lireRetouche(
 }
 
 /**
+ * Les jeux qui ont une retouche, sous la forme `console/slug`.
+ *
+ * Deux lectures de dossier au lieu d'un fichier par jeu : l'administration
+ * n'ouvre les retouches que des jeux qu'elle affiche, mais doit savoir
+ * lesquels en ont pour les compter et les filtrer. Un fichier n'existe que
+ * s'il retouche quelque chose — `ecrireRetouche` supprime les vides.
+ */
+export async function listerRetouches(): Promise<Set<string>> {
+  const cles = new Set<string>();
+  let consoles: string[];
+  try {
+    consoles = await fs.readdir(dossier());
+  } catch {
+    return cles;
+  }
+  for (const consoleSlug of consoles) {
+    try {
+      for (const nom of await fs.readdir(path.join(dossier(), consoleSlug))) {
+        if (nom.endsWith(".json")) cles.add(`${consoleSlug}/${nom.slice(0, -5)}`);
+      }
+    } catch {
+      // Un fichier égaré à la place d'un dossier de console : rien à lister.
+    }
+  }
+  return cles;
+}
+
+/**
  * Écrit la retouche d'un jeu. Un objet sans aucun champ supprime le fichier :
  * un jeu qui suit entièrement son manifeste ne laisse pas de trace.
  */
