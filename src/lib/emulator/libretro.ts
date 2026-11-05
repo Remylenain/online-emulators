@@ -332,6 +332,18 @@ export class CoeurLibretro {
     }
   }
 
+  /** Remet le cœur dans un état rendu par `etat()`. Faux si le cœur le refuse. */
+  restaurerEtat(donnees: Uint8Array): boolean {
+    const module = this.exige();
+    const p = module._malloc(donnees.length);
+    try {
+      module.HEAPU8.set(donnees, p);
+      return Boolean(module._retro_unserialize(p, donnees.length));
+    } finally {
+      module._free(p);
+    }
+  }
+
   arreter(): void {
     try {
       this.module?._retro_unload_game();

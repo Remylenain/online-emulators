@@ -43,6 +43,14 @@ export type Moteur = {
   /** Le son accumulé depuis le dernier appel, mono. `joueur` ignoré sans son par joueur. */
   prendreSon(joueur: Joueur): Int16Array;
   srams(): [Uint8Array | null, Uint8Array | null];
+  /**
+   * L'état complet des deux consoles, pour reprendre une session interrompue :
+   * un ou plusieurs blocs, opaques, à rendre tels quels à `restaurer`. `null`
+   * si le cœur ne sait pas.
+   */
+  etat(): Uint8Array[] | null;
+  /** Remet les deux consoles dans un état rendu par `etat()`. Faux si le cœur le refuse. */
+  restaurer(etats: readonly Uint8Array[]): boolean;
   arreter(): void;
 };
 
@@ -123,6 +131,12 @@ async function moteurTgbDual(
       return pcm;
     },
     srams: () => [libretro.lireMemoire(coeur.srams[0]), libretro.lireMemoire(coeur.srams[1])],
+    // Un seul bloc : libretro sérialise les deux Game Boy et leur câble ensemble.
+    etat: () => {
+      const bloc = libretro.etat();
+      return bloc ? [bloc] : null;
+    },
+    restaurer: (etats) => etats.length === 1 && libretro.restaurerEtat(etats[0]!),
     arreter: () => libretro.arreter(),
   };
 }
@@ -172,6 +186,10 @@ type ModuleMgs = {
   _mgs_import_save(joueur: number, pointeur: number, taille: number): number;
   _mgs_export_save(joueur: number): number;
   _mgs_save_ptr(): number;
+  _mgs_save_state(joueur: number): number;
+  _mgs_state_ptr(): number;
+  _mgs_load_state_bytes(joueur: number, pointeur: number, taille: number): number;
+  _mgs_reset_sio(): void;
   _mgs_quit(): void;
 };
 
@@ -347,6 +365,35 @@ async function moteurMgs(
         avecPied.set(pied, donnees.length);
         return avecPied;
       }) as [Uint8Array | null, Uint8Array | null],
+    // Un bloc par console : chaque GBA a son propre état.
+    etat: () => {
+      const blocs: Uint8Array[] = [];
+      for (const joueur of [0, 1]) {
+        const taille = m._mgs_save_state(joueur);
+        if (!taille) return null;
+        const p = m._mgs_state_ptr();
+        blocs.push(m.HEAPU8.slice(p, p + taille));
+      }
+      return blocs;
+    },
+    restaurer: (etats) => {
+      if (etats.length !== 2) return false;
+      for (const [joueur, bloc] of etats.entries()) {
+        const p = m._malloc(bloc.length);
+        try {
+          m.HEAPU8.set(bloc, p);
+          if (m._mgs_load_state_bytes(joueur, p, bloc.length) !== 0) return false;
+        } finally {
+          m._free(p);
+        }
+      }
+      // Les files du câble reviennent avec les états, telles qu'elles étaient
+      // en plein échange : laissées là, les jeux se figent ou ratent leur
+      // première poignée de main. Le pont demande de remettre les pilotes à
+      // zéro une fois tous les états chargés (voir mgs_reset_sio).
+      m._mgs_reset_sio();
+      return true;
+    },
     arreter: () => {
       try {
         m._mgs_quit();
