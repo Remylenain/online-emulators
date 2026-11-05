@@ -9,6 +9,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { formatDate, formatDuree } from "@/lib/format";
 import { salonDuCompte, salons, salonsRegardables } from "@/lib/link/registre";
 import { partieEnCours, titreComplet, type PartieEnCours } from "@/lib/mes-jeux";
+import { quiJoue, type Presence } from "@/lib/presence";
 
 /**
  * L'accueil : d'abord la partie en cours, parce que c'est pour elle qu'on
@@ -16,8 +17,9 @@ import { partieEnCours, titreComplet, type PartieEnCours } from "@/lib/mes-jeux"
  */
 export default async function HomePage() {
   const user = await requireUser();
-  const [enCours, latest, recent, parConsole] = await Promise.all([
+  const [enCours, presents, latest, recent, parConsole] = await Promise.all([
     partieEnCours(user),
+    quiJoue(user),
     latestGames(user, 8, LANGUE_PAR_DEFAUT),
     recentlyPlayed(user, 9),
     countByConsole(user, LANGUE_PAR_DEFAUT),
@@ -38,6 +40,8 @@ export default async function HomePage() {
           </p>
         )}
       </section>
+
+      <EnCeMoment presents={presents} />
 
       <Salons moi={user} />
 
@@ -144,6 +148,48 @@ function Chiffre({ label, valeur }: { label: string; valeur: string }) {
       <dt className="text-xs text-ink-700">{label}</dt>
       <dd className="text-ink-200">{valeur}</dd>
     </div>
+  );
+}
+
+/**
+ * Qui joue en ce moment, et à quoi : c'est ce qui donne envie de lancer une
+ * partie ou d'ouvrir un salon. Rien ne s'affiche quand personne ne joue.
+ */
+function EnCeMoment({ presents }: { presents: Presence[] }) {
+  if (presents.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold text-ink-50">En ce moment</h2>
+      <ul className="flex flex-wrap gap-2">
+        {presents.map((presence) => (
+          <li
+            key={presence.pseudo}
+            className="flex items-center gap-2 rounded-full border border-ink-800 bg-ink-900/60 py-1.5 pr-4 pl-3 text-sm text-ink-200"
+          >
+            <span aria-hidden className="size-2 shrink-0 rounded-full bg-green-400" />
+            <span>
+              <strong className="text-ink-50">{presence.pseudo}</strong> joue à{" "}
+              <Link
+                href={`/jeux/${presence.jeu.consoleSlug}/${presence.jeu.slug}`}
+                className="text-ink-50 hover:underline"
+              >
+                {presence.jeu.titre}
+              </Link>
+              {presence.link && (
+                <span className="text-ink-400">
+                  {presence.link.avec ? ` avec ${presence.link.avec}` : ""}, au câble link
+                </span>
+              )}
+            </span>
+            {presence.link?.regardable && (
+              <Link href={`/link/${presence.link.salon}`} className="text-xs text-accent-400 hover:underline">
+                Regarder
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

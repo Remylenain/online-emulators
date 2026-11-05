@@ -261,6 +261,43 @@ export async function listConsoleGames(options: {
   return { jeux: trier(regrouper(retenues), options.sort ?? TRI_PAR_DEFAUT), total };
 }
 
+/**
+ * Recherche globale, toutes consoles confondues : chaque mot saisi doit se
+ * trouver dans le texte de recherche du jeu (titre, auteur, jeu de base),
+ * comme sur les pages console. Les titres qui commencent par la saisie
+ * viennent d'abord, puis l'ordre alphabétique.
+ */
+export async function rechercherJeux(visiteur: Visiteur, saisie: string, limite = 12): Promise<GameCard[]> {
+  const mots = normalizeForSearch(saisie)
+    .split(/\s+/)
+    .filter((mot) => mot.length > 0);
+  if (mots.length === 0 || mots.join("").length < 2) return [];
+
+  const conditions = [conditionAcces(visiteur)];
+  for (const mot of mots) {
+    const motif = mot.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
+    conditions.push(sql`${games.searchText} like ${`%${motif}%`} escape '\\'`);
+  }
+
+  const lignes = await db
+    .select(cardColumns)
+    .from(games)
+    .where(and(...conditions))
+    .orderBy(asc(games.searchText))
+    .limit(200)
+    .all();
+
+  const debut = mots.join(" ");
+  const rang = (carte: GameCard) => (normalizeForSearch(carte.title).startsWith(debut) ? 0 : 1);
+  return regrouper(lignes)
+    .sort(
+      (a, b) =>
+        rang(a) - rang(b) ||
+        normalizeForSearch(a.title).localeCompare(normalizeForSearch(b.title), "fr", { numeric: true }),
+    )
+    .slice(0, limite);
+}
+
 /** Langues présentes dans le catalogue d'une console, pour alimenter le filtre. */
 export async function languesDisponibles(visiteur: Visiteur, consoleSlug: string): Promise<string[]> {
   const lignes = await db

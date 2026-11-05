@@ -3,6 +3,7 @@ import { CONSOLES } from "@/lib/consoles";
 import type { SessionUser } from "@/lib/auth/session";
 import { nomDuSite } from "@/lib/parametres";
 import { MenuCompte } from "./menu-compte";
+import { RechercheGlobale } from "./recherche-globale";
 
 /**
  * Barre de navigation : accueil, une entrée par console, « Mes jeux », et le
@@ -35,6 +36,7 @@ export function SiteHeader({ user }: { user: SessionUser }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <RechercheGlobale />
           <Link href="/mes-jeux" className={`hidden sm:inline-block ${lien}`}>
             Mes jeux
           </Link>
