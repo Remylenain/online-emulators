@@ -64,7 +64,13 @@ const enMo = (octets: number) => `${(octets / 1024 / 1024).toFixed(1)} Mo`;
 type DisqueServeur = { nom: string; taille: number };
 
 type Mesures = { ips: number; cible: number; msParImage: number; tas: number; definition: string };
-type Reprise = { brut: number; compresse: number };
+type Reprise = {
+  brut: number;
+  compresse: number;
+  /** L'écran au moment de la prise, pour savoir où l'on reviendra. */
+  vignette: string | null;
+  heure: string;
+};
 
 /**
  * Essai de l'émulation PlayStation : le cœur PCSX-ReARMed, compilé en
@@ -299,9 +305,18 @@ export function EssaiPs1({ disquesServeur }: { disquesServeur: DisqueServeur[] }
       return;
     }
     pointRef.current = point;
+    // L'image est prise tout de suite : après l'attente de la compression, le
+    // jeu a avancé et la vignette ne montrerait plus l'instant enregistré.
+    let vignette: string | null = null;
+    try {
+      vignette = toile.current?.toDataURL("image/jpeg", 0.85) ?? null;
+    } catch {
+      // Sans vignette, le point de reprise reste utilisable.
+    }
+    const heure = new Date().toLocaleTimeString("fr-FR");
     const flux = new Blob([point as BlobPart]).stream().pipeThrough(new CompressionStream("gzip"));
     const compresse = (await new Response(flux).arrayBuffer()).byteLength;
-    setReprise({ brut: point.length, compresse });
+    setReprise({ brut: point.length, compresse, vignette, heure });
     setCarte(coeurRef.current?.lireMemoire(0)?.length ?? null);
   }
 
@@ -455,6 +470,23 @@ export function EssaiPs1({ disquesServeur }: { disquesServeur: DisqueServeur[] }
               Y revenir
             </Button>
           </div>
+
+          {reprise && (
+            <figure className="flex items-center gap-3">
+              {reprise.vignette && (
+                // Une image en mémoire, de taille variable : rien à optimiser.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={reprise.vignette}
+                  alt="L'écran au moment du point de reprise"
+                  className="aspect-[4/3] w-40 rounded-lg border border-ink-800 bg-black"
+                />
+              )}
+              <figcaption className="text-xs text-ink-400">
+                Point de reprise pris à {reprise.heure}. « Y revenir » ramène le jeu à cet instant.
+              </figcaption>
+            </figure>
+          )}
 
           <p className="text-xs text-ink-400">
             Clavier : flèches, <kbd>X</kbd> croix, <kbd>C</kbd> rond, <kbd>S</kbd> carré, <kbd>D</kbd> triangle,{" "}
