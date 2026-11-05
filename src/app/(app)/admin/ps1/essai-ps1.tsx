@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Button } from "@/components/ui";
 import { BOUTONS_PSX, CoeurLibretro } from "@/lib/emulator/libretro";
+import { ManettePs1 } from "./manette-ps1";
 
 /** Le commit du cœur, dans l'adresse : un cœur recompilé ne ressort pas du cache. */
 const URL_COEUR = "/pcsx-rearmed/pcsx-rearmed.js?v=7b0e8f8";
@@ -58,6 +59,38 @@ function masqueManette(): number {
   return masque;
 }
 
+/**
+ * Réglages du cœur, du plus fidèle au plus léger. Sur un téléphone, le cœur
+ * tourne juste : ces réglages disent ce qu'on peut regagner, et à quel prix.
+ *
+ * - Le tramage et la réverbération sont des finitions : les couper ne change
+ *   pas le jeu, seulement un peu l'image et le son.
+ * - L'horloge du processeur émulé, elle, change le jeu : ralentie, la console
+ *   calcule moins vite, et un jeu gourmand peut saccader là où il était
+ *   fluide. C'est pourtant le réglage qui rapporte le plus.
+ */
+const REGLAGES = {
+  fidele: { libelle: "Fidèles (par défaut)", options: {} },
+  allege: {
+    libelle: "Allégés : sans tramage ni réverbération",
+    options: {
+      pcsx_rearmed_dithering: "disabled",
+      pcsx_rearmed_spu_reverb: "disabled",
+      pcsx_rearmed_spu_interpolation: "simple",
+    },
+  },
+  leger: {
+    libelle: "Légers : allégés, et processeur émulé ralenti",
+    options: {
+      pcsx_rearmed_dithering: "disabled",
+      pcsx_rearmed_spu_reverb: "disabled",
+      pcsx_rearmed_spu_interpolation: "simple",
+      pcsx_rearmed_psxclock: "40",
+    },
+  },
+} as const satisfies Record<string, { libelle: string; options: Record<string, string> }>;
+type Reglage = keyof typeof REGLAGES;
+
 const enMo = (octets: number) => `${(octets / 1024 / 1024).toFixed(1)} Mo`;
 
 /** Une image posée sur le serveur, telle que la liste la donne. */
@@ -78,7 +111,7 @@ type Reprise = {
  * libretro que le câble link.
  *
  * C'est un banc d'essai, pas un lecteur : pas de sauvegarde vers le serveur,
- * pas de manette tactile, des touches fixes. Il répond à trois questions —
+ * une manette tactile sommaire, des touches fixes. Il répond à trois questions —
  * le jeu démarre-t-il sans BIOS, le cœur tient-il la cadence sur cet
  * appareil, et combien pèsent un point de reprise et la carte mémoire.
  *
@@ -102,6 +135,11 @@ export function EssaiPs1({ disquesServeur }: { disquesServeur: DisqueServeur[] }
   const coeurRef = useRef<CoeurLibretro | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
   const clavierRef = useRef(0);
+  const tactileRef = useRef(0);
+  const [reglage, setReglage] = useState<Reglage>("fidele");
+  const surTactile = useCallback((masque: number) => {
+    tactileRef.current = masque;
+  }, []);
   const prochainSon = useRef(0);
   const pointRef = useRef<Uint8Array | null>(null);
 
@@ -157,7 +195,7 @@ export function EssaiPs1({ disquesServeur }: { disquesServeur: DisqueServeur[] }
       let faites = 0;
       while (instant >= echeance && faites < 3) {
         const depart = performance.now();
-        coeur.avancer([clavierRef.current | masqueManette()]);
+        coeur.avancer([clavierRef.current | tactileRef.current | masqueManette()]);
         cout += performance.now() - depart;
         echeance += pas;
         images++;
@@ -279,7 +317,7 @@ export function EssaiPs1({ disquesServeur }: { disquesServeur: DisqueServeur[] }
 
     try {
       coeurRef.current?.arreter();
-      const coeur = new CoeurLibretro(URL_COEUR);
+      const coeur = new CoeurLibretro(URL_COEUR, REGLAGES[reglage].options);
       coeur.surJournal = (texte) => setJournal((lignes) => [...lignes.slice(-13), texte]);
 
       // Le cœur reconnaît le format à l'extension ; le reste du nom ne compte pas.
@@ -336,6 +374,26 @@ export function EssaiPs1({ disquesServeur }: { disquesServeur: DisqueServeur[] }
         Banc d&apos;essai, visible des administrateurs seulement. Rien n&apos;est envoyé au serveur, rien
         n&apos;est sauvegardé. Le but est de voir si le cœur tient la cadence sur cet appareil.
       </p>
+
+      <label className="flex flex-col gap-1 text-sm text-ink-200">
+        Réglages du cœur
+        <span className="text-xs text-ink-400">
+          Pris en compte au prochain démarrage. Les réglages légers font gagner de la marge ; le
+          processeur ralenti peut faire saccader un jeu gourmand.
+        </span>
+        <select
+          value={reglage}
+          onChange={(evenement) => setReglage(evenement.target.value as Reglage)}
+          disabled={etat === "chargement"}
+          className="max-w-full self-start rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
+        >
+          {(Object.keys(REGLAGES) as Reglage[]).map((cle) => (
+            <option key={cle} value={cle}>
+              {REGLAGES[cle].libelle}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <div className="flex flex-col gap-3 rounded-panel border border-ink-800 p-4">
         <h3 className="text-sm font-semibold text-ink-200">Disques du serveur</h3>
@@ -426,6 +484,8 @@ export function EssaiPs1({ disquesServeur }: { disquesServeur: DisqueServeur[] }
         }`}
       />
 
+      {enJeu && <ManettePs1 surMasque={surTactile} />}
+
       {enJeu && (
         <>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
@@ -491,7 +551,8 @@ export function EssaiPs1({ disquesServeur }: { disquesServeur: DisqueServeur[] }
           <p className="text-xs text-ink-400">
             Clavier : flèches, <kbd>X</kbd> croix, <kbd>C</kbd> rond, <kbd>S</kbd> carré, <kbd>D</kbd> triangle,{" "}
             <kbd>A</kbd> L1, <kbd>E</kbd> R1, <kbd>Q</kbd> L2, <kbd>R</kbd> R2, <kbd>Entrée</kbd> Start,{" "}
-            <kbd>Retour arrière</kbd> Select. Une manette reconnue par le navigateur marche aussi.
+            <kbd>Retour arrière</kbd> Select. Une manette reconnue par le navigateur marche aussi ; sur
+            un écran tactile, une manette s&apos;affiche sous l&apos;image.
           </p>
         </>
       )}
