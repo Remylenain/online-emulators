@@ -54,9 +54,11 @@ export default async function ConsolePage({
   const sort = isSortKey(query.tri) ? query.tri : TRI_PAR_DEFAUT;
   const view: ViewMode = isViewMode(query.vue) ? query.vue : "grille";
 
-  const langues = await languesDisponibles(user, console.slug);
+  // Rom hacks par défaut, mais seulement si la console mélange les deux
+  // types : une console qui n'a que des jeux officiels les montre.
   const melange = await typesMelanges(user, console.slug);
-  const type = melange && isTypeKey(query.type) ? query.type : TYPE_PAR_DEFAUT;
+  const type = !melange ? "tous" : isTypeKey(query.type) ? query.type : TYPE_PAR_DEFAUT;
+  const langues = await languesDisponibles(user, console.slug, type);
 
   /**
    * Le français s'affiche par défaut, mais seulement s'il y a du français sur

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ONGLETS = [
+  { href: "/admin/tableau", libelle: "Tableau de bord" },
   { href: "/admin/comptes", libelle: "Comptes" },
   { href: "/admin/bibliotheque", libelle: "Bibliothèque" },
   { href: "/admin/temps", libelle: "Temps de jeu" },

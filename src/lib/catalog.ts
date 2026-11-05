@@ -298,14 +298,23 @@ export async function rechercherJeux(visiteur: Visiteur, saisie: string, limite 
     .slice(0, limite);
 }
 
-/** Langues présentes dans le catalogue d'une console, pour alimenter le filtre. */
-export async function languesDisponibles(visiteur: Visiteur, consoleSlug: string): Promise<string[]> {
+/**
+ * Langues présentes dans le catalogue d'une console, pour alimenter le
+ * filtre — parmi les jeux du type regardé : proposer une langue que seuls
+ * des jeux masqués parlent ouvrirait sur une page vide.
+ */
+export async function languesDisponibles(
+  visiteur: Visiteur,
+  consoleSlug: string,
+  type: TypeKey = "tous",
+): Promise<string[]> {
+  const conditions = [eq(games.consoleSlug, consoleSlug), conditionAcces(visiteur)];
+  if (type === "hacks") conditions.push(eq(games.isOfficial, false));
+  else if (type === "officiels") conditions.push(eq(games.isOfficial, true));
   const lignes = await db
     .selectDistinct({ langue: games.language })
     .from(games)
-    .where(
-      and(eq(games.consoleSlug, consoleSlug), conditionAcces(visiteur)),
-    )
+    .where(and(...conditions))
     .all();
 
   const courtes = new Set<string>();
@@ -377,13 +386,17 @@ export async function gameBySlug(visiteur: Visiteur, consoleSlug: string, slug: 
  * 2. Le filtre de langue s'applique comme sur la page console — repli compris :
  *    une console sans aucun jeu dans la langue demandée les montre tous, donc
  *    son compteur doit les compter tous.
+ * 3. Le type aussi : la page console s'ouvre sur les rom hacks dès qu'elle en
+ *    a, et sur tout sinon. Le compteur compte donc les rom hacks, ou tout
+ *    pour une console qui n'a que des jeux officiels.
  */
 export async function countByConsole(
   visiteur: Visiteur,
   langue?: string,
 ): Promise<Record<string, number>> {
-  const compter = async (filtrer: boolean) => {
+  const compter = async (filtrer: boolean, hacksSeulement: boolean) => {
     const conditions = [conditionAcces(visiteur)];
+    if (hacksSeulement) conditions.push(eq(games.isOfficial, false));
     if (filtrer && langue && langue !== TOUTES_LANGUES) {
       conditions.push(
         sql`lower(coalesce(${games.language}, '')) like ${`${langue.toLowerCase()}%`}`,
@@ -403,11 +416,18 @@ export async function countByConsole(
     return Object.fromEntries(lignes.map((ligne) => [ligne.consoleSlug, ligne.total]));
   };
 
-  const tous = await compter(false);
-  if (!langue || langue === TOUTES_LANGUES) return tous;
+  const tous = await compter(false, false);
+  const hacks = await compter(false, true);
+  const avecLangue = Boolean(langue && langue !== TOUTES_LANGUES);
+  const hacksLangue = avecLangue ? await compter(true, true) : hacks;
+  const tousLangue = avecLangue ? await compter(true, false) : tous;
 
-  const filtres = await compter(true);
   return Object.fromEntries(
-    Object.entries(tous).map(([console_, total]) => [console_, filtres[console_] || total]),
+    Object.entries(tous).map(([console_, total]) => [
+      console_,
+      hacks[console_]
+        ? hacksLangue[console_] || hacks[console_]
+        : tousLangue[console_] || total,
+    ]),
   );
 }

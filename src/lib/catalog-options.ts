@@ -24,17 +24,21 @@ export function isSortKey(value: string | undefined): value is SortKey {
 
 /**
  * Ce qu'on regarde : les rom hacks et traductions, les jeux du commerce, ou
- * tout. Le premier est le choix par défaut.
+ * tout.
+ *
+ * Le site est fait pour les rom hacks : c'est sur eux que le catalogue
+ * s'ouvre. Quelques centaines de jeux du commerce les noieraient, alors
+ * qu'ils restent à un clic dans le filtre.
  */
 export const TYPES = {
-  tous: "Tous les jeux",
   hacks: "Rom hacks et traductions",
   officiels: "Jeux officiels",
+  tous: "Tous les jeux",
 } as const;
 
 export type TypeKey = keyof typeof TYPES;
 
-export const TYPE_PAR_DEFAUT: TypeKey = "tous";
+export const TYPE_PAR_DEFAUT: TypeKey = "hacks";
 
 export function isTypeKey(value: string | undefined): value is TypeKey {
   return value !== undefined && value in TYPES;

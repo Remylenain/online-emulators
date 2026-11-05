@@ -6,5 +6,5 @@ import { redirect } from "next/navigation";
  * ainsi rester tel quel, et les favoris déjà posés continuent de marcher.
  */
 export default function AdminPage() {
-  redirect("/admin/comptes");
+  redirect("/admin/tableau");
 }
