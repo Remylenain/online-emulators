@@ -32,12 +32,15 @@ import {
 
 export function SalonLink({
   salonId,
+  consoleSlug,
   touches,
   manette,
   spectateur = false,
   retour,
 }: {
   salonId: string;
+  /** Console du jeu : la disposition d'une manette non reconnue est retenue par console. */
+  consoleSlug: string;
   touches: Record<Touche, string>;
   /** Disposition de la manette ; l'accéléré n'a pas de sens ici. */
   manette: Record<Touche, string>;
@@ -92,7 +95,7 @@ export function SalonLink({
     },
     [bouton],
   );
-  useManette(manette, surToucheManette, !spectateur);
+  useManette(consoleSlug, manette, surToucheManette, !spectateur);
 
   // Connexion, et tout ce qui en découle.
   useEffect(() => {

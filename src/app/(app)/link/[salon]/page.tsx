@@ -82,6 +82,7 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
   return (
     <SalonLink
       salonId={salon.id}
+      consoleSlug={salon.jeu.consoleSlug}
       touches={touches}
       manette={manette}
       spectateur={spectateur}

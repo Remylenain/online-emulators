@@ -106,7 +106,6 @@ export function Lecteur({
    * agir immédiatement, sans recharger la page ni redemander au serveur.
    */
   const [touches, setTouches] = useState(touchesInitiales);
-  const [dispositionManette, setDispositionManette] = useState(manetteInitiale);
   const [habillageId, setHabillageId] = useState(habillageInitial);
   const habillage = habillages.find((h) => h.id === habillageId) ?? null;
   const changerHabillage = useCallback(
@@ -414,7 +413,8 @@ export function Lecteur({
     },
     [accelerer],
   );
-  const { branchee: manetteBranchee } = useManette(dispositionManette, surToucheManette);
+  const manettePhysique = useManette(jeu.consoleSlug, manetteInitiale, surToucheManette);
+  const manetteBranchee = manettePhysique.branchee;
 
   /**
    * Le clavier, traduit en boutons de console.
@@ -781,11 +781,12 @@ export function Lecteur({
         />
       )}
       <ManetteConfig
-        consoleSlug={jeu.consoleSlug}
         boutons={consoleInfo.gachettes ? BOUTONS_AVEC_GACHETTES : BOUTONS_SIMPLES}
-        disposition={dispositionManette}
-        branchee={manetteBranchee}
-        surChangement={setDispositionManette}
+        disposition={manettePhysique.disposition}
+        identite={manettePhysique.identite}
+        aRegler={manettePhysique.aRegler}
+        changer={manettePhysique.changer}
+        retablir={manettePhysique.retablir}
       />
       {/*
         Les emplacements du cœur et ceux du site sont deux choses différentes.

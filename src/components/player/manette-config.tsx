@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { enregistrerManette, retablirManette } from "@/lib/keymap/actions";
+import type { ResultatTouches } from "@/lib/keymap/actions";
 import { ACTIONS, type ButtonName, type Touche } from "@/lib/consoles";
-import { entreesActives, libelleManette, manetteBranchee, MANETTE_PAR_DEFAUT } from "@/lib/manette";
+import { entreesActives, libelleManette, manetteBranchee, type IdentiteManette } from "@/lib/manette";
 
 const LIBELLES: Record<Touche, string> = {
   A: "A",
@@ -24,35 +24,68 @@ const LIBELLES: Record<Touche, string> = {
  * clique sur un bouton de la console, puis on appuie sur l'entrée voulue de
  * la manette. L'attente scrute la manette à chaque image, puisque l'API ne
  * prévient de rien.
+ *
+ * La section dit aussi ce que le navigateur voit — le nom de la manette, si
+ * sa numérotation est standard, et les entrées enfoncées à l'instant — parce
+ * qu'une manette mal reconnue ne se règle bien qu'en voyant ce qu'elle envoie.
  */
 export function ManetteConfig({
-  consoleSlug,
   boutons,
   disposition,
-  branchee,
-  surChangement,
+  identite,
+  aRegler,
+  changer,
+  retablir,
 }: {
-  consoleSlug: string;
   boutons: ButtonName[];
   disposition: Record<Touche, string>;
-  branchee: boolean;
-  surChangement: (disposition: Record<Touche, string>) => void;
+  identite: IdentiteManette | null;
+  aRegler: boolean;
+  changer: (disposition: Record<Touche, string>) => Promise<ResultatTouches>;
+  retablir: () => Promise<ResultatTouches>;
 }) {
   const [enAttente, setEnAttente] = useState<Touche | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [actives, setActives] = useState<string[]>([]);
+  const branchee = identite !== null;
+  const standard = identite?.standard ?? true;
+
+  // Ce que la manette envoie à l'instant, pour s'y retrouver.
+  useEffect(() => {
+    if (!branchee) {
+      setActives([]);
+      return;
+    }
+    let demande = 0;
+    let precedent = "";
+    const scruter = () => {
+      const manette = manetteBranchee();
+      const maintenant = manette ? entreesActives(manette) : [];
+      const signature = maintenant.join(",");
+      if (signature !== precedent) {
+        precedent = signature;
+        setActives(maintenant);
+      }
+      demande = requestAnimationFrame(scruter);
+    };
+    demande = requestAnimationFrame(scruter);
+    return () => cancelAnimationFrame(demande);
+  }, [branchee]);
 
   useEffect(() => {
     if (!enAttente) return;
     let demande = 0;
-    // Ce qui est déjà enfoncé au moment du clic ne compte pas : on attend
+    // Ce qui est déjà actif au moment du clic ne compte pas — un bouton
+    // encore tenu, ou une gâchette dont l'axe vaut −1 au repos : on attend
     // une entrée qui passe d'inactive à active.
-    let ignorees = new Set(entreesActives(manetteBranchee() ?? ({ buttons: [], axes: [] } as unknown as Gamepad)));
+    const depart = manetteBranchee();
+    let ignorees = new Set(depart ? entreesActives(depart) : []);
 
     const scruter = () => {
       const manette = manetteBranchee();
       if (manette) {
-        const actives = entreesActives(manette);
-        const nouvelle = actives.find((entree) => !ignorees.has(entree));
+        const maintenant = entreesActives(manette);
+        const nouvelle = maintenant.find((entree) => !ignorees.has(entree));
         if (nouvelle) {
           const bouton = enAttente!;
           const suivante = { ...disposition, [bouton]: nouvelle };
@@ -61,13 +94,12 @@ export function ManetteConfig({
           }
           setEnAttente(null);
           setMessage(null);
-          surChangement(suivante as Record<Touche, string>);
-          void enregistrerManette(consoleSlug, suivante).then((resultat) => {
+          void changer(suivante as Record<Touche, string>).then((resultat) => {
             if (!resultat.ok) setMessage(resultat.message ?? "Enregistrement refusé.");
           });
           return;
         }
-        ignorees = new Set(actives.filter((entree) => ignorees.has(entree)));
+        ignorees = new Set(maintenant.filter((entree) => ignorees.has(entree)));
       }
       demande = requestAnimationFrame(scruter);
     };
@@ -81,12 +113,11 @@ export function ManetteConfig({
       cancelAnimationFrame(demande);
       window.removeEventListener("keydown", echap);
     };
-  }, [enAttente, disposition, consoleSlug, surChangement]);
+  }, [enAttente, disposition, changer]);
 
-  async function retablir() {
+  async function surRetablir() {
     setMessage(null);
-    surChangement({ ...MANETTE_PAR_DEFAUT });
-    const resultat = await retablirManette(consoleSlug);
+    const resultat = await retablir();
     if (!resultat.ok) setMessage(resultat.message ?? "Opération refusée.");
   }
 
@@ -96,10 +127,30 @@ export function ManetteConfig({
         Manette
         <span className="ml-2 font-normal text-ink-700">
           {branchee
-            ? "Clique sur un bouton, puis appuie sur l'entrée voulue de la manette. Échap annule."
+            ? "Touche un bouton ci-dessous, puis appuie sur l'entrée voulue de la manette."
             : "Branche une manette (USB ou Bluetooth) et appuie sur un de ses boutons pour qu'elle soit vue."}
         </span>
       </h2>
+
+      {identite && (
+        <p className="text-xs text-ink-400">
+          <span className="text-ink-200">{identite.id}</span> —{" "}
+          {identite.standard
+            ? "reconnue par le navigateur, numérotation standard."
+            : "numérotation propre à cette manette sur cet appareil : le réglage ci-dessous est retenu ici, et ne change rien sur tes autres appareils."}
+          {actives.length > 0 && (
+            <span className="ml-2 font-mono text-accent-400">
+              {actives.map((entree) => `${entree} (${libelleManette(entree, standard)})`).join(" · ")}
+            </span>
+          )}
+        </p>
+      )}
+      {aRegler && (
+        <p className="rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-100">
+          Le navigateur ne reconnaît pas cette manette : ses boutons ne sont pas là où on les attend.
+          Attribue-les une fois, un par un — c&apos;est l&apos;affaire d&apos;une minute.
+        </p>
+      )}
 
       {message && (
         <p role="alert" className="text-xs text-red-300">
@@ -111,6 +162,7 @@ export function ManetteConfig({
         {[...boutons, ...ACTIONS].map((bouton) => {
           const attend = enAttente === bouton;
           const entree = disposition[bouton];
+          const tenue = Boolean(entree && actives.includes(entree));
           return (
             <li key={bouton}>
               <button
@@ -118,12 +170,16 @@ export function ManetteConfig({
                 onClick={() => setEnAttente(attend ? null : bouton)}
                 disabled={!branchee && !attend}
                 className={`flex min-w-24 flex-col items-center gap-0.5 rounded-lg border px-3 py-2 transition-colors disabled:opacity-60 ${
-                  attend ? "border-accent-600 bg-accent-600/15" : "border-ink-700 hover:border-ink-400"
+                  attend
+                    ? "border-accent-600 bg-accent-600/15"
+                    : tenue
+                      ? "border-accent-600/70 bg-accent-600/10"
+                      : "border-ink-700 hover:border-ink-400"
                 }`}
               >
                 <span className="text-xs text-ink-400">{LIBELLES[bouton]}</span>
                 <span className={`text-sm ${attend ? "text-accent-400" : "text-ink-50"}`}>
-                  {attend ? "…" : entree ? libelleManette(entree) : "aucune"}
+                  {attend ? "…" : entree ? libelleManette(entree, standard) : "aucune"}
                 </span>
               </button>
             </li>
@@ -134,7 +190,7 @@ export function ManetteConfig({
 
       <button
         type="button"
-        onClick={() => void retablir()}
+        onClick={() => void surRetablir()}
         className="self-start text-xs text-ink-700 underline-offset-4 hover:text-ink-200 hover:underline"
       >
         Rétablir la manette par défaut

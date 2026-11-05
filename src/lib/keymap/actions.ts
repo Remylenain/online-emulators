@@ -7,7 +7,7 @@ import { keymaps } from "@/db/schema";
 import { newId } from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/guard";
 import { ACTIONS, BUTTONS, CONSOLE_SLUGS, DEFAULT_KEYMAP, type ButtonName } from "@/lib/consoles";
-import { MANETTE_PAR_DEFAUT } from "@/lib/manette";
+import { MANETTE_PAR_DEFAUT, MOTIF_ENTREE } from "@/lib/manette";
 
 /**
  * Disposition clavier d'un compte, par console.
@@ -27,10 +27,10 @@ const schema = z.object({
   ),
 });
 
-/** Une entrée de manette : `b7`, `a1-`, `a0+` (voir `src/lib/manette.ts`). */
+/** Une entrée de manette : `b7`, `a1-`, `h9u` (voir `src/lib/manette.ts`). */
 const schemaManette = z.object({
   console: z.enum(CONSOLE_SLUGS as [string, ...string[]]),
-  mapping: z.record(z.enum(BOUTONS as unknown as [string, ...string[]]), z.string().regex(/^(b\d{1,2}|a\d[+-])$/)),
+  mapping: z.record(z.enum(BOUTONS as unknown as [string, ...string[]]), z.string().regex(MOTIF_ENTREE)),
 });
 
 export type ResultatTouches = { ok: boolean; message?: string };
