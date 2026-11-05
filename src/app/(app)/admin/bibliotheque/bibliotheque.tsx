@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/actions";
 import { Alert, Button } from "@/components/ui";
 import { nomDeLangue } from "@/lib/catalog-options";
+import { CONSOLES } from "@/lib/consoles";
 
 export type JeuAdmin = {
   id: string;
@@ -176,6 +177,8 @@ export function Bibliotheque({
         </pre>
       )}
 
+      <ExportFiches />
+
       <ul className="flex flex-col divide-y divide-ink-800 overflow-hidden rounded-panel border border-ink-800">
         {jeux.map((jeu) => (
           <FicheJeu
@@ -194,6 +197,61 @@ export function Bibliotheque({
         Vider un champ le fait repartir du <code>game.json</code>.
       </p>
     </section>
+  );
+}
+
+/**
+ * Export des fiches au format EmulationStation (`gamelist.xml` + images),
+ * pour les reprendre sur Recalbox, Batocera, RetroPie ou ES-DE. Un simple
+ * lien de téléchargement : l'archive est produite par `/api/admin/gamelist`.
+ */
+function ExportFiches() {
+  const [consoleSlug, setConsoleSlug] = useState("");
+  const [tout, setTout] = useState(false);
+  const parametres = new URLSearchParams();
+  if (consoleSlug) parametres.set("console", consoleSlug);
+  if (tout) parametres.set("tout", "1");
+  const adresse = `/api/admin/gamelist${parametres.size > 0 ? `?${parametres}` : ""}`;
+
+  return (
+    <div className="flex flex-col gap-2 rounded-panel border border-ink-800 p-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <p className="text-sm font-semibold text-ink-200">Exporter les fiches</p>
+        <label htmlFor="export-console" className="sr-only">
+          Console
+        </label>
+        <select
+          id="export-console"
+          value={consoleSlug}
+          onChange={(evenement) => setConsoleSlug(evenement.target.value)}
+          className="max-w-full min-w-0 rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
+        >
+          <option value="">Toutes les consoles</option>
+          {CONSOLES.map((definition) => (
+            <option key={definition.slug} value={definition.slug}>
+              {definition.name}
+            </option>
+          ))}
+        </select>
+        <label className="flex items-center gap-2 text-sm text-ink-400">
+          <input type="checkbox" checked={tout} onChange={(evenement) => setTout(evenement.target.checked)} />
+          Avec les jeux officiels
+        </label>
+        <a
+          href={adresse}
+          download
+          className="inline-flex items-center justify-center rounded-lg border border-ink-700 px-4 py-2 text-sm font-semibold text-ink-200 transition-colors hover:border-ink-400 hover:text-ink-50"
+        >
+          Télécharger (.zip)
+        </a>
+      </div>
+      <p className="text-xs text-ink-700">
+        Un <code>gamelist.xml</code> et un dossier d&apos;images par console, au format
+        d&apos;EmulationStation (Recalbox, Batocera, RetroPie, ES-DE) : titre, description, année,
+        auteur, langue et jaquette, rattachés au nom du fichier ROM. Aucune ROM n&apos;est dans
+        l&apos;archive.
+      </p>
+    </div>
   );
 }
 

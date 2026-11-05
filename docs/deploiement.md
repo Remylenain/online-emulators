@@ -232,6 +232,35 @@ Ce qui est trouvé va dans `DATA_DIR/retouches` (description, année) et
 `DATA_DIR/jaquettes` : la bibliothèque reste en lecture seule, et une
 correction faite ensuite dans l'administration l'emporte.
 
+### Fiches EmulationStation : reprendre les siennes, exporter celles du site
+
+Le site lit et écrit le format `gamelist.xml` d'EmulationStation — celui de
+Recalbox, Batocera, RetroPie et ES-DE.
+
+**Reprendre une installation existante.** Qui a déjà un dossier de ROMs
+scrapé n'a rien à ressaisir : `scripts/importer-roms.ts` lit le
+`gamelist.xml` du dossier source (ou celui que désigne `--gamelist`) et en
+reprend, pour chaque ROM qu'il nomme, le titre, la description, l'année,
+l'auteur (`<developer>`, sauf avec `--officiel`) et la jaquette, par un lien
+`cover.<ext>` vers l'image d'origine.
+
+```bash
+node scripts/importer-roms.ts --source /chemin/roms/gbc --console gbc \
+     --bibliotheque "$LIBRARY_DIR" --essai
+```
+
+Un jeu déjà rangé garde tout ce qu'il a : le `gamelist.xml` n'y ajoute que
+ce qui manque. `--essai` montre ce qui serait fait sans rien écrire ; le scan
+publie ensuite le résultat.
+
+**Exporter les fiches du site.** Administration → Bibliothèque → « Exporter
+les fiches » télécharge une archive zip : par console, un `gamelist.xml` et
+un dossier `images/`, les deux rattachés au nom du fichier ROM d'origine
+(celui vers lequel pointe le lien de la bibliothèque). Par défaut seuls les
+rom hacks partent — les jeux officiels se retrouvent dans n'importe quel
+scraper. Un `LISEZ-MOI.txt` dans l'archive dit où poser les fichiers selon le
+frontal. Aucune ROM n'est jamais dans l'archive.
+
 ### Limiter le nombre de salons de câble link
 
 Chaque salon fait tourner deux consoles sur le serveur, à 60 images par

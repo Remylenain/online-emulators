@@ -127,7 +127,7 @@ Réglages.
 | `npm run dev` | site et serveur du câble link en développement |
 | `npm run build` puis `npm start` | production |
 | `npm run library:scan` | relire la bibliothèque |
-| `node scripts/importer-roms.ts --source <dossier> --console gb --bibliotheque <LIBRARY_DIR> [--officiel] [--essai]` | ranger un dossier de ROMs dans la bibliothèque (liens symboliques, titres lus dans les noms No-Intro) |
+| `node scripts/importer-roms.ts --source <dossier> --console gb --bibliotheque <LIBRARY_DIR> [--officiel] [--gamelist <gamelist.xml>] [--essai]` | ranger un dossier de ROMs dans la bibliothèque (liens symboliques, titres lus dans les noms No-Intro) ; reprend les fiches et jaquettes d'un `gamelist.xml` EmulationStation s'il y en a un |
 | `npm run user:create -- --pseudo <nom> --admin` | créer un compte en ligne de commande |
 | `npm run db:migrate` | appliquer les migrations après une mise à jour |
 | `npm run link:capacite -- --appliquer` | mesurer ce qu'un salon de câble link coûte au serveur, et limiter le nombre de salons en conséquence |
