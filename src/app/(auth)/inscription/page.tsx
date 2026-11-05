@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Alert, Panel } from "@/components/ui";
 import { redirectIfAuthenticated } from "@/lib/auth/guard";
-import { env } from "@/lib/env";
-import { inscriptionsOuvertes } from "@/lib/parametres";
+import { configCaptcha, inscriptionsOuvertes } from "@/lib/parametres";
 import { OpenRegisterForm } from "./open-register-form";
 import { RegisterForm } from "./register-form";
 
@@ -27,7 +26,7 @@ export default async function RegisterPage({
 
   // La clé publique du captcha est la seule valeur d'environnement qui a le
   // droit de descendre jusqu'au navigateur.
-  if (inscriptionsOuvertes()) return <OpenRegisterForm siteKey={env.TURNSTILE_SITE_KEY} />;
+  if (inscriptionsOuvertes()) return <OpenRegisterForm siteKey={configCaptcha().siteKey} />;
 
   return (
     <Panel>

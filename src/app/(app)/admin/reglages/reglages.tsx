@@ -1,7 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
-import { definirMargeCableLink, definirNomDuSite, type Resultat } from "@/lib/admin/actions";
+import { useActionState, useState, useTransition } from "react";
+import {
+  definirCaptcha,
+  definirMail,
+  definirMargeCableLink,
+  definirNomDuSite,
+  envoyerMailDeTest,
+  oublierCaptcha,
+  oublierMail,
+  type Resultat,
+} from "@/lib/admin/actions";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 import type { EtatCapacite } from "@/lib/link/capacite";
 
@@ -10,12 +19,19 @@ export function Reglages({
   description,
   application,
   capacite,
+  mail,
+  captcha,
+  adresseAdmin,
 }: {
   nom: string;
   description: string;
   /** Nom sous l'icône une fois le site installé sur un téléphone ; vide = nom du site. */
   application: string;
   capacite: EtatCapacite;
+  mail: ReglageMail;
+  captcha: ReglageCaptcha;
+  /** Adresse de l'administrateur connecté, proposée pour l'e-mail de test. */
+  adresseAdmin: string;
 }) {
   const [retour, action, enCours] = useActionState<Resultat | null, FormData>(
     definirNomDuSite,
@@ -48,7 +64,152 @@ export function Reglages({
         </form>
       </Panel>
       <CableLink capacite={capacite} />
+      <Mail mail={mail} adresseAdmin={adresseAdmin} />
+      <Captcha captcha={captcha} />
     </section>
+  );
+}
+
+type Source = "reglages" | "serveur" | "aucune";
+
+export type ReglageMail = {
+  host: string;
+  port: number;
+  user: string;
+  from: string;
+  motDePasseDefini: boolean;
+  source: Source;
+};
+
+export type ReglageCaptcha = { siteKey: string; secretDefini: boolean; source: Source };
+
+function Provenance({ source, quoi }: { source: Source; quoi: string }) {
+  return (
+    <p className="text-xs text-ink-400">
+      {source === "reglages"
+        ? `${quoi} réglé ici. Il l'emporte sur la configuration du serveur.`
+        : source === "serveur"
+          ? `${quoi} vient de la configuration du serveur. Enregistrer ce formulaire le remplace, sans redémarrage.`
+          : `${quoi} n'est pas configuré.`}
+    </p>
+  );
+}
+
+/**
+ * Le relais d'e-mails : invitations, mots de passe oubliés, confirmations
+ * d'inscription. Le mot de passe ne s'affiche jamais ; le laisser vide garde
+ * celui qui est enregistré.
+ */
+function Mail({ mail, adresseAdmin }: { mail: ReglageMail; adresseAdmin: string }) {
+  const [retour, action, enCours] = useActionState<Resultat | null, FormData>(definirMail, null);
+  const [essai, actionEssai, essaiEnCours] = useActionState<Resultat | null, FormData>(envoyerMailDeTest, null);
+  const [oubli, setOubli] = useState<Resultat | null>(null);
+  const [oubliEnCours, demarrer] = useTransition();
+
+  return (
+    <Panel className="max-w-xl">
+      <div className="flex flex-col gap-4">
+        <form action={action} className="flex flex-col gap-4">
+          <h3 className="text-sm font-semibold text-ink-200">Envoi d&apos;e-mails</h3>
+          <Provenance source={mail.source} quoi="Le relais" />
+          {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
+          {oubli && <Alert tone={oubli.ok ? "success" : "error"}>{oubli.message}</Alert>}
+          <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
+            <Field label="Hôte SMTP" htmlFor="host">
+              <Input id="host" name="host" defaultValue={mail.host} required placeholder="smtp-relay.exemple.com" autoComplete="off" />
+            </Field>
+            <Field label="Port" htmlFor="port">
+              <Input id="port" name="port" type="number" min={1} max={65535} defaultValue={mail.port} required />
+            </Field>
+          </div>
+          <Field label="Identifiant" htmlFor="user" hint="Celui que donne le relais, pas forcément l'adresse du compte.">
+            <Input id="user" name="user" defaultValue={mail.user} autoComplete="off" />
+          </Field>
+          <Field
+            label="Mot de passe ou clé SMTP"
+            htmlFor="password"
+            hint={mail.motDePasseDefini ? "Un mot de passe est enregistré. Laisse vide pour le garder." : "Aucun mot de passe enregistré."}
+          >
+            <Input id="password" name="password" type="password" autoComplete="new-password" placeholder={mail.motDePasseDefini ? "••••••••" : ""} />
+          </Field>
+          <Field label="Expéditeur" htmlFor="from" hint="Tel qu'il apparaît dans les messages. L'adresse doit être sur un domaine que le relais accepte.">
+            <Input id="from" name="from" defaultValue={mail.from} placeholder="Mon site <jeux@exemple.com>" autoComplete="off" />
+          </Field>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit" disabled={enCours}>
+              {enCours ? "Enregistrement…" : "Enregistrer le relais"}
+            </Button>
+            {mail.source === "reglages" && (
+              <button
+                type="button"
+                disabled={oubliEnCours}
+                onClick={() => demarrer(async () => setOubli(await oublierMail()))}
+                className="text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
+              >
+                Revenir à la configuration du serveur
+              </button>
+            )}
+          </div>
+        </form>
+
+        <form action={actionEssai} className="flex flex-col gap-3 border-t border-ink-800 pt-4">
+          {essai && <Alert tone={essai.ok ? "success" : "error"}>{essai.message}</Alert>}
+          <Field label="Envoyer un e-mail de test à" htmlFor="destinataire">
+            <Input id="destinataire" name="destinataire" type="email" defaultValue={adresseAdmin} required />
+          </Field>
+          <Button type="submit" variant="ghost" disabled={essaiEnCours || mail.source === "aucune"} className="self-start">
+            {essaiEnCours ? "Envoi…" : "Envoyer le test"}
+          </Button>
+        </form>
+      </div>
+    </Panel>
+  );
+}
+
+/** Les clés Turnstile : sans elles, les inscriptions ouvertes restent fermées. */
+function Captcha({ captcha }: { captcha: ReglageCaptcha }) {
+  const [retour, action, enCours] = useActionState<Resultat | null, FormData>(definirCaptcha, null);
+  const [oubli, setOubli] = useState<Resultat | null>(null);
+  const [oubliEnCours, demarrer] = useTransition();
+
+  return (
+    <Panel className="max-w-xl">
+      <form action={action} className="flex flex-col gap-4">
+        <h3 className="text-sm font-semibold text-ink-200">Captcha (Cloudflare Turnstile)</h3>
+        <Provenance source={captcha.source} quoi="Le captcha" />
+        <p className="text-xs text-ink-400">
+          Il protège « Mot de passe oublié » et l&apos;inscription ouverte. Les deux clés se créent
+          gratuitement dans le tableau de bord Cloudflare, rubrique Turnstile.
+        </p>
+        {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
+        {oubli && <Alert tone={oubli.ok ? "success" : "error"}>{oubli.message}</Alert>}
+        <Field label="Clé du site" htmlFor="siteKey" hint="Publique : elle part dans la page.">
+          <Input id="siteKey" name="siteKey" defaultValue={captcha.siteKey} required autoComplete="off" />
+        </Field>
+        <Field
+          label="Clé secrète"
+          htmlFor="secretKey"
+          hint={captcha.secretDefini ? "Une clé secrète est enregistrée. Laisse vide pour la garder." : "Aucune clé secrète enregistrée."}
+        >
+          <Input id="secretKey" name="secretKey" type="password" autoComplete="new-password" placeholder={captcha.secretDefini ? "••••••••" : ""} />
+        </Field>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={enCours}>
+            {enCours ? "Enregistrement…" : "Enregistrer les clés"}
+          </Button>
+          {captcha.source === "reglages" && (
+            <button
+              type="button"
+              disabled={oubliEnCours}
+              onClick={() => demarrer(async () => setOubli(await oublierCaptcha()))}
+              className="text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
+            >
+              Revenir à la configuration du serveur
+            </button>
+          )}
+        </div>
+      </form>
+    </Panel>
   );
 }
 

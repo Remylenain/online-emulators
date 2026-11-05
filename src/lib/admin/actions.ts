@@ -25,9 +25,18 @@ import {
   newId,
 } from "@/lib/auth/session";
 import { env } from "@/lib/env";
-import { mailEnabled } from "@/lib/env";
 import { definirMargeLink, MARGE_MAX, MARGE_MIN } from "@/lib/link/capacite";
-import { definirIdentite, definirInscriptionsOuvertes, inscriptionsOuvrables } from "@/lib/parametres";
+import {
+  definirConfigCaptcha,
+  definirConfigMail,
+  definirIdentite,
+  definirInscriptionsOuvertes,
+  effacerConfigCaptcha,
+  effacerConfigMail,
+  inscriptionsOuvrables,
+  mailActif,
+} from "@/lib/parametres";
+import { sendMail } from "@/lib/mail";
 import {
   manifestSchema,
   manifestToColumns,
@@ -154,7 +163,7 @@ async function preparerInvitation(
   const token = await createPasswordResetToken(userId, INVITATION_TOKEN_DURATION_MS);
   const lien = `${env.PUBLIC_URL}/reinitialiser?token=${encodeURIComponent(token)}&bienvenue=1`;
 
-  if (!mailEnabled || email === null) return { lien, mailEnvoye: false };
+  if (!mailActif() || email === null) return { lien, mailEnvoye: false };
 
   try {
     await sendInvitation(email, pseudo, lien, invitePar);
@@ -248,6 +257,76 @@ export async function definirNomDuSite(_etat: unknown, donnees: FormData): Promi
 }
 
 /**
+ * Le relais d'e-mails, réglé depuis l'administration. Le mot de passe laissé
+ * vide garde celui déjà enregistré : il n'est jamais renvoyé au navigateur,
+ * on ne peut donc pas le « ressaisir tel quel ».
+ */
+export async function definirMail(_etat: unknown, donnees: FormData): Promise<Resultat> {
+  await requireAdmin();
+  const host = String(donnees.get("host") ?? "").trim();
+  const port = Number(donnees.get("port"));
+  const user = String(donnees.get("user") ?? "").trim();
+  const password = String(donnees.get("password") ?? "");
+  const from = String(donnees.get("from") ?? "").trim();
+  if (!host || host.length > 255) return { ok: false, message: "L'hôte du relais est obligatoire." };
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return { ok: false, message: "Le port doit être un nombre entre 1 et 65535." };
+  if (user.length > 255 || from.length > 255 || password.length > 500) return { ok: false, message: "Une des valeurs est trop longue." };
+
+  definirConfigMail({ host, port, user, from, ...(password ? { password } : {}) });
+  revalidatePath("/admin/reglages");
+  revalidatePath("/admin/comptes");
+  return { ok: true, message: "Relais enregistré. Envoie-toi un e-mail de test pour le vérifier." };
+}
+
+/** Revient au relais de l'environnement du serveur, s'il y en a un. */
+export async function oublierMail(): Promise<Resultat> {
+  await requireAdmin();
+  effacerConfigMail();
+  revalidatePath("/admin/reglages");
+  revalidatePath("/admin/comptes");
+  return { ok: true, message: "Réglage effacé : le site reprend la configuration du serveur." };
+}
+
+/** Un e-mail de test, pour savoir tout de suite si le relais accepte. */
+export async function envoyerMailDeTest(_etat: unknown, donnees: FormData): Promise<Resultat> {
+  await requireAdmin();
+  const destinataire = String(donnees.get("destinataire") ?? "").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinataire)) return { ok: false, message: "Adresse de destination invalide." };
+  if (!mailActif()) return { ok: false, message: "Aucun relais d'e-mails n'est configuré." };
+  try {
+    await sendMail({
+      to: destinataire,
+      subject: "E-mail de test",
+      text: "Si tu lis ce message, le relais d'e-mails du site fonctionne.\n",
+    });
+  } catch (erreur) {
+    // Le message du relais (« 535 Authentication failed »…) est ce qui permet de corriger.
+    return { ok: false, message: `Le relais a refusé : ${erreur instanceof Error ? erreur.message : "erreur inconnue"}` };
+  }
+  return { ok: true, message: `E-mail envoyé à ${destinataire}. Regarde aussi les indésirables.` };
+}
+
+/** Les clés Turnstile du captcha. La clé secrète laissée vide garde celle enregistrée. */
+export async function definirCaptcha(_etat: unknown, donnees: FormData): Promise<Resultat> {
+  await requireAdmin();
+  const siteKey = String(donnees.get("siteKey") ?? "").trim();
+  const secretKey = String(donnees.get("secretKey") ?? "").trim();
+  if (!siteKey || siteKey.length > 200 || secretKey.length > 200) return { ok: false, message: "Clé du site obligatoire, 200 caractères au plus." };
+  definirConfigCaptcha(siteKey, secretKey || undefined);
+  revalidatePath("/admin/reglages");
+  revalidatePath("/admin/comptes");
+  return { ok: true, message: "Clés enregistrées." };
+}
+
+export async function oublierCaptcha(): Promise<Resultat> {
+  await requireAdmin();
+  effacerConfigCaptcha();
+  revalidatePath("/admin/reglages");
+  revalidatePath("/admin/comptes");
+  return { ok: true, message: "Réglage effacé : le site reprend la configuration du serveur." };
+}
+
+/**
  * Part du processeur laissée au câble link. Les coûts par salon, eux, se
  * mesurent sur le serveur (`npm run link:capacite -- --appliquer`).
  */
@@ -269,7 +348,7 @@ export async function definirMargeCableLink(_etat: unknown, donnees: FormData): 
  */
 export async function definirInscriptions(ouvertes: boolean): Promise<Resultat> {
   await requireAdmin();
-  if (ouvertes && !inscriptionsOuvrables) {
+  if (ouvertes && !inscriptionsOuvrables()) {
     return {
       ok: false,
       message: "Impossible d'ouvrir : il faut un serveur de mail et un captcha configurés.",

@@ -55,7 +55,7 @@ export default async function ComptesPage() {
       moi={admin.id}
       jeux={jeux}
       liens={liens}
-      inscriptions={{ ouvertes: inscriptionsOuvertes(), ouvrables: inscriptionsOuvrables }}
+      inscriptions={{ ouvertes: inscriptionsOuvertes(), ouvrables: inscriptionsOuvrables() }}
     />
   );
 }

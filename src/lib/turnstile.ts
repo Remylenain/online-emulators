@@ -1,4 +1,4 @@
-import { captchaEnabled, env } from "./env";
+import { configCaptcha } from "./parametres";
 
 const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
@@ -10,11 +10,12 @@ const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
  * l'absence de clé est signalée au démarrage par la page de réinitialisation.
  */
 export async function verifyCaptcha(token: string | null, ip?: string | null): Promise<boolean> {
-  if (!captchaEnabled) return true;
+  const { secretKey } = configCaptcha();
+  if (!secretKey) return true;
   if (!token) return false;
 
   const body = new URLSearchParams({
-    secret: env.TURNSTILE_SECRET_KEY,
+    secret: secretKey,
     response: token,
   });
   if (ip) body.set("remoteip", ip);

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/guard";
 import { etatCapacite } from "@/lib/link/capacite";
-import { descriptionDuSite, lireParametre, nomDuSite } from "@/lib/parametres";
+import { configCaptcha, configMail, descriptionDuSite, lireParametre, nomDuSite } from "@/lib/parametres";
 import { Reglages } from "./reglages";
 
 export const metadata: Metadata = { title: "Réglages" };
@@ -13,13 +13,26 @@ export const dynamic = "force-dynamic";
  * d'accueil, et la part du processeur laissée au câble link.
  */
 export default async function ReglagesPage() {
-  await requireAdmin();
+  const admin = await requireAdmin();
+  const mail = configMail();
+  const captcha = configCaptcha();
   return (
     <Reglages
       nom={nomDuSite()}
       description={descriptionDuSite()}
       application={lireParametre("nom_application") ?? ""}
       capacite={etatCapacite()}
+      // Ni le mot de passe ni la clé secrète ne descendent : seulement s'ils existent.
+      mail={{
+        host: mail.host,
+        port: mail.port,
+        user: mail.user,
+        from: mail.from,
+        motDePasseDefini: mail.password.length > 0,
+        source: mail.source,
+      }}
+      captcha={{ siteKey: captcha.siteKey, secretDefini: captcha.secretKey.length > 0, source: captcha.source }}
+      adresseAdmin={admin.email ?? ""}
     />
   );
 }

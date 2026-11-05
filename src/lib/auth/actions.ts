@@ -6,9 +6,9 @@ import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { env, mailEnabled } from "@/lib/env";
+import { env } from "@/lib/env";
 import { sendPasswordReset, sendRegistrationConfirmation } from "@/lib/mail";
-import { inscriptionsOuvertes } from "@/lib/parametres";
+import { inscriptionsOuvertes, mailActif } from "@/lib/parametres";
 import { rateLimit } from "@/lib/rate-limit";
 import { verifyCaptcha } from "@/lib/turnstile";
 import {
@@ -314,7 +314,7 @@ export async function requestPasswordReset(
 ): Promise<FormState> {
   // Sans serveur de mail, aucun lien ne peut partir : la page l'annonce déjà,
   // l'action ne fait pas semblant d'avoir envoyé quelque chose.
-  if (!mailEnabled) return { message: SANS_MAIL };
+  if (!mailActif()) return { message: SANS_MAIL };
 
   const parsed = forgotPasswordSchema.safeParse({
     email: formData.get("email"),

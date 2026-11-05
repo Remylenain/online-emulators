@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
-import { captchaEnabled, mailEnabled } from "@/lib/env";
+import { env } from "@/lib/env";
 
 /**
  * Réglages du site que l'administrateur change depuis l'interface.
@@ -29,16 +29,124 @@ export function ecrireParametre(cle: string, valeur: string): void {
     .run();
 }
 
+function effacerParametres(cles: string[]): void {
+  for (const cle of cles) db.delete(settings).where(eq(settings.key, cle)).run();
+}
+
+/**
+ * Le relais d'e-mails et le captcha.
+ *
+ * Deux endroits peuvent les fournir : les réglages de l'administration, ou
+ * l'environnement du serveur. **Les réglages l'emportent dès qu'ils sont
+ * renseignés**, en bloc — on ne mélange pas l'hôte de l'un et le mot de
+ * passe de l'autre ; sinon c'est l'environnement, comme avant. Changer de
+ * relais ne demande donc plus ni SSH ni redémarrage.
+ *
+ * Le mot de passe et la clé secrète sont rangés en clair dans la base, au
+ * même titre qu'ils le seraient dans le fichier d'environnement : les deux
+ * ne sont lisibles que par le compte du service. Ils ne redescendent jamais
+ * vers le navigateur.
+ */
+const MAIL = {
+  host: "smtp_host",
+  port: "smtp_port",
+  user: "smtp_user",
+  password: "smtp_password",
+  from: "mail_from",
+} as const;
+
+export type ConfigMail = {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  from: string;
+  /** D'où vient la configuration en vigueur. */
+  source: "reglages" | "serveur" | "aucune";
+};
+
+export function configMail(): ConfigMail {
+  const host = lireParametre(MAIL.host)?.trim() ?? "";
+  if (host) {
+    return {
+      host,
+      port: Number(lireParametre(MAIL.port)) || 587,
+      user: lireParametre(MAIL.user) ?? "",
+      password: lireParametre(MAIL.password) ?? "",
+      from: lireParametre(MAIL.from) ?? "",
+      source: "reglages",
+    };
+  }
+  return {
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    user: env.SMTP_USER,
+    password: env.SMTP_PASSWORD,
+    from: env.MAIL_FROM,
+    source: env.SMTP_HOST ? "serveur" : "aucune",
+  };
+}
+
+/** Sans relais configuré, les e-mails sont écrits dans la console du serveur. */
+export function mailActif(): boolean {
+  return configMail().host.length > 0;
+}
+
+/** `password` omis : celui déjà enregistré est gardé. */
+export function definirConfigMail(config: { host: string; port: number; user: string; password?: string; from: string }): void {
+  ecrireParametre(MAIL.host, config.host.trim());
+  ecrireParametre(MAIL.port, String(config.port));
+  ecrireParametre(MAIL.user, config.user.trim());
+  ecrireParametre(MAIL.from, config.from.trim());
+  if (config.password !== undefined) ecrireParametre(MAIL.password, config.password);
+}
+
+export function effacerConfigMail(): void {
+  effacerParametres(Object.values(MAIL));
+}
+
+const CAPTCHA = { site: "turnstile_site_key", secret: "turnstile_secret_key" } as const;
+
+export type ConfigCaptcha = { siteKey: string; secretKey: string; source: "reglages" | "serveur" | "aucune" };
+
+export function configCaptcha(): ConfigCaptcha {
+  const secretKey = lireParametre(CAPTCHA.secret)?.trim() ?? "";
+  if (secretKey) {
+    return { siteKey: lireParametre(CAPTCHA.site)?.trim() ?? "", secretKey, source: "reglages" };
+  }
+  return {
+    siteKey: env.TURNSTILE_SITE_KEY,
+    secretKey: env.TURNSTILE_SECRET_KEY,
+    source: env.TURNSTILE_SECRET_KEY ? "serveur" : "aucune",
+  };
+}
+
+/** Le captcha est contourné tant qu'aucune clé secrète n'est fournie. */
+export function captchaActif(): boolean {
+  return configCaptcha().secretKey.length > 0;
+}
+
+export function definirConfigCaptcha(siteKey: string, secretKey?: string): void {
+  ecrireParametre(CAPTCHA.site, siteKey.trim());
+  if (secretKey !== undefined) ecrireParametre(CAPTCHA.secret, secretKey.trim());
+}
+
+export function effacerConfigCaptcha(): void {
+  effacerParametres(Object.values(CAPTCHA));
+}
+
 /**
  * Ouvrir les inscriptions suppose un serveur de mail — le compte n'existe
  * qu'une fois l'adresse confirmée — et un captcha, sans quoi le formulaire
  * serait une porte ouverte aux robots. Sans l'un des deux, elles restent
  * fermées quoi qu'en dise le réglage, et l'administration explique pourquoi.
  */
-export const inscriptionsOuvrables = mailEnabled && captchaEnabled;
+export function inscriptionsOuvrables(): boolean {
+  return mailActif() && captchaActif();
+}
 
 export function inscriptionsOuvertes(): boolean {
-  return inscriptionsOuvrables && lireParametre(INSCRIPTIONS_OUVERTES) === "1";
+  return inscriptionsOuvrables() && lireParametre(INSCRIPTIONS_OUVERTES) === "1";
 }
 
 export function definirInscriptionsOuvertes(ouvertes: boolean): void {

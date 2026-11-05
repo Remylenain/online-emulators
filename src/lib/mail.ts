@@ -1,16 +1,26 @@
 import nodemailer, { type Transporter } from "nodemailer";
-import { env, mailEnabled } from "./env";
+import { configMail, type ConfigMail } from "./parametres";
 
-let transporter: Transporter | null = null;
+/**
+ * Le transport est gardé tant que la configuration ne change pas : elle peut
+ * maintenant être modifiée depuis l'administration, sans redémarrage.
+ */
+let transporter: { signature: string; transport: Transporter } | null = null;
 
-function getTransporter(): Transporter {
-  transporter ??= nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_PORT === 465,
-    auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } : undefined,
-  });
-  return transporter;
+function getTransporter(config: ConfigMail): Transporter {
+  const signature = JSON.stringify([config.host, config.port, config.user, config.password]);
+  if (transporter?.signature !== signature) {
+    transporter = {
+      signature,
+      transport: nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.port === 465,
+        auth: config.user ? { user: config.user, pass: config.password } : undefined,
+      }),
+    };
+  }
+  return transporter.transport;
 }
 
 /**
@@ -23,7 +33,8 @@ export async function sendMail(message: {
   subject: string;
   text: string;
 }): Promise<void> {
-  if (!mailEnabled) {
+  const config = configMail();
+  if (!config.host) {
     console.info(
       `[mail] SMTP non configuré, message non envoyé :\n` +
         `  à      : ${message.to}\n` +
@@ -33,8 +44,8 @@ export async function sendMail(message: {
     return;
   }
 
-  await getTransporter().sendMail({
-    from: env.MAIL_FROM || env.SMTP_USER,
+  await getTransporter(config).sendMail({
+    from: config.from || config.user,
     to: message.to,
     subject: message.subject,
     text: message.text,

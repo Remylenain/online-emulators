@@ -108,6 +108,12 @@ appartenant à root, que le service ne pourrait plus écrire ensuite.
 
 ### Renseigner le relais SMTP
 
+Le plus simple est de le faire depuis le site : **Administration → Réglages →
+Envoi d'e-mails**, avec un bouton pour s'envoyer un message de test. Ce qui est
+saisi là l'emporte sur le fichier d'environnement et prend effet aussitôt, sans
+redémarrage. Le fichier d'environnement, décrit ci-dessous, reste la solution
+quand on préfère ne rien ranger de tel dans la base.
+
 Tant que `SMTP_HOST` est vide, les liens de réinitialisation de mot de passe
 sont écrits dans le journal du service au lieu d'être envoyés — la
 fonctionnalité est donc inutilisable par les joueurs.
@@ -129,6 +135,9 @@ MAIL_FROM="Online Emulators <noreply@jeux.exemple.com>"
 Puis `sudo systemctl restart online-emulators`.
 
 ### Activer le captcha
+
+Même choix que pour le relais : les deux clés se saisissent dans
+**Administration → Réglages → Captcha**, ou dans le fichier d'environnement.
 
 Le formulaire de mot de passe oublié accepte un captcha Cloudflare Turnstile.
 Tant que `TURNSTILE_SECRET_KEY` est vide, il est contourné. Renseigner les deux
