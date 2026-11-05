@@ -16,7 +16,10 @@
  *    jaquette. L'API exige, en plus du compte, des identifiants développeur
  *    que ScreenScraper délivre sur demande.
  * 2. **Les vignettes de libretro** (thumbnails.libretro.com), sans compte,
- *    pour la jaquette seulement, quand la ROM porte un nom No-Intro.
+ *    pour la jaquette seulement. La ROM qui porte son nom No-Intro exact est
+ *    trouvée directement ; les autres sont rapprochées par leur titre dans la
+ *    liste complète du système (voir `_libretro.ts`). Un rapprochement qui
+ *    n'est pas lettre pour lettre est marqué « ≈ » dans le journal.
  *
  * Seuls les jeux marqués `officiel` sont interrogés : un rom hack n'est dans
  * aucune de ces bases, et chaque ROM inconnue compte contre le quota du
@@ -37,6 +40,7 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { ecrireRetouche, lireRetouche } from "../src/lib/library/retouches.ts";
 import { openDatabase, schema } from "./_db.ts";
+import { chercherJaquetteLibretro } from "./_libretro.ts";
 
 const libraryDir = path.resolve(process.env.LIBRARY_DIR ?? "./library");
 const dataDir = path.resolve(process.env.DATA_DIR ?? "./data");
@@ -250,13 +254,23 @@ for (const [index, jeu] of jeux.entries()) {
     const destination = path.join(dataDir, "jaquettes", jeu.consoleSlug, `${jeu.slug}.png`);
     let prise = false;
     if (trouve?.jaquette) prise = await telecharger(trouve.jaquette, destination);
+    let precision = "";
     if (!prise) {
       prise = await telecharger(adresseLibretro(jeu.consoleSlug, nomRom), destination);
       await pause(150);
     }
+    if (!prise) {
+      // Pas d'image à ce nom exact : on rapproche le titre de la liste de libretro.
+      const proche = await chercherJaquetteLibretro(jeu.consoleSlug, nomRom, [jeu.titre]);
+      if (proche) {
+        prise = await telecharger(proche.adresse, destination);
+        if (prise) precision = ` (${proche.approchee ? "≈ " : ""}${proche.nom})`;
+        await pause(150);
+      }
+    }
     if (prise) {
       jaquettes++;
-      acquis.push("jaquette");
+      acquis.push(`jaquette${precision}`);
     }
   }
 

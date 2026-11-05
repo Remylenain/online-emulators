@@ -222,8 +222,11 @@ scan :
   du compte membre, des identifiants « développeur » que ScreenScraper
   délivre sur demande ;
 - sinon, ou pour ce que ScreenScraper n'a pas, dans la collection publique de
-  vignettes de **libretro**, pour la jaquette seulement, par nom de fichier
-  No-Intro.
+  vignettes de **libretro**, pour la jaquette seulement. Une ROM qui porte
+  son nom No-Intro exact est trouvée directement ; les autres (ancien nom,
+  étiquette manquante, fichier renommé à la main) sont rapprochées par leur
+  titre dans la liste complète du système. Un rapprochement qui n'est pas
+  lettre pour lettre est marqué « ≈ » dans le journal, pour être vérifié.
 
 Ce qui est trouvé va dans `DATA_DIR/retouches` (description, année) et
 `DATA_DIR/jaquettes` : la bibliothèque reste en lecture seule, et une
