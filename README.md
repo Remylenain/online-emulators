@@ -133,6 +133,7 @@ Réglages.
 | `npm run link:capacite -- --appliquer` | mesurer ce qu'un salon de câble link coûte au serveur, et limiter le nombre de salons en conséquence |
 | `npm run typecheck` | vérification TypeScript |
 | `npm run lint` | ESLint, règles de Next et de TypeScript |
+| `node --env-file=.env scripts/scraper.ts` | compléter les fiches des jeux officiels (description, année, jaquette) ; aussi en un bouton dans Administration → Bibliothèque |
 
 ## Pile technique
 

@@ -17,8 +17,18 @@ import { env } from "@/lib/env";
  * privilège supplémentaire. C'est ce qui permet de se passer de `sudo`.
  */
 
-const JOURNAL = () => path.join(env.DATA_DIR, "scan.log");
-const VERROU = () => path.join(env.DATA_DIR, "scan.pid");
+/** Une tâche de fond : son script, son journal, son verrou. */
+type Tache = { script: string; journal: string; verrou: string; nom: string };
+
+const TACHES = {
+  scan: { script: "scan-library.ts", journal: "scan.log", verrou: "scan.pid", nom: "scan" },
+  // Le scraper complète les fiches puis relance le scan lui-même.
+  scraper: { script: "scraper.ts", journal: "scraper.log", verrou: "scraper.pid", nom: "scraper" },
+} as const satisfies Record<string, Tache>;
+
+export type NomTache = keyof typeof TACHES;
+
+const chemin = (fichier: string) => path.join(env.DATA_DIR, fichier);
 
 export type EtatScan = {
   enCours: boolean;
@@ -37,9 +47,9 @@ function tourne(pid: number): boolean {
   }
 }
 
-async function pidEnCours(): Promise<number | null> {
+async function pidEnCours(tache: Tache): Promise<number | null> {
   try {
-    const contenu = await fs.readFile(VERROU(), "utf8");
+    const contenu = await fs.readFile(chemin(tache.verrou), "utf8");
     const pid = Number(contenu.trim());
     if (!Number.isInteger(pid) || !tourne(pid)) return null;
     return pid;
@@ -48,14 +58,15 @@ async function pidEnCours(): Promise<number | null> {
   }
 }
 
-export async function etatDuScan(): Promise<EtatScan> {
-  const pid = await pidEnCours();
+export async function etatDeLaTache(nom: NomTache): Promise<EtatScan> {
+  const tache = TACHES[nom];
+  const pid = await pidEnCours(tache);
 
   let journal = "";
   let termineLe: string | null = null;
   try {
-    journal = await fs.readFile(JOURNAL(), "utf8");
-    const stat = await fs.stat(JOURNAL());
+    journal = await fs.readFile(chemin(tache.journal), "utf8");
+    const stat = await fs.stat(chemin(tache.journal));
     termineLe = pid ? null : stat.mtime.toISOString();
   } catch {
     journal = "";
@@ -66,27 +77,31 @@ export async function etatDuScan(): Promise<EtatScan> {
 
 export type DemarrageScan = { demarre: boolean; message?: string };
 
-export async function demarrerScan(): Promise<DemarrageScan> {
-  if (await pidEnCours()) {
-    return { demarre: false, message: "Un scan est déjà en cours." };
+export async function demarrerLaTache(nom: NomTache): Promise<DemarrageScan> {
+  // Le scan et le scraper écrivent les mêmes fiches : jamais les deux à la fois.
+  for (const autre of Object.values(TACHES)) {
+    if (await pidEnCours(autre)) {
+      return { demarre: false, message: `Un ${autre.nom} est déjà en cours.` };
+    }
   }
+  const tache = TACHES[nom];
 
-  const script = path.join(process.cwd(), "scripts", "scan-library.ts");
+  const script = path.join(process.cwd(), "scripts", tache.script);
   try {
     await fs.access(script);
   } catch {
-    return { demarre: false, message: "Le script de scan est introuvable sur le serveur." };
+    return { demarre: false, message: `Le script du ${tache.nom} est introuvable sur le serveur.` };
   }
 
   await fs.mkdir(env.DATA_DIR, { recursive: true });
-  const sortie = createWriteStream(JOURNAL(), { flags: "w" });
+  const sortie = createWriteStream(chemin(tache.journal), { flags: "w" });
   await new Promise((resolve) => sortie.once("open", resolve));
 
   /**
-   * `detached` et `unref` : le scan doit survivre à la requête qui l'a lancé,
-   * et au redéploiement qui pourrait suivre. Il écrit dans la même base que le
-   * service — SQLite en mode WAL supporte cet écrivain concurrent, et le
-   * `busy_timeout` posé des deux côtés absorbe les attentes.
+   * `detached` et `unref` : la tâche doit survivre à la requête qui l'a
+   * lancée, et au redéploiement qui pourrait suivre. Elle écrit dans la même
+   * base que le service — SQLite en mode WAL supporte cet écrivain
+   * concurrent, et le `busy_timeout` posé des deux côtés absorbe les attentes.
    */
   const enfant = spawn(process.execPath, [script], {
     cwd: process.cwd(),
@@ -95,10 +110,13 @@ export async function demarrerScan(): Promise<DemarrageScan> {
     stdio: ["ignore", sortie, sortie],
   });
 
-  if (!enfant.pid) return { demarre: false, message: "Le scan n'a pas pu démarrer." };
+  if (!enfant.pid) return { demarre: false, message: `Le ${tache.nom} n'a pas pu démarrer.` };
 
-  await fs.writeFile(VERROU(), String(enfant.pid), "utf8");
+  await fs.writeFile(chemin(tache.verrou), String(enfant.pid), "utf8");
   enfant.unref();
 
   return { demarre: true };
 }
+
+export const etatDuScan = () => etatDeLaTache("scan");
+export const demarrerScan = () => demarrerLaTache("scan");

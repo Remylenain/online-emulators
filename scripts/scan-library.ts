@@ -332,7 +332,11 @@ for (const definition of CONSOLES) {
     const taille = (await fsp.stat(rom)).size;
     const empreinte = await sha1(rom);
 
-    const jaquette = await trouverImage(dossierJeu, "cover", manifeste.jaquette);
+    // À défaut d'une jaquette dans la bibliothèque, celle que le scraper a
+    // rangée dans DATA_DIR/jaquettes : la bibliothèque passe toujours d'abord.
+    const jaquette =
+      (await trouverImage(dossierJeu, "cover", manifeste.jaquette)) ??
+      (await trouverImage(path.join(dataDir, "jaquettes", definition.slug), slug, undefined));
     const images = jaquette
       ? await genererJaquette(jaquette, definition.slug, slug)
       : null;

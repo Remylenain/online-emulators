@@ -6,9 +6,11 @@ import {
   definirMail,
   definirMargeCableLink,
   definirNomDuSite,
+  definirScraper,
   envoyerMailDeTest,
   oublierCaptcha,
   oublierMail,
+  oublierScraper,
   type Resultat,
 } from "@/lib/admin/actions";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
@@ -22,6 +24,7 @@ export function Reglages({
   mail,
   captcha,
   adresseAdmin,
+  scraper,
 }: {
   nom: string;
   description: string;
@@ -32,6 +35,7 @@ export function Reglages({
   captcha: ReglageCaptcha;
   /** Adresse de l'administrateur connecté, proposée pour l'e-mail de test. */
   adresseAdmin: string;
+  scraper: ReglageScraper;
 }) {
   const [retour, action, enCours] = useActionState<Resultat | null, FormData>(
     definirNomDuSite,
@@ -66,7 +70,82 @@ export function Reglages({
       <CableLink capacite={capacite} />
       <Mail mail={mail} adresseAdmin={adresseAdmin} />
       <Captcha captcha={captcha} />
+      <Scraper scraper={scraper} />
     </section>
+  );
+}
+
+export type ReglageScraper = {
+  devId: string;
+  devPasswordDefini: boolean;
+  ssId: string;
+  ssPasswordDefini: boolean;
+};
+
+/**
+ * Le compte ScreenScraper : il sert à « Compléter les fiches » dans
+ * Bibliothèque, qui va chercher description, année et jaquette des jeux
+ * officiels. Sans lui, seules les jaquettes de libretro sont cherchées.
+ */
+function Scraper({ scraper }: { scraper: ReglageScraper }) {
+  const [retour, action, enCours] = useActionState<Resultat | null, FormData>(definirScraper, null);
+  const [oubli, setOubli] = useState<Resultat | null>(null);
+  const [oubliEnCours, demarrer] = useTransition();
+  const renseigne = Boolean(scraper.devId || scraper.ssId);
+
+  return (
+    <Panel className="max-w-xl">
+      <form action={action} className="flex flex-col gap-4">
+        <h3 className="text-sm font-semibold text-ink-200">Scraper (ScreenScraper)</h3>
+        <p className="text-xs text-ink-400">
+          Pour remplir les fiches des jeux officiels depuis screenscraper.fr : description en
+          français, année, jaquette. Le bouton est dans Bibliothèque. L&apos;API demande deux paires
+          d&apos;identifiants : celle du <strong className="text-ink-200">membre</strong> (ton compte),
+          et celle du <strong className="text-ink-200">logiciel</strong>, dite « développeur », que
+          ScreenScraper délivre sur demande depuis son forum. Sans la seconde, seules les jaquettes
+          de libretro sont cherchées — elles couvrent déjà la plupart des jeux.
+        </p>
+        {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
+        {oubli && <Alert tone={oubli.ok ? "success" : "error"}>{oubli.message}</Alert>}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Identifiant du compte" htmlFor="ssId">
+            <Input id="ssId" name="ssId" defaultValue={scraper.ssId} autoComplete="off" />
+          </Field>
+          <Field
+            label="Mot de passe du compte"
+            htmlFor="ssPassword"
+            hint={scraper.ssPasswordDefini ? "Enregistré. Vide : inchangé." : "Aucun enregistré."}
+          >
+            <Input id="ssPassword" name="ssPassword" type="password" autoComplete="new-password" placeholder={scraper.ssPasswordDefini ? "••••••••" : ""} />
+          </Field>
+          <Field label="Identifiant développeur" htmlFor="devId">
+            <Input id="devId" name="devId" defaultValue={scraper.devId} autoComplete="off" />
+          </Field>
+          <Field
+            label="Mot de passe développeur"
+            htmlFor="devPassword"
+            hint={scraper.devPasswordDefini ? "Enregistré. Vide : inchangé." : "Aucun enregistré."}
+          >
+            <Input id="devPassword" name="devPassword" type="password" autoComplete="new-password" placeholder={scraper.devPasswordDefini ? "••••••••" : ""} />
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={enCours}>
+            {enCours ? "Enregistrement…" : "Enregistrer le compte"}
+          </Button>
+          {renseigne && (
+            <button
+              type="button"
+              disabled={oubliEnCours}
+              onClick={() => demarrer(async () => setOubli(await oublierScraper()))}
+              className="text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
+            >
+              Effacer le compte
+            </button>
+          )}
+        </div>
+      </form>
+    </Panel>
   );
 }
 

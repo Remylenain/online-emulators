@@ -51,6 +51,8 @@ export function Bibliotheque({
 }) {
   const router = useRouter();
   const [scan, setScan] = useState<EtatScan | null>(null);
+  const [scraper, setScraper] = useState<EtatScan | null>(null);
+  const scraperTournaitAvant = useRef(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [retour, setRetour] = useState<Resultat | null>(null);
   const [ouvert, setOuvert] = useState<string | null>(null);
@@ -67,6 +69,14 @@ export function Bibliotheque({
       // pieds, on la redemande au serveur.
       if (tournaitAvant.current && !etat.enCours) router.refresh();
       tournaitAvant.current = etat.enCours;
+
+      const reponseScraper = await fetch("/api/admin/scraper", { cache: "no-store" });
+      if (reponseScraper.ok) {
+        const etatScraper: EtatScan = await reponseScraper.json();
+        setScraper(etatScraper);
+        if (scraperTournaitAvant.current && !etatScraper.enCours) router.refresh();
+        scraperTournaitAvant.current = etatScraper.enCours;
+      }
     } catch {
       // Le serveur n'a pas répondu : on retentera au prochain battement.
     }
@@ -77,11 +87,30 @@ export function Bibliotheque({
   }, [relire]);
 
   /** Pendant le scan seulement : inutile d'interroger un serveur au repos. */
+  const tacheEnCours = Boolean(scan?.enCours || scraper?.enCours);
   useEffect(() => {
-    if (!scan?.enCours) return;
+    if (!tacheEnCours) return;
     const battement = setInterval(() => void relire(), 2000);
     return () => clearInterval(battement);
-  }, [scan?.enCours, relire]);
+  }, [tacheEnCours, relire]);
+
+  /**
+   * « Compléter les fiches » : va chercher description, année et jaquette des
+   * jeux officiels (ScreenScraper si un compte est réglé, libretro sinon),
+   * puis relance le scan. Voir `scripts/scraper.ts`.
+   */
+  async function lancerScraper() {
+    setErreur(null);
+    const reponse = await fetch("/api/admin/scraper", { method: "POST" });
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => ({}));
+      setErreur(corps.erreur ?? "Le scraper n'a pas pu démarrer.");
+      return;
+    }
+    scraperTournaitAvant.current = true;
+    setScraper({ enCours: true, journal: "", termineLe: null });
+    void relire();
+  }
 
   async function lancer() {
     setErreur(null);
@@ -101,8 +130,11 @@ export function Bibliotheque({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" onClick={() => void lancer()} disabled={scan?.enCours}>
+        <Button type="button" onClick={() => void lancer()} disabled={tacheEnCours}>
           {scan?.enCours ? "Scan en cours…" : "Relancer le scan"}
+        </Button>
+        <Button type="button" variant="ghost" onClick={() => void lancerScraper()} disabled={tacheEnCours}>
+          {scraper?.enCours ? "Recherche en cours…" : "Compléter les fiches"}
         </Button>
         <p className="text-xs text-ink-400">
           {publies} publié{publies > 1 ? "s" : ""} sur {jeux.length}
@@ -126,7 +158,19 @@ export function Bibliotheque({
         </Alert>
       )}
 
-      {scan?.journal && (
+      <p className="text-xs text-ink-700">
+        « Compléter les fiches » cherche la description, l&apos;année et la jaquette des jeux officiels
+        qui n&apos;en ont pas, sans rien écraser, puis relance le scan. Le compte du scraper se règle dans
+        Réglages ; sans lui, seules les jaquettes sont cherchées.
+      </p>
+
+      {scraper?.journal && (scraper.enCours || !scan?.enCours) && (
+        <pre className="max-h-72 overflow-auto rounded-panel border border-ink-800 bg-ink-950/60 p-3 font-mono text-xs whitespace-pre-wrap text-ink-400">
+          {scraper.journal}
+        </pre>
+      )}
+
+      {scan?.journal && !scraper?.enCours && (
         <pre className="max-h-72 overflow-auto rounded-panel border border-ink-800 bg-ink-950/60 p-3 font-mono text-xs whitespace-pre-wrap text-ink-400">
           {scan.journal}
         </pre>

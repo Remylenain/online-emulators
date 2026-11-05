@@ -136,6 +136,37 @@ export function effacerConfigCaptcha(): void {
 }
 
 /**
+ * Le compte ScreenScraper, pour compléter les fiches des jeux officiels
+ * (voir `scripts/scraper.ts`, qui lit ces mêmes clés). L'API demande deux
+ * paires d'identifiants : celle du logiciel (« développeur », délivrée sur
+ * demande par ScreenScraper) et celle du membre, qui relève son quota.
+ */
+const SCRAPER = { devId: "ss_devid", devPassword: "ss_devpassword", ssId: "ss_id", ssPassword: "ss_password" } as const;
+
+export type ConfigScraper = { devId: string; devPassword: string; ssId: string; ssPassword: string };
+
+export function configScraper(): ConfigScraper {
+  return {
+    devId: lireParametre(SCRAPER.devId)?.trim() ?? "",
+    devPassword: lireParametre(SCRAPER.devPassword) ?? "",
+    ssId: lireParametre(SCRAPER.ssId)?.trim() ?? "",
+    ssPassword: lireParametre(SCRAPER.ssPassword) ?? "",
+  };
+}
+
+/** Un mot de passe omis garde celui déjà enregistré. */
+export function definirConfigScraper(config: { devId: string; devPassword?: string; ssId: string; ssPassword?: string }): void {
+  ecrireParametre(SCRAPER.devId, config.devId.trim());
+  ecrireParametre(SCRAPER.ssId, config.ssId.trim());
+  if (config.devPassword !== undefined) ecrireParametre(SCRAPER.devPassword, config.devPassword);
+  if (config.ssPassword !== undefined) ecrireParametre(SCRAPER.ssPassword, config.ssPassword);
+}
+
+export function effacerConfigScraper(): void {
+  effacerParametres(Object.values(SCRAPER));
+}
+
+/**
  * Ouvrir les inscriptions suppose un serveur de mail — le compte n'existe
  * qu'une fois l'adresse confirmée — et un captcha, sans quoi le formulaire
  * serait une porte ouverte aux robots. Sans l'un des deux, elles restent

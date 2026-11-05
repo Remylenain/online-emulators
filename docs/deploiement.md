@@ -208,6 +208,27 @@ scan est idempotent, et chaque avertissement qu'il affiche désigne un dossier
 qu'il a écarté — ROM absente, ambiguë, lien symbolique mort, ou `game.json`
 invalide.
 
+### Compléter les fiches des jeux officiels
+
+Un jeu du commerce rangé dans la bibliothèque (`"officiel": true` dans son
+`game.json`, ce que fait `scripts/importer-roms.ts --officiel`) n'a ni
+description ni jaquette. **Administration → Bibliothèque → Compléter les
+fiches** va les chercher, sans rien écraser de ce qui existe, puis relance le
+scan :
+
+- sur **ScreenScraper** (screenscraper.fr) si un compte est renseigné dans
+  Administration → Réglages — la ROM est reconnue par son empreinte, et la
+  description arrive en français quand elle existe. L'API demande, en plus
+  du compte membre, des identifiants « développeur » que ScreenScraper
+  délivre sur demande ;
+- sinon, ou pour ce que ScreenScraper n'a pas, dans la collection publique de
+  vignettes de **libretro**, pour la jaquette seulement, par nom de fichier
+  No-Intro.
+
+Ce qui est trouvé va dans `DATA_DIR/retouches` (description, année) et
+`DATA_DIR/jaquettes` : la bibliothèque reste en lecture seule, et une
+correction faite ensuite dans l'administration l'emporte.
+
 ### Limiter le nombre de salons de câble link
 
 Chaque salon fait tourner deux consoles sur le serveur, à 60 images par

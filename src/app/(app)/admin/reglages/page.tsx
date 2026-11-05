@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth/guard";
 import { etatCapacite } from "@/lib/link/capacite";
-import { configCaptcha, configMail, descriptionDuSite, lireParametre, nomDuSite } from "@/lib/parametres";
+import {
+  configCaptcha,
+  configMail,
+  configScraper,
+  descriptionDuSite,
+  lireParametre,
+  nomDuSite,
+} from "@/lib/parametres";
 import { Reglages } from "./reglages";
 
 export const metadata: Metadata = { title: "Réglages" };
@@ -16,6 +23,7 @@ export default async function ReglagesPage() {
   const admin = await requireAdmin();
   const mail = configMail();
   const captcha = configCaptcha();
+  const scraper = configScraper();
   return (
     <Reglages
       nom={nomDuSite()}
@@ -33,6 +41,12 @@ export default async function ReglagesPage() {
       }}
       captcha={{ siteKey: captcha.siteKey, secretDefini: captcha.secretKey.length > 0, source: captcha.source }}
       adresseAdmin={admin.email ?? ""}
+      scraper={{
+        devId: scraper.devId,
+        devPasswordDefini: scraper.devPassword.length > 0,
+        ssId: scraper.ssId,
+        ssPasswordDefini: scraper.ssPassword.length > 0,
+      }}
     />
   );
 }

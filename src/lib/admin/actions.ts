@@ -29,10 +29,12 @@ import { definirMargeLink, MARGE_MAX, MARGE_MIN } from "@/lib/link/capacite";
 import {
   definirConfigCaptcha,
   definirConfigMail,
+  definirConfigScraper,
   definirIdentite,
   definirInscriptionsOuvertes,
   effacerConfigCaptcha,
   effacerConfigMail,
+  effacerConfigScraper,
   inscriptionsOuvrables,
   mailActif,
 } from "@/lib/parametres";
@@ -324,6 +326,41 @@ export async function oublierCaptcha(): Promise<Resultat> {
   revalidatePath("/admin/reglages");
   revalidatePath("/admin/comptes");
   return { ok: true, message: "Réglage effacé : le site reprend la configuration du serveur." };
+}
+
+/**
+ * Le compte ScreenScraper dont se sert « Compléter les fiches ». Comme pour
+ * le relais d'e-mails, un mot de passe laissé vide garde celui enregistré.
+ */
+export async function definirScraper(_etat: unknown, donnees: FormData): Promise<Resultat> {
+  await requireAdmin();
+  const devId = String(donnees.get("devId") ?? "").trim();
+  const devPassword = String(donnees.get("devPassword") ?? "");
+  const ssId = String(donnees.get("ssId") ?? "").trim();
+  const ssPassword = String(donnees.get("ssPassword") ?? "");
+  if ([devId, devPassword, ssId, ssPassword].some((valeur) => valeur.length > 200)) {
+    return { ok: false, message: "Une des valeurs est trop longue." };
+  }
+  definirConfigScraper({
+    devId,
+    ssId,
+    ...(devPassword ? { devPassword } : {}),
+    ...(ssPassword ? { ssPassword } : {}),
+  });
+  revalidatePath("/admin/reglages");
+  return {
+    ok: true,
+    message: devId
+      ? "Compte enregistré. Lance « Compléter les fiches » depuis Bibliothèque."
+      : "Enregistré, mais sans identifiant développeur ScreenScraper ne répondra pas : seules les jaquettes libretro seront cherchées.",
+  };
+}
+
+export async function oublierScraper(): Promise<Resultat> {
+  await requireAdmin();
+  effacerConfigScraper();
+  revalidatePath("/admin/reglages");
+  return { ok: true, message: "Compte effacé." };
 }
 
 /**
