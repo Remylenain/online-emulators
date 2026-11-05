@@ -60,6 +60,9 @@ function masqueManette(): number {
 
 const enMo = (octets: number) => `${(octets / 1024 / 1024).toFixed(1)} Mo`;
 
+/** Une image posée sur le serveur, telle que la liste la donne. */
+type DisqueServeur = { nom: string; taille: number };
+
 type Mesures = { ips: number; cible: number; msParImage: number; tas: number; definition: string };
 type Reprise = { brut: number; compresse: number };
 
@@ -76,8 +79,11 @@ type Reprise = { brut: number; compresse: number };
  * Le cœur tourne ici dans la page elle-même. Un vrai lecteur le mettrait dans
  * un fil à part, pour qu'une image lente ne fige pas l'interface.
  */
-export function EssaiPs1() {
+export function EssaiPs1({ disquesServeur }: { disquesServeur: DisqueServeur[] }) {
   const [disque, setDisque] = useState<File | null>(null);
+  /** Part reçue de l'image en cours de téléchargement, de 0 à 1 ; `null` hors téléchargement. */
+  const [progression, setProgression] = useState<number | null>(null);
+  const [titre, setTitre] = useState<string | null>(null);
   const [bios, setBios] = useState<File | null>(null);
   const [etat, setEtat] = useState<"attente" | "chargement" | "en-jeu" | "erreur">("attente");
   const [erreur, setErreur] = useState<string | null>(null);
@@ -216,9 +222,44 @@ export function EssaiPs1() {
     [],
   );
 
-  async function demarrer() {
-    if (!disque) return;
+  /**
+   * Télécharge une image du serveur, en entier. Le tableau est alloué d'emblée
+   * à la taille du disque et rempli au fil de l'eau : assembler des morceaux
+   * à la fin doublerait, le temps d'une copie, plusieurs centaines de Mo.
+   */
+  async function telecharger(source: DisqueServeur): Promise<Uint8Array> {
+    const reponse = await fetch(`/api/admin/ps1/disques?nom=${encodeURIComponent(source.nom)}`);
+    if (!reponse.ok || !reponse.body) throw new Error(`Le serveur a répondu ${reponse.status}.`);
+    const donnees = new Uint8Array(source.taille);
+    const lecteur = reponse.body.getReader();
+    let recu = 0;
+    let affiche = -1;
+    setProgression(0);
+    try {
+      for (;;) {
+        const { done, value } = await lecteur.read();
+        if (done) break;
+        if (recu + value.length > donnees.length) throw new Error("Le disque reçu est plus gros qu'annoncé.");
+        donnees.set(value, recu);
+        recu += value.length;
+        const pourcent = Math.floor((recu / donnees.length) * 100);
+        if (pourcent !== affiche) {
+          affiche = pourcent;
+          setProgression(recu / donnees.length);
+        }
+      }
+    } finally {
+      setProgression(null);
+    }
+    if (recu !== donnees.length) throw new Error("Le téléchargement s'est arrêté avant la fin.");
+    return donnees;
+  }
+
+  async function demarrer(source: File | DisqueServeur | null = disque) {
+    if (!source) return;
+    const nomSource = source instanceof File ? source.name : source.nom;
     setEtat("chargement");
+    setTitre(nomSource.replace(/\.[^.]+$/, ""));
     setErreur(null);
     setJournal([]);
     setReprise(null);
@@ -236,8 +277,9 @@ export function EssaiPs1() {
       coeur.surJournal = (texte) => setJournal((lignes) => [...lignes.slice(-13), texte]);
 
       // Le cœur reconnaît le format à l'extension ; le reste du nom ne compte pas.
-      const extension = disque.name.includes(".") ? disque.name.slice(disque.name.lastIndexOf(".")).toLowerCase() : "";
-      const image = { nom: `disque${extension}`, donnees: new Uint8Array(await disque.arrayBuffer()), fichier: true };
+      const extension = nomSource.includes(".") ? nomSource.slice(nomSource.lastIndexOf(".")).toLowerCase() : "";
+      const donnees = source instanceof File ? new Uint8Array(await source.arrayBuffer()) : await telecharger(source);
+      const image = { nom: `disque${extension}`, donnees, fichier: true };
       const systeme = bios ? [{ nom: "bios.bin", donnees: new Uint8Array(await bios.arrayBuffer()) }] : [];
       await coeur.charger([image], undefined, systeme);
 
@@ -276,12 +318,46 @@ export function EssaiPs1() {
     <section className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold text-ink-50">Essai PlayStation</h2>
       <p className="text-sm text-ink-400">
-        Banc d&apos;essai, visible des administrateurs seulement. L&apos;image du disque est lue sur cet
-        appareil et n&apos;en sort pas : rien n&apos;est envoyé au serveur, rien n&apos;est sauvegardé. Le but est de
-        voir si le cœur tient la cadence ici.
+        Banc d&apos;essai, visible des administrateurs seulement. Rien n&apos;est envoyé au serveur, rien
+        n&apos;est sauvegardé. Le but est de voir si le cœur tient la cadence sur cet appareil.
       </p>
 
       <div className="flex flex-col gap-3 rounded-panel border border-ink-800 p-4">
+        <h3 className="text-sm font-semibold text-ink-200">Disques du serveur</h3>
+        {disquesServeur.length === 0 ? (
+          <p className="text-xs text-ink-400">
+            Aucun pour l&apos;instant. Pose des images (<code>.chd</code> de préférence) ou des liens vers
+            elles dans le dossier <code>psx</code> de la bibliothèque du serveur, puis recharge la page.
+          </p>
+        ) : (
+          <>
+            <p className="text-xs text-ink-400">
+              Le disque choisi est téléchargé en entier sur cet appareil avant de démarrer.
+            </p>
+            <ul className="flex flex-col divide-y divide-ink-800">
+              {disquesServeur.map((source) => (
+                <li key={source.nom} className="flex items-center gap-3 py-1.5">
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink-50">
+                    {source.nom.replace(/\.[^.]+$/, "")}
+                  </span>
+                  <span className="shrink-0 text-xs text-ink-400">{enMo(source.taille)}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => void demarrer(source)}
+                    disabled={etat === "chargement"}
+                  >
+                    Lancer
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-panel border border-ink-800 p-4">
+        <h3 className="text-sm font-semibold text-ink-200">Disque de cet appareil</h3>
         <label className="flex flex-col gap-1 text-sm text-ink-200">
           Image du disque (CHD ou PBP de préférence ; ISO, BIN ou IMG d&apos;une seule piste)
           <input
@@ -292,7 +368,7 @@ export function EssaiPs1() {
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-ink-200">
-          BIOS (facultatif)
+          BIOS (facultatif, vaut aussi pour un disque du serveur)
           <span className="text-xs text-ink-400">
             Sans lui, le cœur se sert de son BIOS de remplacement, un peu moins compatible.
           </span>
@@ -311,7 +387,20 @@ export function EssaiPs1() {
         </div>
       </div>
 
+      {progression !== null && (
+        <div className="flex flex-col gap-1" role="status">
+          <p className="text-sm text-ink-200">
+            Téléchargement de {titre} : {Math.floor(progression * 100)} %
+          </p>
+          <div className="h-1.5 overflow-hidden rounded-full bg-ink-800">
+            <div className="h-full bg-accent-500" style={{ width: `${progression * 100}%` }} />
+          </div>
+        </div>
+      )}
+
       {erreur && <Alert>{erreur}</Alert>}
+
+      {enJeu && titre && <p className="text-sm text-ink-200">{titre}</p>}
 
       <canvas
         ref={toile}
