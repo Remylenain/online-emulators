@@ -222,11 +222,15 @@ scan :
   du compte membre, des identifiants « développeur » que ScreenScraper
   délivre sur demande ;
 - sinon, ou pour ce que ScreenScraper n'a pas, dans la collection publique de
-  vignettes de **libretro**, pour la jaquette seulement. Une ROM qui porte
-  son nom No-Intro exact est trouvée directement ; les autres (ancien nom,
-  étiquette manquante, fichier renommé à la main) sont rapprochées par leur
-  titre dans la liste complète du système. Un rapprochement qui n'est pas
-  lettre pour lettre est marqué « ≈ » dans le journal, pour être vérifié.
+  vignettes de **libretro**, pour la jaquette seulement. Elle est rangée
+  sous le nom No-Intro de chaque jeu. Une ROM intacte est reconnue par son
+  empreinte dans la base No-Intro, quel que soit le nom de son fichier : il
+  n'y a rien à renommer. Les autres (traduction, fichier patché) sont
+  rapprochées par leur titre dans la liste complète du système — celui de
+  la fiche, du fichier, puis celui que la cartouche porte dans son en-tête.
+  Un rapprochement qui n'est pas lettre pour lettre est marqué « ≈ » dans
+  le journal, pour être vérifié ; un jeu reconnu mais sans image chez
+  libretro y est nommé, pour savoir sous quel nom la chercher ailleurs.
 
 Ce qui est trouvé va dans `DATA_DIR/retouches` (description, année) et
 `DATA_DIR/jaquettes` : la bibliothèque reste en lecture seule, et une

@@ -29,6 +29,16 @@
  * sa liste est cherché dans celle de la Game Boy, et inversement : les
  * cartouches noires « compatibles » sont rangées tantôt d'un côté, tantôt de
  * l'autre.
+ *
+ * Avant tout cela, quand on connaît l'empreinte SHA-1 de la ROM, on demande
+ * son nom à la base No-Intro que libretro publie (libretro-database) : une
+ * ROM intacte y est reconnue quel que soit le nom de son fichier, et son nom
+ * No-Intro est justement celui de sa jaquette. « Rayman 2 - The Great
+ * Escape » se révèle ainsi être « Rayman 2 Forever », « Le Roi Lion - Les
+ * Adventures de Simba » « Roi Lion, Le - La Formidable Aventure de Simba » —
+ * des titres qu'aucune comparaison de mots n'aurait rapprochés. Une ROM
+ * modifiée (traduction, patch) n'y figure pas : pour elle, il reste le titre
+ * inscrit dans l'en-tête de la cartouche, que les patchs laissent en place.
  */
 
 const SYSTEMES: Record<string, string> = {
@@ -40,6 +50,89 @@ const VOISINES: Record<string, string[]> = { gb: ["gbc"], gbc: ["gb"], gba: [] }
 
 const base = (consoleSlug: string) =>
   `https://thumbnails.libretro.com/${encodeURIComponent(SYSTEMES[consoleSlug]!)}/Named_Boxarts/`;
+
+/** libretro remplace par un tiret bas les caractères interdits dans un nom de fichier. */
+export function adresseJaquette(consoleSlug: string, nom: string): string {
+  const fichier = nom.replace(/[&*/:`<>?\\|"]/g, "_");
+  return `${base(consoleSlug)}${encodeURIComponent(fichier)}.png`;
+}
+
+// --- Reconnaître la ROM ------------------------------------------------------
+
+const empreintes = new Map<string, Promise<Map<string, string>>>();
+
+/**
+ * Les ROMs d'un système dans la base No-Intro : empreinte SHA-1 → nom du jeu.
+ * Lue une fois par passage ; vide si elle ne répond pas.
+ */
+function empreintesDe(consoleSlug: string): Promise<Map<string, string>> {
+  let table = empreintes.get(consoleSlug);
+  if (!table) {
+    table = (async () => {
+      const noms = new Map<string, string>();
+      try {
+        const reponse = await fetch(
+          `https://raw.githubusercontent.com/libretro/libretro-database/master/metadat/no-intro/${encodeURIComponent(SYSTEMES[consoleSlug]!)}.dat`,
+          { signal: AbortSignal.timeout(60_000) },
+        );
+        if (!reponse.ok) return noms;
+        // Format clrmamepro : un bloc « game ( name "…" … rom ( … sha1 … ) ) »
+        // par jeu. Le nom du jeu précède toujours ses ROMs.
+        let jeu = "";
+        for (const ligne of (await reponse.text()).split("\n")) {
+          const nom = /^\s*name "(.*)"\s*$/.exec(ligne);
+          if (nom) {
+            jeu = nom[1]!;
+            continue;
+          }
+          const sha1 = /^\s*rom \(.*\ssha1 ([0-9A-Fa-f]{40})\b/.exec(ligne);
+          if (sha1 && jeu) noms.set(sha1[1]!.toLowerCase(), jeu);
+        }
+      } catch {
+        // Sans la base, on se passera de l'empreinte.
+      }
+      return noms;
+    })();
+    empreintes.set(consoleSlug, table);
+  }
+  return table;
+}
+
+/**
+ * Le nom No-Intro d'une ROM d'après son empreinte, ou `null` si elle n'est pas
+ * dans la base — fichier modifié, ou dump que No-Intro ne connaît pas. La
+ * console rendue est celle de la liste où le jeu figure : c'est là qu'est
+ * rangée sa jaquette.
+ */
+export async function nomNoIntro(consoleSlug: string, sha1: string): Promise<{ nom: string; consoleSlug: string } | null> {
+  if (!SYSTEMES[consoleSlug] || !/^[0-9a-f]{40}$/i.test(sha1)) return null;
+  for (const console of [consoleSlug, ...(VOISINES[consoleSlug] ?? [])]) {
+    const nom = (await empreintesDe(console)).get(sha1.toLowerCase());
+    if (nom) return { nom, consoleSlug: console };
+  }
+  return null;
+}
+
+/**
+ * Le titre inscrit dans l'en-tête de la cartouche (« POKEMON GREEN »), ou une
+ * chaîne vide. `debut` : les 512 premiers octets de la ROM suffisent.
+ *
+ * Sur Game Boy le titre occupe jusqu'à 16 octets en 0x134 ; les cartouches
+ * Game Boy Color y logent en plus un code fabricant et un drapeau, qu'on
+ * écarte en s'arrêtant à 11 caractères. Sur Game Boy Advance : 12 octets en
+ * 0xA0.
+ */
+export function titreDeLEnTete(debut: Uint8Array, consoleSlug: string): string {
+  const [position, longueur] = consoleSlug === "gba" ? [0xa0, 12] : [0x134, debut[0x143]! >= 0x80 ? 11 : 16];
+  let titre = "";
+  for (const octet of debut.subarray(position, position + longueur)) {
+    if (octet < 0x20 || octet > 0x7e) break;
+    titre += String.fromCharCode(octet);
+  }
+  return titre.trim();
+}
+
+// --- Rapprocher les titres ---------------------------------------------------
 
 /** Mots qui ne distinguent pas deux jeux : articles, liaisons, « Version ». */
 const MOTS_VIDES = new Set(["the", "a", "an", "le", "la", "les", "l", "un", "une", "and", "et", "version"]);

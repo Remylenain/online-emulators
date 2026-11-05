@@ -16,10 +16,15 @@
  *    jaquette. L'API exige, en plus du compte, des identifiants développeur
  *    que ScreenScraper délivre sur demande.
  * 2. **Les vignettes de libretro** (thumbnails.libretro.com), sans compte,
- *    pour la jaquette seulement. La ROM qui porte son nom No-Intro exact est
- *    trouvée directement ; les autres sont rapprochées par leur titre dans la
- *    liste complète du système (voir `_libretro.ts`). Un rapprochement qui
- *    n'est pas lettre pour lettre est marqué « ≈ » dans le journal.
+ *    pour la jaquette seulement. Elles sont rangées sous le nom No-Intro du
+ *    jeu, qu'on retrouve de trois façons (voir `_libretro.ts`) :
+ *    - par l'empreinte SHA-1 de la ROM, dans la base No-Intro : une ROM
+ *      intacte est reconnue quel que soit le nom de son fichier ;
+ *    - par le nom du fichier, s'il est déjà le nom No-Intro ;
+ *    - par le titre, rapproché de la liste complète du système — celui de la
+ *      fiche, du fichier, et en dernier recours celui que la cartouche porte
+ *      dans son en-tête. Un rapprochement qui n'est pas lettre pour lettre est
+ *      marqué « ≈ » dans le journal.
  *
  * Seuls les jeux marqués `officiel` sont interrogés : un rom hack n'est dans
  * aucune de ces bases, et chaque ROM inconnue compte contre le quota du
@@ -40,7 +45,7 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { ecrireRetouche, lireRetouche } from "../src/lib/library/retouches.ts";
 import { openDatabase, schema } from "./_db.ts";
-import { chercherJaquetteLibretro } from "./_libretro.ts";
+import { adresseJaquette, chercherJaquetteLibretro, nomNoIntro, titreDeLEnTete } from "./_libretro.ts";
 
 const libraryDir = path.resolve(process.env.LIBRARY_DIR ?? "./library");
 const dataDir = path.resolve(process.env.DATA_DIR ?? "./data");
@@ -186,6 +191,22 @@ async function telecharger(adresse: string, destination: string): Promise<boolea
   }
 }
 
+/** Le titre que la cartouche porte dans son en-tête, ou une chaîne vide si la ROM ne se lit pas. */
+function enTeteDe(romPath: string, consoleSlug: string): string {
+  try {
+    const fichier = fs.openSync(path.join(libraryDir, romPath), "r");
+    try {
+      const debut = Buffer.alloc(512);
+      fs.readSync(fichier, debut, 0, debut.length, 0);
+      return titreDeLEnTete(debut, consoleSlug);
+    } finally {
+      fs.closeSync(fichier);
+    }
+  } catch {
+    return "";
+  }
+}
+
 // --- Passage ---------------------------------------------------------------
 
 const jeux = db
@@ -250,18 +271,35 @@ for (const [index, jeu] of jeux.entries()) {
   }
 
   // Jaquette : ScreenScraper d'abord, libretro ensuite.
+  let reconnue = "";
   if (!jeu.coverPath || tout) {
     const destination = path.join(dataDir, "jaquettes", jeu.consoleSlug, `${jeu.slug}.png`);
     let prise = false;
     if (trouve?.jaquette) prise = await telecharger(trouve.jaquette, destination);
     let precision = "";
-    if (!prise) {
+    // La ROM reconnue par son empreinte : son nom No-Intro est celui de sa jaquette.
+    const noIntro = prise ? null : await nomNoIntro(jeu.consoleSlug, jeu.romSha1);
+    if (noIntro) {
+      reconnue = noIntro.nom;
+      prise = await telecharger(adresseJaquette(noIntro.consoleSlug, noIntro.nom), destination);
+      if (prise) precision = ` (${noIntro.nom})`;
+      await pause(150);
+    }
+    if (!prise && !noIntro) {
       prise = await telecharger(adresseLibretro(jeu.consoleSlug, nomRom), destination);
       await pause(150);
     }
     if (!prise) {
       // Pas d'image à ce nom exact : on rapproche le titre de la liste de libretro.
-      const proche = await chercherJaquetteLibretro(jeu.consoleSlug, nomRom, [jeu.titre]);
+      const titres = noIntro ? [noIntro.nom, jeu.titre] : [jeu.titre];
+      let proche = await chercherJaquetteLibretro(jeu.consoleSlug, nomRom, titres);
+      if (!proche && !noIntro) {
+        // ROM inconnue de No-Intro, donc modifiée : le titre de son en-tête,
+        // lui, est souvent resté celui du jeu. Toujours signalé « ≈ ».
+        const enTete = enTeteDe(jeu.romPath, jeu.consoleSlug);
+        const parEnTete = enTete ? await chercherJaquetteLibretro(jeu.consoleSlug, enTete, []) : null;
+        if (parEnTete) proche = { ...parEnTete, approchee: true };
+      }
       if (proche) {
         prise = await telecharger(proche.adresse, destination);
         if (prise) precision = ` (${proche.approchee ? "≈ " : ""}${proche.nom})`;
@@ -275,7 +313,9 @@ for (const [index, jeu] of jeux.entries()) {
   }
 
   if (acquis.length === 0) rien++;
-  console.log(`  ${String(index + 1).padStart(3)}/${jeux.length}  ${jeu.titre} [${jeu.consoleSlug}] : ${acquis.join(", ") || "rien trouvé"}`);
+  // Un jeu reconnu mais sans image dit au moins sous quel nom la chercher ailleurs.
+  const bilan = acquis.join(", ") || (reconnue ? `rien trouvé (reconnu : ${reconnue}, sans jaquette chez libretro)` : "rien trouvé");
+  console.log(`  ${String(index + 1).padStart(3)}/${jeux.length}  ${jeu.titre} [${jeu.consoleSlug}] : ${bilan}`);
 }
 
 console.log(
