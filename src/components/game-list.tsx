@@ -28,6 +28,16 @@ export function GameList({
                 {game.version && (
                   <span className="ml-2 text-xs font-normal text-ink-400">{game.version}</span>
                 )}
+                {game.favori && (
+                  <span className="ml-2 text-xs text-accent-400" aria-label="Dans tes favoris">
+                    ★
+                  </span>
+                )}
+                {game.enCours && (
+                  <span className="ml-2 rounded bg-accent-600 px-1.5 py-0.5 text-[10px] font-semibold text-ink-950">
+                    en cours
+                  </span>
+                )}
               </span>
               <span className="block truncate text-xs text-ink-400">
                 {[game.author, game.baseGame].filter(Boolean).join(" · ") || "—"}

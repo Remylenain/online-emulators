@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/guard";
 import type { SessionUser } from "@/lib/auth/session";
 import { formatDate, formatDuree } from "@/lib/format";
+import { GameGrid } from "@/components/game-grid";
+import { favorisDe } from "@/lib/catalog";
 import { mesNotes, mesSauvegardes, tempsDeJeu } from "@/lib/mes-jeux";
 import { LigneJeu } from "./ligne-jeu";
 import { Sauvegardes } from "./sauvegardes";
@@ -11,6 +13,7 @@ export const metadata: Metadata = { title: "Mes jeux" };
 
 const ONGLETS = [
   { cle: "temps", libelle: "Temps de jeu" },
+  { cle: "favoris", libelle: "Favoris" },
   { cle: "notes", libelle: "Mes notes" },
   { cle: "sauvegardes", libelle: "Sauvegardes" },
 ] as const;
@@ -54,10 +57,19 @@ export default async function MesJeuxPage({
       </nav>
 
       {onglet === "temps" && <Temps visiteur={user} />}
+      {onglet === "favoris" && <Favoris visiteur={user} />}
       {onglet === "notes" && <Notes visiteur={user} />}
       {onglet === "sauvegardes" && <Sauvegardes sauvegardes={await mesSauvegardes(user.id)} />}
     </div>
   );
+}
+
+async function Favoris({ visiteur }: { visiteur: SessionUser }) {
+  const jeux = await favorisDe(visiteur);
+  if (jeux.length === 0) {
+    return <Vide>Aucun favori pour l&apos;instant. L&apos;étoile est sur la fiche de chaque jeu.</Vide>;
+  }
+  return <GameGrid games={jeux} />;
 }
 
 async function Temps({ visiteur }: { visiteur: SessionUser }) {

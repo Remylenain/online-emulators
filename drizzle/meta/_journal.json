@@ -92,6 +92,13 @@
       "when": 1793839761961,
       "tag": "0012_jeux_officiels",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793840493818,
+      "tag": "0013_favoris",
+      "breakpoints": true
     }
   ]
 }

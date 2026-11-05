@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { GameGrid } from "@/components/game-grid";
 import { requireUser } from "@/lib/auth/guard";
-import { countByConsole, latestGames, recentlyPlayed } from "@/lib/catalog";
+import { countByConsole, favorisDe, latestGames, recentlyPlayed } from "@/lib/catalog";
 import { LANGUE_PAR_DEFAUT } from "@/lib/catalog-options";
 import { CONSOLES } from "@/lib/consoles";
 import { jeuAccessible } from "@/lib/acces";
@@ -17,9 +17,10 @@ import { quiJoue, type Presence } from "@/lib/presence";
  */
 export default async function HomePage() {
   const user = await requireUser();
-  const [enCours, presents, latest, recent, parConsole] = await Promise.all([
+  const [enCours, presents, favoris, latest, recent, parConsole] = await Promise.all([
     partieEnCours(user),
     quiJoue(user),
+    favorisDe(user, 10),
     latestGames(user, 8, LANGUE_PAR_DEFAUT),
     recentlyPlayed(user, 9),
     countByConsole(user, LANGUE_PAR_DEFAUT),
@@ -62,6 +63,8 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {favoris.length > 0 && <Section title="Tes favoris" games={favoris} />}
 
       {recentsSansEnCours.length > 0 && (
         <Section title="Joués récemment" games={recentsSansEnCours} />

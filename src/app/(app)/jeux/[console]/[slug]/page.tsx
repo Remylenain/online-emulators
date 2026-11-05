@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { ratings, type GameRow } from "@/db/schema";
+import { favorites, ratings, type GameRow } from "@/db/schema";
+import { Favori } from "@/components/favori";
 import { SalonsJeu } from "@/components/link/salons-jeu";
 import { Notes } from "@/components/notes";
 import { nomDeLangue } from "@/lib/catalog-options";
@@ -69,6 +70,13 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
       .get(),
     statsJeu(user.id, game.id),
   ]);
+  const favori = Boolean(
+    db
+      .select({ gameId: favorites.gameId })
+      .from(favorites)
+      .where(and(eq(favorites.userId, user.id), eq(favorites.gameId, game.id)))
+      .get(),
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -162,6 +170,7 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
             >
               {stats.sauvegarde ? "Reprendre" : "Jouer"}
             </a>
+            <Favori gameId={game.id} initial={favori} />
             {stats.parties > 0 && (
               <span className="text-sm text-ink-400">
                 {formatDuree(stats.secondes)} de jeu

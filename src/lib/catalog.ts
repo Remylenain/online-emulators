@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, max, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { games, playSessions } from "@/db/schema";
+import { favorites, games, playSessions, saveFiles } from "@/db/schema";
 import { conditionAcces, type Visiteur } from "./acces";
 import { normalizeForSearch } from "./validation";
 
@@ -21,7 +21,22 @@ export type GameCard = {
   playCount: number;
   /** Renseigné quand la carte représente un ensemble de parties. */
   parties?: number;
+  /** Le visiteur a une sauvegarde sur ce jeu (ou sur une partie de l'ensemble). */
+  enCours?: boolean;
+  /** Le visiteur l'a mis dans ses favoris. */
+  favori?: boolean;
 };
+
+/** Ce que le visiteur a de personnel sur les jeux : ses sauvegardes, ses favoris. */
+type Marques = { enCours: Set<string>; favoris: Set<string> };
+
+async function marquesDe(userId: string): Promise<Marques> {
+  const [sauvegardes, etoiles] = await Promise.all([
+    db.select({ id: saveFiles.gameId }).from(saveFiles).where(eq(saveFiles.userId, userId)).all(),
+    db.select({ id: favorites.gameId }).from(favorites).where(eq(favorites.userId, userId)).all(),
+  ]);
+  return { enCours: new Set(sauvegardes.map((s) => s.id)), favoris: new Set(etoiles.map((e) => e.id)) };
+}
 
 const cardColumns = {
   id: games.id,
@@ -57,11 +72,16 @@ type LigneCarte = GameCard & {
  * La carte d'un ensemble emprunte la jaquette de la première partie qui en a
  * une, additionne les parties jouées et moyenne les notes.
  */
-function regrouper(lignes: LigneCarte[]): GameCard[] {
+function regrouper(lignes: LigneCarte[], marques?: Marques): GameCard[] {
   const cartes: GameCard[] = [];
   const groupes = new Map<string, GameCard>();
 
-  for (const ligne of lignes) {
+  for (const brute of lignes) {
+    // Les marques se posent avant le regroupement : la carte d'un ensemble
+    // est « en cours » dès qu'une de ses parties l'est.
+    const ligne: LigneCarte = marques
+      ? { ...brute, enCours: marques.enCours.has(brute.id), favori: marques.favoris.has(brute.id) }
+      : brute;
     if (!ligne.groupSlug) {
       cartes.push(ligne);
       continue;
@@ -81,6 +101,8 @@ function regrouper(lignes: LigneCarte[]): GameCard[] {
       continue;
     }
 
+    existant.enCours ||= ligne.enCours;
+    existant.favori ||= ligne.favori;
     existant.parties = (existant.parties ?? 1) + 1;
     existant.playCount += ligne.playCount;
     existant.coverPath ??= ligne.coverPath;
@@ -158,12 +180,27 @@ export async function latestGames(
     .limit(limit * 4)
     .all();
 
-  return regrouper(lignes).slice(0, limit);
+  return regrouper(lignes, await marquesDe(visiteur.id)).slice(0, limit);
+}
+
+/** Les favoris du compte, le plus récemment ajouté d'abord. */
+export async function favorisDe(visiteur: Visiteur, limit = 100): Promise<GameCard[]> {
+  const lignes = await db
+    .select(cardColumns)
+    .from(favorites)
+    .innerJoin(games, eq(games.id, favorites.gameId))
+    .where(and(eq(favorites.userId, visiteur.id), conditionAcces(visiteur)))
+    .orderBy(desc(favorites.createdAt))
+    .limit(limit)
+    .all();
+  const marques = await marquesDe(visiteur.id);
+  return lignes.map((ligne) => ({ ...ligne, enCours: marques.enCours.has(ligne.id), favori: true }));
 }
 
 /** Derniers jeux ouverts par ce compte, du plus récent au plus ancien. */
 export async function recentlyPlayed(visiteur: Visiteur, limit = 8): Promise<GameCard[]> {
-  return db
+  const marques = await marquesDe(visiteur.id);
+  const lignes = await db
     .select({ ...cardColumns, lastSeenAt: max(playSessions.lastSeenAt) })
     .from(playSessions)
     .innerJoin(games, eq(games.id, playSessions.gameId))
@@ -177,6 +214,11 @@ export async function recentlyPlayed(visiteur: Visiteur, limit = 8): Promise<Gam
     .orderBy(desc(max(playSessions.lastSeenAt)))
     .limit(limit)
     .all();
+  return lignes.map((ligne) => ({
+    ...ligne,
+    enCours: marques.enCours.has(ligne.id),
+    favori: marques.favoris.has(ligne.id),
+  }));
 }
 
 /**
@@ -247,6 +289,7 @@ export async function listConsoleGames(options: {
 
   // Le total avant filtre de langue sert à dire combien de jeux sont masqués :
   // un catalogue qui rétrécit sans explication inquiète plus qu'il n'aide.
+  const marques = await marquesDe(options.visiteur.id);
   const total = regrouper(lignes).length;
 
   const retenues = filtreLangue
@@ -258,7 +301,7 @@ export async function listConsoleGames(options: {
         .all()
     : lignes;
 
-  return { jeux: trier(regrouper(retenues), options.sort ?? TRI_PAR_DEFAUT), total };
+  return { jeux: trier(regrouper(retenues, marques), options.sort ?? TRI_PAR_DEFAUT), total };
 }
 
 /**

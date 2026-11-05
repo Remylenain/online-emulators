@@ -7,7 +7,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { games, playSessions, ratings, saveFiles, saveStates, sessions, userGames, users } from "@/db/schema";
+import { favorites, games, playSessions, ratings, saveFiles, saveStates, sessions, userGames, users } from "@/db/schema";
 import fs from "node:fs/promises";
 import { MODES_ACCES, type ModeAcces } from "@/lib/acces";
 import { requireAdmin } from "@/lib/auth/guard";
@@ -372,6 +372,7 @@ export async function remettreAZero(userId: string): Promise<Resultat> {
     tx.delete(saveStates).where(eq(saveStates.userId, userId)).run();
     tx.delete(playSessions).where(eq(playSessions.userId, userId)).run();
     tx.delete(ratings).where(eq(ratings.userId, userId)).run();
+    tx.delete(favorites).where(eq(favorites.userId, userId)).run();
     for (const gameId of touches) {
       tx.update(games)
         .set({

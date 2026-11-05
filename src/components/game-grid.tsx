@@ -16,7 +16,22 @@ export function GameGrid({
             href={`/jeux/${game.consoleSlug}/${game.slug}`}
             className="group flex flex-col gap-2 rounded-panel border border-ink-800 bg-ink-900/60 p-3 transition-colors hover:border-accent-600/60"
           >
-            <Cover game={game} />
+            <span className="relative">
+              <Cover game={game} />
+              {game.enCours && (
+                <span className="absolute left-1.5 top-1.5 rounded bg-accent-600 px-1.5 py-0.5 text-[10px] font-semibold text-ink-950">
+                  en cours
+                </span>
+              )}
+              {game.favori && (
+                <span
+                  className="absolute right-1.5 top-1.5 rounded bg-ink-950/80 px-1.5 py-0.5 text-xs text-accent-400"
+                  aria-label="Dans tes favoris"
+                >
+                  ★
+                </span>
+              )}
+            </span>
             <span className="line-clamp-2 text-sm font-medium text-ink-50">{game.title}</span>
             <span className="flex items-center justify-between text-xs text-ink-400">
               <span className="truncate">

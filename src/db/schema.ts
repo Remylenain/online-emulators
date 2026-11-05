@@ -293,6 +293,21 @@ export const ratings = sqliteTable(
 // Parties et sauvegardes
 // ---------------------------------------------------------------------------
 
+/** Les jeux qu'un compte a mis de côté pour les retrouver vite. */
+export const favorites = sqliteTable(
+  "favorites",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    gameId: text("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.gameId] })],
+);
+
 export const playSessions = sqliteTable(
   "play_sessions",
   {
