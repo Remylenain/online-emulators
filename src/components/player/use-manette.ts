@@ -63,10 +63,14 @@ export function useManette(
   const disposition = identite && !identite.standard ? (locale ?? compte) : compte;
   const aRegler = Boolean(identite && !identite.standard && !locale);
 
+  // La boucle de lecture lit ces deux valeurs par des références, tenues à
+  // jour après chaque rendu : elle n'a pas à redémarrer quand elles changent.
   const dispositionRef = useRef(disposition);
-  dispositionRef.current = disposition;
   const surToucheRef = useRef(surTouche);
-  surToucheRef.current = surTouche;
+  useEffect(() => {
+    dispositionRef.current = disposition;
+    surToucheRef.current = surTouche;
+  });
 
   useEffect(() => {
     if (!actif || typeof navigator === "undefined" || typeof navigator.getGamepads !== "function") return;

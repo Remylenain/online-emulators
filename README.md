@@ -132,6 +132,7 @@ Réglages.
 | `npm run db:migrate` | appliquer les migrations après une mise à jour |
 | `npm run link:capacite -- --appliquer` | mesurer ce qu'un salon de câble link coûte au serveur, et limiter le nombre de salons en conséquence |
 | `npm run typecheck` | vérification TypeScript |
+| `npm run lint` | ESLint, règles de Next et de TypeScript |
 
 ## Pile technique
 

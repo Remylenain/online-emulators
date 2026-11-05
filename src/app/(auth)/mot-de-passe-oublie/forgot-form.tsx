@@ -33,7 +33,7 @@ export function ForgotPasswordForm({
         <div className="flex flex-col gap-4">
           <h1 className="text-lg font-semibold text-ink-50">Mot de passe oublié</h1>
           <p className="text-sm text-ink-300">
-            Demande à l'administrateur du site : il te donnera un nouveau mot de passe, que tu pourras
+            Demande à l&apos;administrateur du site : il te donnera un nouveau mot de passe, que tu pourras
             ensuite changer depuis ton compte.
           </p>
           {retourConnexion}

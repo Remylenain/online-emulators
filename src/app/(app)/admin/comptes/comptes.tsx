@@ -443,7 +443,10 @@ function LigneLien({
   occupe: boolean;
   surRevocation: () => void;
 }) {
-  const expire = lien.expireLe.getTime() <= Date.now();
+  // L'heure est prise une fois, à la création du composant : un rendu doit
+  // donner le même résultat chaque fois qu'on le rejoue.
+  const [maintenant] = useState(() => Date.now());
+  const expire = lien.expireLe.getTime() <= maintenant;
   const epuise = lien.usesCount >= lien.maxUses;
   const actif = !expire && !epuise;
 

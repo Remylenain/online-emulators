@@ -15,13 +15,12 @@
  * les variantes d'un même jeu.
  */
 import { createHash } from "node:crypto";
-import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { createReadStream } from "node:fs";
 import sharp from "sharp";
 import { and, eq, notInArray } from "drizzle-orm";
-import { CONSOLES, findConsole } from "../src/lib/consoles.ts";
+import { CONSOLES } from "../src/lib/consoles.ts";
 import { decoupePanneau, estJaquetteDepliee } from "../src/lib/library/jaquette.ts";
 import { mesurerZoneEcran } from "../src/lib/library/bezel.ts";
 import { manifestSchema, manifestToColumns } from "../src/lib/library/manifest.ts";
