@@ -97,7 +97,9 @@ export function CatalogControls({
         />
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* Les filtres passent à la ligne sur un écran étroit : à quatre, ils
+          ne tiennent plus sur la largeur d'un téléphone. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         {/*
           Le sélecteur n'apparaît que s'il y a quelque chose à révéler : soit
           plusieurs langues, soit des jeux masqués par le filtre — dont ceux
@@ -118,7 +120,7 @@ export function CatalogControls({
                     evenement.target.value === defaut ? "" : evenement.target.value,
                 })
               }
-              className="rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
+              className="max-w-full min-w-0 rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
             >
               {langues.map((code) => (
                 <option key={code} value={code}>
@@ -141,7 +143,7 @@ export function CatalogControls({
               onChange={(evenement) =>
                 naviguer({ type: evenement.target.value === TYPE_PAR_DEFAUT ? "" : evenement.target.value })
               }
-              className="rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
+              className="max-w-full min-w-0 rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
             >
               {Object.entries(TYPES).map(([cle, libelle]) => (
                 <option key={cle} value={cle}>
@@ -159,7 +161,7 @@ export function CatalogControls({
           id="tri"
           value={sort}
           onChange={(evenement) => naviguer({ tri: evenement.target.value })}
-          className="rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
+          className="max-w-full min-w-0 rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
         >
           {Object.entries(SORTS).map(([cle, libelle]) => (
             <option key={cle} value={cle}>

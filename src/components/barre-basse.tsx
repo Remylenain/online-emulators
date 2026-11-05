@@ -21,8 +21,11 @@ export function BarreBasse() {
     ...CONSOLES.map((console) => ({
       href: `/consoles/${console.slug}`,
       libelle: console.shortName,
+      // Le segment entier, et non un préfixe : « /consoles/gb » est aussi le
+      // début de « /consoles/gbc » et de « /consoles/gba ».
       actif:
-        chemin.startsWith(`/consoles/${console.slug}`) ||
+        chemin === `/consoles/${console.slug}` ||
+        chemin.startsWith(`/consoles/${console.slug}/`) ||
         chemin.startsWith(`/jeux/${console.slug}/`),
     })),
     { href: "/mes-jeux", libelle: "Mes jeux", actif: chemin.startsWith("/mes-jeux") },
