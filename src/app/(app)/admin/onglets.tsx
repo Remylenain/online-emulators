@@ -9,6 +9,8 @@ const ONGLETS = [
   { href: "/admin/bibliotheque", libelle: "Bibliothèque" },
   { href: "/admin/temps", libelle: "Temps de jeu" },
   { href: "/admin/reglages", libelle: "Réglages" },
+  // Banc d'essai, le temps de juger si la PlayStation vaut d'être ajoutée.
+  { href: "/admin/ps1", libelle: "Essai PS1" },
 ] as const;
 
 /**

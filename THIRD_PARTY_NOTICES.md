@@ -10,6 +10,7 @@ le site au moment de jouer.
 | [mGBA](https://mgba.io) via [`@thenick775/mgba-wasm`](https://www.npmjs.com/package/@thenick775/mgba-wasm) | lecteur GB, GBC et GBA dans le navigateur | MPL-2.0 | dépendance npm, copiée dans `public/mgba/` par `npm run core:install` (non versionnée) |
 | [mgba-splitscreen](https://github.com/Spuds0588/mgba-splitscreen) (dérivé de mGBA) | câble link GBA, exécuté par le serveur | MPL-2.0 | `coeurs/mgba-splitscreen/` : binaire, source modifiée, script de compilation, [LICENSE](coeurs/mgba-splitscreen/LICENSE), [LISEZMOI](coeurs/mgba-splitscreen/LISEZMOI.md) |
 | [TGB Dual](https://github.com/libretro/tgbdual-libretro) (port libretro) | câble link GB et GBC, exécuté par le serveur | GPL-2.0 | `public/tgbdual/` : binaire et [LICENSE](public/tgbdual/LICENSE) ; sources exactes et correctif dans `outils/tgbdual/build.sh` |
+| [PCSX-ReARMed](https://github.com/libretro/pcsx_rearmed) (port libretro) | essai d'émulation PlayStation, page d'administration seulement | GPL-2.0 | `public/pcsx-rearmed/` : binaire et [LICENSE](public/pcsx-rearmed/LICENSE) ; sources exactes dans `outils/pcsx-rearmed/build.sh` |
 
 ## Détail
 
@@ -31,7 +32,15 @@ le commit `0392c9c` de `libretro/tgbdual-libretro` avec le correctif indiqué
 dans `outils/tgbdual/build.sh` ; ce script constitue l'offre de source. Le
 texte de la licence est dans `public/tgbdual/LICENSE`.
 
+**PCSX-ReARMed** — © PCSX Team, notaz et contributeurs, port libretro, GNU
+General Public License version 2. Le binaire
+`public/pcsx-rearmed/pcsx-rearmed.wasm` est compilé, sans modification, depuis
+le commit `7b0e8f8` de `libretro/pcsx_rearmed` ; `outils/pcsx-rearmed/build.sh`
+constitue l'offre de source. Le texte de la licence est dans
+`public/pcsx-rearmed/LICENSE`. Aucun BIOS ni jeu n'est fourni.
+
 Le site charge ces cœurs comme des programmes séparés et communique avec eux
 par leur interface exportée. Si tu réutilises ce projet dans un contexte où la
 GPL-2.0 pose problème, retire `public/tgbdual/` et la partie GB/GBC du câble
-link : le reste n'en dépend pas.
+link, ainsi que `public/pcsx-rearmed/` et la page d'essai PlayStation : le
+reste n'en dépend pas.
