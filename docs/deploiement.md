@@ -232,6 +232,13 @@ scan :
   le journal, pour être vérifié ; un jeu reconnu mais sans image chez
   libretro y est nommé, pour savoir sous quel nom la chercher ailleurs.
 
+Le scan comme la complétion des fiches peuvent se limiter à une console : le
+menu à côté des deux boutons (« Sur toutes les consoles », ou une seule) suit
+le filtre de la liste. Après l'ajout d'un jeu, relire sa seule console prend
+quelques secondes au lieu de plusieurs minutes ; les jeux des autres consoles
+ne sont ni relus ni dépubliés. En ligne de commande : `--console gbc` sur
+`scripts/scan-library.ts` et `scripts/scraper.ts`.
+
 Ce qui est trouvé va dans `DATA_DIR/retouches` (description, année) et
 `DATA_DIR/jaquettes` : la bibliothèque reste en lecture seule, et une
 correction faite ensuite dans l'administration l'emporte.

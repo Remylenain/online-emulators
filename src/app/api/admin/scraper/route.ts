@@ -20,10 +20,11 @@ export async function GET() {
   return NextResponse.json(await etatDeLaTache("scraper"), { headers: { "Cache-Control": "no-store" } });
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const refus = await exigerAdmin();
   if (refus) return refus;
-  const resultat = await demarrerLaTache("scraper");
+  // `?console=gbc` : ne compléter que les jeux de cette console.
+  const resultat = await demarrerLaTache("scraper", new URL(request.url).searchParams.get("console") ?? undefined);
   if (!resultat.demarre) return NextResponse.json({ erreur: resultat.message }, { status: 409 });
   return NextResponse.json({ demarre: true });
 }

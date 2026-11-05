@@ -25,11 +25,12 @@ export async function GET() {
   });
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const { refus } = await exigerAdmin();
   if (refus) return refus;
 
-  const resultat = await demarrerScan();
+  // `?console=gbc` : ne relire que cette console.
+  const resultat = await demarrerScan(new URL(request.url).searchParams.get("console") ?? undefined);
   if (!resultat.demarre) {
     return NextResponse.json({ erreur: resultat.message }, { status: 409 });
   }

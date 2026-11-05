@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import { createWriteStream } from "node:fs";
 import path from "node:path";
+import { CONSOLE_SLUGS } from "@/lib/consoles";
 import { env } from "@/lib/env";
 
 /**
@@ -77,7 +78,15 @@ export async function etatDeLaTache(nom: NomTache): Promise<EtatScan> {
 
 export type DemarrageScan = { demarre: boolean; message?: string };
 
-export async function demarrerLaTache(nom: NomTache): Promise<DemarrageScan> {
+/**
+ * `consoleSlug` limite la tâche à une console : relire ou compléter plusieurs
+ * centaines de jeux pour en avoir ajouté un seul n'a pas de sens.
+ */
+export async function demarrerLaTache(nom: NomTache, consoleSlug?: string): Promise<DemarrageScan> {
+  if (consoleSlug !== undefined && !CONSOLE_SLUGS.includes(consoleSlug)) {
+    return { demarre: false, message: "Console inconnue." };
+  }
+
   // Le scan et le scraper écrivent les mêmes fiches : jamais les deux à la fois.
   for (const autre of Object.values(TACHES)) {
     if (await pidEnCours(autre)) {
@@ -103,7 +112,7 @@ export async function demarrerLaTache(nom: NomTache): Promise<DemarrageScan> {
    * base que le service — SQLite en mode WAL supporte cet écrivain
    * concurrent, et le `busy_timeout` posé des deux côtés absorbe les attentes.
    */
-  const enfant = spawn(process.execPath, [script], {
+  const enfant = spawn(process.execPath, [script, ...(consoleSlug ? ["--console", consoleSlug] : [])], {
     cwd: process.cwd(),
     env: process.env,
     detached: true,
@@ -119,4 +128,4 @@ export async function demarrerLaTache(nom: NomTache): Promise<DemarrageScan> {
 }
 
 export const etatDuScan = () => etatDeLaTache("scan");
-export const demarrerScan = () => demarrerLaTache("scan");
+export const demarrerScan = (consoleSlug?: string) => demarrerLaTache("scan", consoleSlug);

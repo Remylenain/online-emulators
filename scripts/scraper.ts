@@ -2,7 +2,7 @@
  * Complète les fiches du catalogue : description, année et jaquette des jeux
  * officiels qui n'en ont pas.
  *
- *   node --env-file=.env scripts/scraper.ts [--tout] [--sans-scan]
+ *   node --env-file=.env scripts/scraper.ts [--console gbc] [--tout] [--sans-scan]
  *
  * Lancé depuis Administration → Bibliothèque, comme le scan : il tourne dans
  * un processus à part et écrit un journal que l'interface relit.
@@ -35,8 +35,9 @@
  * DATA_DIR/jaquettes : la bibliothèque reste en lecture seule. Le scan est
  * relancé à la fin pour publier le tout.
  *
- * `--tout` reprend aussi les jeux déjà complets (pour rafraîchir une
- * jaquette) ; `--sans-scan` saute le scan final.
+ * `--console` ne complète que les jeux d'une console, et le scan final ne
+ * relit qu'elle ; `--tout` reprend aussi les jeux déjà complets (pour
+ * rafraîchir une jaquette) ; `--sans-scan` saute le scan final.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -51,12 +52,19 @@ const libraryDir = path.resolve(process.env.LIBRARY_DIR ?? "./library");
 const dataDir = path.resolve(process.env.DATA_DIR ?? "./data");
 const tout = process.argv.includes("--tout");
 const sansScan = process.argv.includes("--sans-scan");
+/** La seule console à compléter, ou `undefined` pour toutes. */
+const seule = process.argv.includes("--console") ? process.argv[process.argv.indexOf("--console") + 1] : undefined;
 
 const SYSTEMES: Record<string, { screenscraper: number; libretro: string }> = {
   gb: { screenscraper: 9, libretro: "Nintendo - Game Boy" },
   gbc: { screenscraper: 10, libretro: "Nintendo - Game Boy Color" },
   gba: { screenscraper: 12, libretro: "Nintendo - Game Boy Advance" },
 };
+
+if (seule !== undefined && !SYSTEMES[seule]) {
+  console.error(`Console inconnue : ${seule ?? "(rien)"}. Attendu : ${Object.keys(SYSTEMES).join(", ")}.`);
+  process.exit(2);
+}
 
 const { db, sqlite } = openDatabase();
 const reglage = (cle: string) =>
@@ -226,11 +234,12 @@ const jeux = db
   .where(eq(schema.games.isOfficial, true))
   .all()
   .filter((jeu) => SYSTEMES[jeu.consoleSlug])
+  .filter((jeu) => !seule || jeu.consoleSlug === seule)
   .filter((jeu) => tout || !jeu.description || !jeu.coverPath || !jeu.annee);
 sqlite.close();
 
 console.log(
-  `${jeux.length} jeu${jeux.length > 1 ? "x" : ""} officiel${jeux.length > 1 ? "s" : ""} à compléter. ` +
+  `${jeux.length} jeu${jeux.length > 1 ? "x" : ""} officiel${jeux.length > 1 ? "s" : ""} à compléter${seule ? ` (${SYSTEMES[seule]!.libretro} seulement)` : ""}. ` +
     (avecScreenScraper
       ? `ScreenScraper${compte.ssId ? ` (compte ${compte.ssId})` : " (sans compte membre)"}, puis libretro pour les jaquettes.`
       : "Pas d'identifiants ScreenScraper dans les réglages : jaquettes libretro seulement."),
@@ -325,7 +334,8 @@ console.log(
 
 if (!sansScan && (descriptions > 0 || annees > 0 || jaquettes > 0)) {
   console.log("\nScan de la bibliothèque, pour publier ce qui vient d'être trouvé :\n");
-  const scan = spawnSync(process.execPath, [path.join(process.cwd(), "scripts", "scan-library.ts")], {
+  const script = path.join(process.cwd(), "scripts", "scan-library.ts");
+  const scan = spawnSync(process.execPath, [script, ...(seule ? ["--console", seule] : [])], {
     cwd: process.cwd(),
     env: process.env,
     stdio: "inherit",

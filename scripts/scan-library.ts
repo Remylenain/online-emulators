@@ -1,7 +1,12 @@
 /**
  * Met la base à jour depuis la bibliothèque sur disque.
  *
- *   npm run library:scan
+ *   npm run library:scan [-- --console gbc]
+ *
+ * `--console` limite le passage à une console : ses jeux et ses habillages
+ * sont relus, ceux des autres ne sont ni touchés ni dépubliés. Sur une
+ * bibliothèque de plusieurs centaines de jeux, c'est la différence entre
+ * quelques secondes et plusieurs minutes quand on vient d'ajouter un jeu.
  *
  * La bibliothèque est la source de vérité : un dossier par console, puis un
  * dossier par jeu contenant un `game.json`, la ROM et éventuellement une
@@ -30,6 +35,14 @@ import { openDatabase, schema } from "./_db.ts";
 
 const libraryDir = path.resolve(process.env.LIBRARY_DIR ?? "./library");
 const dataDir = path.resolve(process.env.DATA_DIR ?? "./data");
+
+/** La seule console à relire, ou `undefined` pour toutes. */
+const seule = process.argv.includes("--console") ? process.argv[process.argv.indexOf("--console") + 1] : undefined;
+if (seule !== undefined && !CONSOLES.some((definition) => definition.slug === seule)) {
+  console.error(`Console inconnue : ${seule ?? "(rien)"}. Attendu : ${CONSOLES.map((c) => c.slug).join(", ")}.`);
+  process.exit(2);
+}
+const consolesARelire = CONSOLES.filter((definition) => !seule || definition.slug === seule);
 
 /** Largeurs des miniatures : une pour la grille, une pour la fiche de jeu. */
 const COVER_SIZES = { sm: 300, lg: 700 } as const;
@@ -241,6 +254,7 @@ async function genererEtiquette(
 // ---------------------------------------------------------------------------
 
 console.log(`Bibliothèque : ${libraryDir}`);
+if (seule) console.log(`Console : ${consolesARelire[0]!.name} seulement.`);
 
 if (!(await estDossier(libraryDir))) {
   console.error(`\nERREUR : ${libraryDir} n'existe pas ou n'est pas un dossier.`);
@@ -269,7 +283,7 @@ const vus: string[] = [];
 let ajoutes = 0;
 let majs = 0;
 
-for (const definition of CONSOLES) {
+for (const definition of consolesARelire) {
   const dossierConsole = path.join(libraryDir, definition.slug);
   if (!(await estDossier(dossierConsole))) continue;
 
@@ -412,7 +426,7 @@ const dossierHabillages = path.join(libraryDir, "bezels");
 if (await estDossier(dossierHabillages)) {
   console.log("\nHabillages");
 
-  for (const definition of CONSOLES) {
+  for (const definition of consolesARelire) {
     const dossier = path.join(dossierHabillages, definition.slug);
     if (!(await estDossier(dossier))) continue;
 
@@ -488,8 +502,14 @@ if (await estDossier(dossierHabillages)) {
   }
 }
 
+// Avec `--console`, seuls les habillages de cette console peuvent disparaître.
 db.delete(schema.bezels)
-  .where(habillagesVus.length ? notInArray(schema.bezels.id, habillagesVus) : undefined)
+  .where(
+    and(
+      habillagesVus.length ? notInArray(schema.bezels.id, habillagesVus) : undefined,
+      seule ? eq(schema.bezels.consoleSlug, seule) : undefined,
+    ),
+  )
   .run();
 
 /**
@@ -499,18 +519,21 @@ db.delete(schema.bezels)
  * étrangère en cascade : le supprimer effacerait les parties des joueurs parce
  * qu'un dossier a été déplacé par erreur. Le dépublier le retire du catalogue
  * et laisse tout en place.
+ *
+ * Avec `--console`, seuls les jeux de cette console sont concernés : ceux des
+ * autres n'ont pas été relus, leur absence de `vus` ne dit rien.
  */
-const retires = vus.length
-  ? db
-      .update(schema.games)
-      .set({ isPublished: false, updatedAt: new Date() })
-      .where(and(notInArray(schema.games.id, vus), eq(schema.games.isPublished, true)))
-      .run()
-  : db
-      .update(schema.games)
-      .set({ isPublished: false, updatedAt: new Date() })
-      .where(eq(schema.games.isPublished, true))
-      .run();
+const retires = db
+  .update(schema.games)
+  .set({ isPublished: false, updatedAt: new Date() })
+  .where(
+    and(
+      eq(schema.games.isPublished, true),
+      vus.length ? notInArray(schema.games.id, vus) : undefined,
+      seule ? eq(schema.games.consoleSlug, seule) : undefined,
+    ),
+  )
+  .run();
 
 const publies = db
   .select({ id: schema.games.id })

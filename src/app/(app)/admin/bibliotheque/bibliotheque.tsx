@@ -121,6 +121,20 @@ export function Bibliotheque({
 
   /** Pendant le scan seulement : inutile d'interroger un serveur au repos. */
   const tacheEnCours = Boolean(scan?.enCours || scraper?.enCours);
+
+  /**
+   * La console sur laquelle portent le scan et la complétion des fiches ;
+   * vide pour toutes. Elle suit le filtre de la liste — on agit d'ordinaire
+   * sur ce qu'on regarde — mais reste un choix à part, affiché à côté des
+   * boutons : rien ne se limite à une console sans qu'on le voie.
+   */
+  const [portee, setPortee] = useState(filtres.console);
+  const [filtreVu, setFiltreVu] = useState(filtres.console);
+  if (filtreVu !== filtres.console) {
+    setFiltreVu(filtres.console);
+    setPortee(filtres.console);
+  }
+  const suffixe = portee ? `?console=${encodeURIComponent(portee)}` : "";
   useEffect(() => {
     if (!tacheEnCours) return;
     const battement = setInterval(() => void relire(), 2000);
@@ -134,7 +148,7 @@ export function Bibliotheque({
    */
   async function lancerScraper() {
     setErreur(null);
-    const reponse = await fetch("/api/admin/scraper", { method: "POST" });
+    const reponse = await fetch(`/api/admin/scraper${suffixe}`, { method: "POST" });
     if (!reponse.ok) {
       const corps = await reponse.json().catch(() => ({}));
       setErreur(corps.erreur ?? "Le scraper n'a pas pu démarrer.");
@@ -148,7 +162,7 @@ export function Bibliotheque({
 
   async function lancer() {
     setErreur(null);
-    const reponse = await fetch("/api/admin/scan", { method: "POST" });
+    const reponse = await fetch(`/api/admin/scan${suffixe}`, { method: "POST" });
     if (!reponse.ok) {
       const corps = await reponse.json().catch(() => ({}));
       setErreur(corps.erreur ?? "Le scan n'a pas pu démarrer.");
@@ -179,6 +193,23 @@ export function Bibliotheque({
         <Button type="button" variant="ghost" onClick={() => void lancerScraper()} disabled={tacheEnCours}>
           {scraper?.enCours ? "Recherche en cours…" : "Compléter les fiches"}
         </Button>
+        <label htmlFor="portee-taches" className="sr-only">
+          Console sur laquelle portent le scan et la complétion des fiches
+        </label>
+        <select
+          id="portee-taches"
+          value={portee}
+          onChange={(evenement) => setPortee(evenement.target.value)}
+          disabled={tacheEnCours}
+          className={selectClasses}
+        >
+          <option value="">Sur toutes les consoles</option>
+          {CONSOLES.map((definition) => (
+            <option key={definition.slug} value={definition.slug}>
+              Sur {definition.name} seulement
+            </option>
+          ))}
+        </select>
         <p className="text-xs text-ink-400">
           {comptes.publies} publié{comptes.publies > 1 ? "s" : ""} sur {comptes.total}
           {scan?.termineLe &&
