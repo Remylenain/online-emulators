@@ -85,6 +85,13 @@
       "when": 1793828738217,
       "tag": "0011_manette",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793839761961,
+      "tag": "0012_jeux_officiels",
+      "breakpoints": true
     }
   ]
 }

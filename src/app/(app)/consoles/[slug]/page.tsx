@@ -4,9 +4,11 @@ import { CatalogControls } from "@/components/catalog-controls";
 import { GameGrid } from "@/components/game-grid";
 import { GameList } from "@/components/game-list";
 import { requireUser } from "@/lib/auth/guard";
-import { languesDisponibles, listConsoleGames } from "@/lib/catalog";
+import { languesDisponibles, listConsoleGames, typesMelanges } from "@/lib/catalog";
 import {
   isSortKey,
+  isTypeKey,
+  TYPE_PAR_DEFAUT,
   TRI_PAR_DEFAUT,
   isViewMode,
   LANGUE_PAR_DEFAUT,
@@ -17,7 +19,7 @@ import {
 import { CONSOLES, findConsole } from "@/lib/consoles";
 
 type Params = { slug: string };
-type Query = { q?: string; tri?: string; vue?: string; langue?: string };
+type Query = { q?: string; tri?: string; vue?: string; langue?: string; type?: string };
 
 /** Les trois consoles sont connues d'avance : autant préparer leurs routes. */
 export function generateStaticParams(): Params[] {
@@ -53,6 +55,8 @@ export default async function ConsolePage({
   const view: ViewMode = isViewMode(query.vue) ? query.vue : "grille";
 
   const langues = await languesDisponibles(user, console.slug);
+  const melange = await typesMelanges(user, console.slug);
+  const type = melange && isTypeKey(query.type) ? query.type : TYPE_PAR_DEFAUT;
 
   /**
    * Le français s'affiche par défaut, mais seulement s'il y a du français sur
@@ -68,6 +72,7 @@ export default async function ConsolePage({
     search,
     sort,
     langue,
+    type,
   });
 
   const masques = total - jeux.length;
@@ -88,6 +93,7 @@ export default async function ConsolePage({
         view={view}
         langue={langue}
         langues={langues}
+        type={melange ? type : null}
         filtrable={langues.length > 1 || masques > 0 || langue !== defaut}
         defaut={defaut}
         total={jeux.length}

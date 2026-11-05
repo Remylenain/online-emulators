@@ -1,0 +1,1 @@
+ALTER TABLE `games` ADD `is_official` integer DEFAULT false NOT NULL;

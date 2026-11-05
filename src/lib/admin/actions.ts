@@ -657,7 +657,7 @@ export async function enregistrerRetouches(
   }
 
   const colonnes = manifestToColumns(
-    appliquerRetouche(jeu.manifeste ?? { titre: jeu.title, publie: true }, retouche),
+    appliquerRetouche(jeu.manifeste ?? { titre: jeu.title, publie: true, officiel: false }, retouche),
   );
 
   db.update(games)

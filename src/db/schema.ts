@@ -245,6 +245,12 @@ export const games = sqliteTable(
     searchText: text("search_text").notNull().default(""),
 
     isPublished: integer("is_published", { mode: "boolean" }).notNull().default(true),
+    /**
+     * Jeu du commerce, tel qu'il est sorti — par opposition aux rom hacks et
+     * aux traductions, qui sont la raison d'être du site. Sert au filtre du
+     * catalogue et tient ces jeux hors des nouveautés.
+     */
+    isOfficial: integer("is_official", { mode: "boolean" }).notNull().default(false),
     releasedAt: integer("released_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),

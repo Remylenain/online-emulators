@@ -6,8 +6,11 @@ import {
   nomDeLangue,
   SORTS,
   TOUTES_LANGUES,
+  TYPE_PAR_DEFAUT,
+  TYPES,
   VIEWS,
   type SortKey,
+  type TypeKey,
   type ViewMode,
 } from "@/lib/catalog-options";
 
@@ -24,6 +27,7 @@ export function CatalogControls({
   view,
   langue,
   langues,
+  type,
   filtrable,
   defaut,
   total,
@@ -34,6 +38,8 @@ export function CatalogControls({
   langue: string;
   /** Langues réellement présentes sur cette console. */
   langues: string[];
+  /** Rom hacks, officiels ou tout ; `null` quand la console n'a qu'un des deux. */
+  type: TypeKey | null;
   /** Y a-t-il quelque chose à révéler en changeant de filtre ? */
   filtrable: boolean;
   /** Langue retenue quand l'adresse n'en précise aucune. */
@@ -120,6 +126,28 @@ export function CatalogControls({
                 </option>
               ))}
               <option value={TOUTES_LANGUES}>Toutes les langues</option>
+            </select>
+          </>
+        )}
+
+        {type && (
+          <>
+            <label htmlFor="type" className="sr-only">
+              Type de jeu
+            </label>
+            <select
+              id="type"
+              value={type}
+              onChange={(evenement) =>
+                naviguer({ type: evenement.target.value === TYPE_PAR_DEFAUT ? "" : evenement.target.value })
+              }
+              className="rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
+            >
+              {Object.entries(TYPES).map(([cle, libelle]) => (
+                <option key={cle} value={cle}>
+                  {libelle}
+                </option>
+              ))}
             </select>
           </>
         )}

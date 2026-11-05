@@ -4,7 +4,7 @@ import { games, playSessions } from "@/db/schema";
 import { conditionAcces, type Visiteur } from "./acces";
 import { normalizeForSearch } from "./validation";
 
-import { TOUTES_LANGUES, TRI_PAR_DEFAUT, type SortKey } from "./catalog-options";
+import { TOUTES_LANGUES, TRI_PAR_DEFAUT, type SortKey, type TypeKey } from "./catalog-options";
 
 /** Jeu tel qu'affiché dans une grille ou une liste. */
 export type GameCard = {
@@ -135,7 +135,10 @@ export async function latestGames(
   limit = 8,
   langue?: string,
 ): Promise<GameCard[]> {
-  const conditions = [conditionAcces(visiteur)];
+  // Les nouveautés sont celles des rom hacks : un jeu du commerce ajouté à la
+  // bibliothèque n'est pas une sortie, et quelques centaines d'entre eux
+  // noieraient la rangée.
+  const conditions = [conditionAcces(visiteur), eq(games.isOfficial, false)];
 
   // Les nouveautés suivent le même choix de langue que le catalogue : on ne
   // met pas en avant des jeux qu'on ne saurait pas lire.
@@ -189,11 +192,15 @@ export async function listConsoleGames(options: {
   sort?: SortKey;
   /** Code de langue, ou `TOUTES_LANGUES` pour ne pas filtrer. */
   langue?: string;
+  /** Rom hacks, jeux officiels, ou tout. */
+  type?: TypeKey;
 }): Promise<{ jeux: GameCard[]; total: number }> {
   const conditions = [
     eq(games.consoleSlug, options.consoleSlug),
     conditionAcces(options.visiteur),
   ];
+  if (options.type === "hacks") conditions.push(eq(games.isOfficial, false));
+  else if (options.type === "officiels") conditions.push(eq(games.isOfficial, true));
 
   /**
    * Le filtre porte sur le code court : « fr-FR » comme « fr » sont du
@@ -270,6 +277,19 @@ export async function languesDisponibles(visiteur: Visiteur, consoleSlug: string
     courtes.add(ligne.langue.toLowerCase().split("-")[0]!);
   }
   return [...courtes].sort();
+}
+
+/**
+ * La console mélange-t-elle rom hacks et jeux officiels ? Le filtre de type
+ * n'a de sens que dans ce cas.
+ */
+export async function typesMelanges(visiteur: Visiteur, consoleSlug: string): Promise<boolean> {
+  const lignes = await db
+    .selectDistinct({ officiel: games.isOfficial })
+    .from(games)
+    .where(and(eq(games.consoleSlug, consoleSlug), conditionAcces(visiteur)))
+    .all();
+  return lignes.length > 1;
 }
 
 /**

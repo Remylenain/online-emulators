@@ -79,6 +79,9 @@ export const manifestSchema = z.object({
 
   /** Retire le jeu du catalogue sans supprimer son dossier. */
   publie: z.boolean().default(true),
+
+  /** Jeu du commerce tel qu'il est sorti, et non un rom hack ou une traduction. */
+  officiel: z.boolean().default(false),
 });
 
 export type Manifest = z.infer<typeof manifestSchema>;
@@ -104,5 +107,6 @@ export function manifestToColumns(manifest: Manifest) {
     groupTitle: manifest.groupe?.titre ?? null,
     partNumber: manifest.groupe?.partie ?? null,
     isPublished: manifest.publie,
+    isOfficial: manifest.officiel,
   };
 }

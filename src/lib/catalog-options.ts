@@ -22,6 +22,24 @@ export function isSortKey(value: string | undefined): value is SortKey {
   return value !== undefined && value in SORTS;
 }
 
+/**
+ * Ce qu'on regarde : les rom hacks et traductions, les jeux du commerce, ou
+ * tout. Le premier est le choix par défaut.
+ */
+export const TYPES = {
+  tous: "Tous les jeux",
+  hacks: "Rom hacks et traductions",
+  officiels: "Jeux officiels",
+} as const;
+
+export type TypeKey = keyof typeof TYPES;
+
+export const TYPE_PAR_DEFAUT: TypeKey = "tous";
+
+export function isTypeKey(value: string | undefined): value is TypeKey {
+  return value !== undefined && value in TYPES;
+}
+
 export const VIEWS = ["grille", "liste"] as const;
 
 export type ViewMode = (typeof VIEWS)[number];
