@@ -1,12 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { keymaps } from "@/db/schema";
 import { SalonLink } from "@/components/link/salon-link";
 import { requireUser } from "@/lib/auth/guard";
-import { DEFAULT_KEYMAP, type Touche } from "@/lib/consoles";
-import { MANETTE_PAR_DEFAUT } from "@/lib/manette";
+import { dispositionsDuCompte } from "@/lib/keymap/lecture";
 import { salons } from "@/lib/link/registre";
 
 export const metadata: Metadata = { title: "Câble link" };
@@ -57,27 +53,7 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
     );
   }
 
-  const enregistree = await db
-    .select({ mapping: keymaps.mapping, gamepad: keymaps.gamepad })
-    .from(keymaps)
-    .where(and(eq(keymaps.userId, user.id), eq(keymaps.consoleSlug, salon.jeu.consoleSlug)))
-    .get();
-  let touches: Record<Touche, string> = DEFAULT_KEYMAP;
-  if (enregistree) {
-    try {
-      touches = { ...DEFAULT_KEYMAP, ...JSON.parse(enregistree.mapping) };
-    } catch {
-      // Disposition illisible : le défaut fera l'affaire.
-    }
-  }
-  let manette: Record<Touche, string> = MANETTE_PAR_DEFAUT;
-  if (enregistree?.gamepad) {
-    try {
-      manette = { ...MANETTE_PAR_DEFAUT, ...JSON.parse(enregistree.gamepad) };
-    } catch {
-      // Idem.
-    }
-  }
+  const { touches, manette, manettes } = dispositionsDuCompte(user.id);
 
   return (
     <SalonLink
@@ -85,6 +61,7 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
       consoleSlug={salon.jeu.consoleSlug}
       touches={touches}
       manette={manette}
+      manettes={manettes}
       spectateur={spectateur}
       retour={`/jeux/${salon.jeu.consoleSlug}/${salon.jeu.slug}`}
     />

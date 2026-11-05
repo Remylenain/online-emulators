@@ -186,3 +186,29 @@ export type IdentiteManette = {
 export function identiteManette(manette: Gamepad): IdentiteManette {
   return { id: manette.id || "Manette", standard: manette.mapping === "standard" };
 }
+
+/**
+ * Le type d'appareil, pour ranger la disposition d'une manette non reconnue.
+ *
+ * Une telle manette n'a pas la même numérotation sous Android et sous
+ * Windows : chaque système lit ses boutons à sa façon. Sa disposition est
+ * donc enregistrée par système, pas seulement par manette — sans quoi la
+ * régler sur le téléphone la déréglerait sur le PC.
+ */
+export function typeAppareil(): string {
+  if (typeof navigator === "undefined") return "autre";
+  const agent = navigator.userAgent;
+  if (/Android/i.test(agent)) return "android";
+  // Un iPad se présente comme un Mac ; l'écran tactile le trahit.
+  if (/iPhone|iPad|iPod/i.test(agent) || (/Macintosh/i.test(agent) && navigator.maxTouchPoints > 1)) return "ios";
+  if (/Windows/i.test(agent)) return "windows";
+  if (/Macintosh|Mac OS X/i.test(agent)) return "mac";
+  if (/CrOS/i.test(agent)) return "chromeos";
+  if (/Linux/i.test(agent)) return "linux";
+  return "autre";
+}
+
+/** La clé sous laquelle le compte retient une manette non reconnue. */
+export function cleManette(identite: IdentiteManette): string {
+  return `${typeAppareil()}|${identite.id}`.slice(0, 300);
+}

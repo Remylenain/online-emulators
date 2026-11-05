@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ResultatTouches } from "@/lib/keymap/actions";
 import { ACTIONS, type ButtonName, type Touche } from "@/lib/consoles";
+import { boutonsSansEntree, enumerer } from "@/lib/keymap/disposition";
 import { entreesActives, libelleManette, manetteBranchee, type IdentiteManette } from "@/lib/manette";
 
 const LIBELLES: Record<Touche, string> = {
@@ -121,6 +122,10 @@ export function ManetteConfig({
     if (!resultat.ok) setMessage(resultat.message ?? "Opération refusée.");
   }
 
+  const affiches = [...boutons, ...ACTIONS];
+  // Sans manette branchée, ou tant qu'elle reste à régler, l'alerte n'apprendrait rien.
+  const depourvus = branchee && !aRegler ? boutonsSansEntree(affiches, disposition) : [];
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold text-ink-200">
@@ -136,8 +141,8 @@ export function ManetteConfig({
         <p className="text-xs text-ink-400">
           <span className="text-ink-200">{identite.id}</span> —{" "}
           {identite.standard
-            ? "reconnue par le navigateur, numérotation standard."
-            : "numérotation propre à cette manette sur cet appareil : le réglage ci-dessous est retenu ici, et ne change rien sur tes autres appareils."}
+            ? "reconnue par le navigateur, numérotation standard. Le réglage ci-dessous est enregistré sur ton compte, pour toutes les consoles."
+            : "numérotation propre à cette manette sur ce type d'appareil : le réglage ci-dessous est enregistré sur ton compte pour elle, et ne change rien pour tes autres manettes."}
           {actives.length > 0 && (
             <span className="ml-2 font-mono text-accent-400">
               {actives.map((entree) => `${entree} (${libelleManette(entree, standard)})`).join(" · ")}
@@ -152,6 +157,18 @@ export function ManetteConfig({
         </p>
       )}
 
+      {depourvus.length > 0 && (
+        <p
+          role="alert"
+          className="rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-100"
+        >
+          {enumerer(depourvus.map((bouton) => LIBELLES[bouton]))}{" "}
+          {depourvus.length > 1 ? "n'ont plus de bouton" : "n'a plus de bouton"} sur la manette : le
+          sien est passé à un autre. Touche-{depourvus.length > 1 ? "les" : "le"} ci-dessous pour{" "}
+          {depourvus.length > 1 ? "leur" : "lui"} en donner un.
+        </p>
+      )}
+
       {message && (
         <p role="alert" className="text-xs text-red-300">
           {message}
@@ -159,7 +176,7 @@ export function ManetteConfig({
       )}
 
       <ul className="flex flex-wrap gap-2">
-        {[...boutons, ...ACTIONS].map((bouton) => {
+        {affiches.map((bouton) => {
           const attend = enAttente === bouton;
           const entree = disposition[bouton];
           const tenue = Boolean(entree && actives.includes(entree));
@@ -174,7 +191,9 @@ export function ManetteConfig({
                     ? "border-accent-600 bg-accent-600/15"
                     : tenue
                       ? "border-accent-600/70 bg-accent-600/10"
-                      : "border-ink-700 hover:border-ink-400"
+                      : entree || !branchee
+                        ? "border-ink-700 hover:border-ink-400"
+                        : "border-amber-600 bg-amber-950/40 hover:border-amber-400"
                 }`}
               >
                 <span className="text-xs text-ink-400">{LIBELLES[bouton]}</span>

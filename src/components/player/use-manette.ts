@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Touche } from "@/lib/consoles";
 import { enregistrerManette, retablirManette, type ResultatTouches } from "@/lib/keymap/actions";
 import {
+  cleManette,
   identiteManette,
   lireManette,
   manetteBranchee,
@@ -23,17 +24,22 @@ type Disposition = Record<Touche, string>;
  * s'arrête d'elle-même quand l'onglet est caché ; au retour, tout est
  * relâché d'abord, comme pour le clavier au changement de fenêtre.
  *
- * **Deux dispositions.** Une manette que le navigateur reconnaît (numérotation
- * « standard ») utilise la disposition du compte, enregistrée sur le serveur :
- * elle vaut pour toutes les manettes standard, sur tous les appareils. Une
- * manette qu'il ne reconnaît pas a sa propre numérotation, qui ne vaut que
- * pour ce modèle dans ce navigateur : sa disposition est retenue ici, sur
- * l'appareil, sous le nom de la manette. Sans cela, régler sa 8BitDo sur le
+ * **Deux dispositions, toutes deux sur le compte.** Une manette que le
+ * navigateur reconnaît (numérotation « standard ») utilise la disposition
+ * commune : elle vaut pour toutes les manettes standard, sur tous les
+ * appareils. Une manette qu'il ne reconnaît pas a sa propre numérotation, qui
+ * change d'un système à l'autre : sa disposition est enregistrée sous son nom
+ * et le type d'appareil (`cleManette`). Sans cela, régler sa 8BitDo sur le
  * téléphone déréglerait la même sur le PC, où elle est vue autrement.
+ *
+ * Avant d'aller sur le compte, ces dispositions-là vivaient dans le
+ * navigateur (`localStorage`). Celles qui s'y trouvent encore servent tant
+ * que le compte n'a rien pour la manette ; le premier réglage les remplace.
  */
 export function useManette(
   consoleSlug: string,
   dispositionCompte: Disposition,
+  manettesCompte: Record<string, Disposition>,
   surTouche: (touche: Touche, enfonce: boolean) => void,
   actif = true,
 ): {
@@ -47,6 +53,7 @@ export function useManette(
 } {
   const [identite, setIdentite] = useState<IdentiteManette | null>(null);
   const [compte, setCompte] = useState(dispositionCompte);
+  const [nommees, setNommees] = useState(manettesCompte);
   const [locales, setLocales] = useState<Record<string, Disposition>>({});
   const cle = `oe_manette:${consoleSlug}`;
 
@@ -59,9 +66,10 @@ export function useManette(
     }
   }, [cle]);
 
-  const locale = identite && !identite.standard ? locales[identite.id] : undefined;
-  const disposition = identite && !identite.standard ? (locale ?? compte) : compte;
-  const aRegler = Boolean(identite && !identite.standard && !locale);
+  const nommee = identite && !identite.standard ? cleManette(identite) : null;
+  const propre = nommee ? (nommees[nommee] ?? locales[identite!.id]) : undefined;
+  const disposition = nommee ? (propre ?? compte) : compte;
+  const aRegler = Boolean(nommee && !propre);
 
   // La boucle de lecture lit ces deux valeurs par des références, tenues à
   // jour après chaque rendu : elle n'a pas à redémarrer quand elles changent.
@@ -126,26 +134,34 @@ export function useManette(
 
   const changer = useCallback(
     async (suivante: Disposition): Promise<ResultatTouches> => {
-      if (identite && !identite.standard) {
-        ecrireLocales({ ...locales, [identite.id]: suivante });
-        return { ok: true };
+      if (nommee) {
+        setNommees((actuelles) => ({ ...actuelles, [nommee]: suivante }));
+        return enregistrerManette(consoleSlug, suivante, nommee);
       }
       setCompte(suivante);
       return enregistrerManette(consoleSlug, suivante);
     },
-    [identite, locales, ecrireLocales, consoleSlug],
+    [nommee, consoleSlug],
   );
 
   const retablir = useCallback(async (): Promise<ResultatTouches> => {
-    if (identite && !identite.standard) {
-      const reste = { ...locales };
-      delete reste[identite.id];
-      ecrireLocales(reste);
-      return { ok: true };
+    if (nommee && identite) {
+      setNommees((actuelles) => {
+        const reste = { ...actuelles };
+        delete reste[nommee];
+        return reste;
+      });
+      // L'ancienne copie du navigateur aussi, sinon elle reprendrait la main.
+      if (locales[identite.id]) {
+        const reste = { ...locales };
+        delete reste[identite.id];
+        ecrireLocales(reste);
+      }
+      return retablirManette(consoleSlug, nommee);
     }
     setCompte({ ...MANETTE_PAR_DEFAUT });
     return retablirManette(consoleSlug);
-  }, [identite, locales, ecrireLocales, consoleSlug]);
+  }, [nommee, identite, locales, ecrireLocales, consoleSlug]);
 
   return { branchee: identite !== null, identite, disposition, aRegler, changer, retablir };
 }

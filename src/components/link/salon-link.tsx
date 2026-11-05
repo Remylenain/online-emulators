@@ -35,15 +35,18 @@ export function SalonLink({
   consoleSlug,
   touches,
   manette,
+  manettes,
   spectateur = false,
   retour,
 }: {
   salonId: string;
-  /** Console du jeu : la disposition d'une manette non reconnue est retenue par console. */
+  /** Console du jeu. */
   consoleSlug: string;
   touches: Record<Touche, string>;
   /** Disposition de la manette ; l'accéléré n'a pas de sens ici. */
   manette: Record<Touche, string>;
+  /** Celles des manettes que le navigateur ne reconnaît pas, par « appareil|nom ». */
+  manettes: Record<string, Record<Touche, string>>;
   /** Regarder sans jouer : deux écrans, pas de touches, pas de fin de session. */
   spectateur?: boolean;
   retour: string;
@@ -95,7 +98,7 @@ export function SalonLink({
     },
     [bouton],
   );
-  useManette(consoleSlug, manette, surToucheManette, !spectateur);
+  useManette(consoleSlug, manette, manettes, surToucheManette, !spectateur);
 
   // Connexion, et tout ce qui en découle.
   useEffect(() => {
@@ -410,7 +413,7 @@ export function SalonLink({
       {actions}
       {!tactile && !spectateur && (
         <p className="text-xs text-ink-700">
-          Les touches sont celles de ton compte pour cette console. Le jeu tourne sur le serveur :
+          Les touches sont celles de ton compte. Le jeu tourne sur le serveur :
           tu peux changer d&apos;onglet, la partie continue.
         </p>
       )}

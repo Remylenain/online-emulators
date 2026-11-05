@@ -88,6 +88,7 @@ export function Lecteur({
   console: consoleInfo,
   touches: touchesInitiales,
   manette: manetteInitiale,
+  manettes: manettesInitiales,
   habillages,
   habillageInitial,
 }: {
@@ -96,6 +97,8 @@ export function Lecteur({
   touches: Record<Touche, string>;
   /** Disposition de la manette (API Gamepad), même principe que les touches. */
   manette: Record<Touche, string>;
+  /** Celles des manettes que le navigateur ne reconnaît pas, par « appareil|nom ». */
+  manettes: Record<string, Record<Touche, string>>;
   /** Les habillages de cette console, dans l'ordre du scan. */
   habillages: Habillage[];
   /** Celui du compte, ou `null` pour aucun. */
@@ -413,7 +416,7 @@ export function Lecteur({
     },
     [accelerer],
   );
-  const manettePhysique = useManette(jeu.consoleSlug, manetteInitiale, surToucheManette);
+  const manettePhysique = useManette(jeu.consoleSlug, manetteInitiale, manettesInitiales, surToucheManette);
   const manetteBranchee = manettePhysique.branchee;
 
   /**

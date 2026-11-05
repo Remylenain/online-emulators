@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { bezelChoices, bezels, keymaps } from "@/db/schema";
+import { bezelChoices, bezels } from "@/db/schema";
 import { Lecteur } from "@/components/player/lecteur";
 import { requireUser } from "@/lib/auth/guard";
 import { getCurrentUser } from "@/lib/auth/session";
 import { gameBySlug } from "@/lib/catalog";
-import { DEFAULT_KEYMAP, findConsole, type Touche } from "@/lib/consoles";
-import { MANETTE_PAR_DEFAUT } from "@/lib/manette";
+import { findConsole } from "@/lib/consoles";
+import { dispositionsDuCompte } from "@/lib/keymap/lecture";
 
 type Params = { console: string; slug: string };
 
@@ -37,32 +37,10 @@ export default async function PlayPage({ params }: { params: Promise<Params> }) 
   const game = console ? await gameBySlug(user, console.slug, slug) : undefined;
   if (!console || !game) notFound();
 
-  // La disposition du compte si elle existe, sinon celle par défaut. Lue ici
-  // plutôt que dans le navigateur : le lecteur doit pouvoir démarrer avec les
-  // bonnes touches dès la première image, sans attendre une requête.
-  const enregistree = await db
-    .select({ mapping: keymaps.mapping, gamepad: keymaps.gamepad })
-    .from(keymaps)
-    .where(and(eq(keymaps.userId, user.id), eq(keymaps.consoleSlug, console.slug)))
-    .get();
-
-  let touches: Record<Touche, string> = DEFAULT_KEYMAP;
-  if (enregistree) {
-    try {
-      touches = { ...DEFAULT_KEYMAP, ...JSON.parse(enregistree.mapping) };
-    } catch {
-      // Disposition illisible : on repart du défaut plutôt que de bloquer la
-      // partie. Elle sera réécrite à la prochaine modification.
-    }
-  }
-  let manette: Record<Touche, string> = MANETTE_PAR_DEFAUT;
-  if (enregistree?.gamepad) {
-    try {
-      manette = { ...MANETTE_PAR_DEFAUT, ...JSON.parse(enregistree.gamepad) };
-    } catch {
-      // Même traitement que le clavier.
-    }
-  }
+  // Les dispositions du compte si elles existent, sinon celles par défaut.
+  // Lues ici plutôt que dans le navigateur : le lecteur doit pouvoir démarrer
+  // avec les bonnes touches dès la première image, sans attendre une requête.
+  const { touches, manette, manettes } = dispositionsDuCompte(user.id);
 
   /**
    * Habillages de la console, et celui du compte.
@@ -131,6 +109,7 @@ export default async function PlayPage({ params }: { params: Promise<Params> }) 
       }}
       touches={touches}
       manette={manette}
+      manettes={manettes}
       habillages={habillages}
       habillageInitial={habillageInitial}
     />

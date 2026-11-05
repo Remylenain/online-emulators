@@ -405,7 +405,15 @@ export const saveStates = sqliteTable(
   ],
 );
 
-/** Remapping clavier, par compte et par console. */
+/**
+ * Touches du clavier et boutons de la manette, par compte.
+ *
+ * Une disposition vaut pour toutes les consoles : elles ont les mêmes boutons,
+ * et régler ses touches une fois par console ressemblait, pour le joueur, à
+ * un réglage qui ne tient pas. La ligne la plus récente du compte fait foi
+ * (voir `src/lib/keymap/lecture.ts`) ; `console_slug` garde la console où le
+ * réglage a été fait la première fois, et rien ne le lit plus.
+ */
 export const keymaps = sqliteTable(
   "keymaps",
   {
@@ -416,10 +424,16 @@ export const keymaps = sqliteTable(
     consoleSlug: text("console_slug")
       .notNull()
       .references(() => consoles.slug, { onDelete: "cascade" }),
-    /** Mapping sérialisé en JSON : touche du clavier vers bouton de la console. */
+    /** Bouton de la console → touche du clavier, en JSON ; « "" » = bouton laissé sans touche. */
     mapping: text("mapping").notNull(),
-    /** Même chose pour la manette (API Gamepad), en JSON ; null = disposition par défaut. */
+    /** Même chose pour une manette à numérotation standard ; null = disposition par défaut. */
     gamepad: text("gamepad"),
+    /**
+     * Les manettes que le navigateur ne reconnaît pas, en JSON : une
+     * disposition par manette et par type d'appareil (« android|8BitDo… »),
+     * leur numérotation n'étant pas la même d'un système à l'autre.
+     */
+    gamepads: text("gamepads"),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
   (table) => [uniqueIndex("keymaps_user_console_unique").on(table.userId, table.consoleSlug)],
