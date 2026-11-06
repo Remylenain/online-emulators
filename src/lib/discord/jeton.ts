@@ -21,6 +21,15 @@ function signature(charge: string): string {
   return createHmac("sha256", env.SESSION_SECRET).update(`activite-discord:${charge}`).digest("base64url");
 }
 
+/**
+ * La clé du salon d'une instance d'Activité : opaque, la même pour tous ceux
+ * qui ouvrent l'Activité dans le même salon vocal, inconnue des autres. Le
+ * nom d'instance de Discord ne circule donc pas tel quel entre les pages.
+ */
+export function cleInstance(instance: string): string {
+  return createHmac("sha256", env.SESSION_SECRET).update(`instance-discord:${instance}`).digest("hex").slice(0, 32);
+}
+
 export function signerJeton(userId: string): string {
   const charge = Buffer.from(JSON.stringify({ u: userId, e: Date.now() + DUREE_MS })).toString("base64url");
   return `${charge}.${signature(charge)}`;

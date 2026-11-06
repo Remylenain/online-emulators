@@ -17,11 +17,12 @@ import type { Duplex } from "node:stream";
 import { parseArgs } from "node:util";
 import next from "next";
 import { WebSocketServer } from "ws";
-import { compteDepuisCookie } from "./src/lib/link/auth.ts";
+import { compteDuLink } from "./src/lib/link/auth.ts";
 import { salons } from "./src/lib/link/registre.ts";
 import { attacher, creerSalon, MAX_SPECTATEURS, regarder, surveillerAbandons } from "./src/lib/link/salons.ts";
 import { famille, placesLibres } from "./src/lib/link/capacite.ts";
-import { salonsEnAttente, salonDuCompte, salonsRegardables } from "./src/lib/link/registre.ts";
+import { attendre } from "./src/lib/link/file.ts";
+import { salonDInstance, salonsEnAttente, salonDuCompte, salonsRegardables } from "./src/lib/link/registre.ts";
 
 const { values } = parseArgs({
   options: {
@@ -74,7 +75,7 @@ async function lireJson(requete: IncomingMessage): Promise<Record<string, unknow
 async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url: URL): Promise<boolean> {
   if (url.pathname !== "/link/salons") return false;
 
-  const compte = await compteDepuisCookie(requete.headers.cookie);
+  const compte = await compteDuLink(requete.headers, url);
   if (!compte) {
     json(reponse, 401, { erreur: "Non connecté." });
     return true;
@@ -83,7 +84,29 @@ async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url
   if (requete.method === "GET") {
     const jeu = url.searchParams.get("jeu") ?? "";
     const mien = salonDuCompte(compte.id);
+    /*
+     * Une Activité Discord demande le salon de son instance — celui que
+     * quelqu'un du même salon vocal a peut-être déjà ouvert — et, avec
+     * `attente=1`, sa place dans la file quand le serveur est au complet.
+     */
+    const instance = url.searchParams.get("instance");
+    const salonInstance = instance ? salonDInstance(instance) : undefined;
+    const consoleSlug = url.searchParams.get("console") ?? "";
     json(reponse, 200, {
+      instance: instance
+        ? {
+            salon: salonInstance
+              ? {
+                  id: salonInstance.id,
+                  etat: salonInstance.etat,
+                  joueurs: salonInstance.places.map((place) => place?.pseudo ?? null),
+                  spectateurs: salonInstance.nombreSpectateurs,
+                  maPlace: salonInstance.places.findIndex((place) => place?.userId === compte.id),
+                }
+              : null,
+            rang: !salonInstance && url.searchParams.get("attente") === "1" ? attendre(instance, consoleSlug) : null,
+          }
+        : undefined,
       enAttente: salonsEnAttente(jeu).map((salon) => ({
         id: salon.id,
         hote: salon.places[0].pseudo,
@@ -99,7 +122,7 @@ async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url
       })),
       // Salons qu'on peut encore ouvrir pour ce jeu ; null tant que la
       // capacité du serveur n'a pas été mesurée (pas de limite).
-      libres: placesLibres(famille(url.searchParams.get("console") ?? "")),
+      libres: placesLibres(famille(consoleSlug)),
     });
     return true;
   }
@@ -112,7 +135,15 @@ async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url
       json(reponse, 400, { erreur: "Requête illisible." });
       return true;
     }
-    const resultat = await creerSalon(String(corps.jeu ?? ""), compte, corps.prive === true, corps.spectateurs === true);
+    // L'instance Discord : une clé opaque donnée par `/api/discord/session`, jamais un nom libre.
+    const instance = typeof corps.instance === "string" && /^[a-z0-9]{8,64}$/.test(corps.instance) ? corps.instance : undefined;
+    const resultat = await creerSalon(
+      String(corps.jeu ?? ""),
+      compte,
+      corps.prive === true,
+      corps.spectateurs === true || instance !== undefined,
+      instance,
+    );
     if ("erreur" in resultat) json(reponse, 409, resultat);
     else json(reponse, 201, { id: resultat.id });
     return true;
@@ -155,7 +186,7 @@ serveur.on("upgrade", (requete, socket, tete) => {
   }
 
   void (async () => {
-    const compte = await compteDepuisCookie(requete.headers.cookie);
+    const compte = await compteDuLink(requete.headers, url);
     const salon = salons().get(url.searchParams.get("salon") ?? "");
     if (!compte || !salon) {
       console.log(`[link] WebSocket refusée : ${compte ? "salon inconnu" : "pas de session"} (${url.search})`);

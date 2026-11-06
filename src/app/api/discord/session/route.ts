@@ -3,7 +3,7 @@ import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
 import { compteDiscord } from "@/lib/discord/compte";
 import { adressesCoeur } from "@/lib/discord/coeur";
 import { jeuDeLActivite } from "@/lib/discord/jeu";
-import { signerJeton } from "@/lib/discord/jeton";
+import { cleInstance, signerJeton } from "@/lib/discord/jeton";
 import { echangerCode, profilDiscord, type ProfilDiscord } from "@/lib/discord/oauth";
 import { verifierLieu } from "@/lib/discord/instance";
 import { discordEssaiLocal } from "@/lib/env";
@@ -63,6 +63,9 @@ export async function POST(request: Request) {
     // Un nom facultatif, pour essayer à plusieurs sans partager la partie.
     const nom = typeof corps.nom === "string" && /^[a-z0-9]{1,16}$/.test(corps.nom) ? corps.nom : "";
     profil = { id: nom ? `essai-local-${nom}` : "essai-local", pseudo: nom ? `Essai ${nom}` : "Essai local" };
+    // Deux onglets d'essai qui donnent le même nom d'instance se retrouvent
+    // dans le même salon, comme deux joueurs d'un même salon vocal.
+    if (typeof corps.instance !== "string" || !/^[a-z0-9-]{1,64}$/.test(corps.instance)) corps.instance = "essai";
   } else {
     if (typeof corps.code !== "string" || corps.code.length === 0 || corps.code.length > 200) {
       return NextResponse.json({ erreur: "Code d'autorisation manquant." }, { status: 400 });
@@ -101,8 +104,10 @@ export async function POST(request: Request) {
       jeton: signerJeton(compte.id),
       jetonDiscord: jetonAcces,
       pseudo: compte.pseudo,
-      jeu: { titre: jeu.titre, console: jeu.console, taille: jeu.taille, empreinte: jeu.empreinte },
+      jeu: { id: jeu.id, titre: jeu.titre, console: jeu.console, taille: jeu.taille, empreinte: jeu.empreinte },
       coeur: adressesCoeur(),
+      // Pour jouer à deux : la clé du salon de cette instance (voir `src/lib/link`).
+      instance: typeof corps.instance === "string" ? cleInstance(corps.instance) : null,
     },
     { headers: { "Cache-Control": "no-store" } },
   );

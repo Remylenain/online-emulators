@@ -35,6 +35,12 @@ export type Salon = {
    */
   prive: boolean;
   /**
+   * Le salon d'une instance d'Activité Discord : la clé de l'instance, telle
+   * que `/api/discord/session` la donne. Les joueurs du même salon vocal y
+   * arrivent sans code ; il n'apparaît dans aucune liste du site.
+   */
+  instance?: string;
+  /**
    * L'hôte a ouvert la partie aux spectateurs : d'autres comptes peuvent la
    * regarder (les deux écrans, le son), sans jamais y toucher. Cinq au plus.
    */
@@ -73,6 +79,11 @@ export function salonsRegardables(jeuId?: string): Salon[] {
         salon.etat === "en-jeu" && salon.spectateurs && !salon.prive && (jeuId === undefined || salon.jeu.id === jeuId),
     )
     .sort((a, b) => b.creeLe - a.creeLe);
+}
+
+/** Le salon ouvert pour cette instance d'Activité Discord, s'il y en a un. */
+export function salonDInstance(instance: string): Salon | undefined {
+  return [...salons().values()].find((salon) => salon.etat !== "termine" && salon.instance === instance);
 }
 
 /** Le salon en cours auquel ce compte participe, s'il y en a un. */

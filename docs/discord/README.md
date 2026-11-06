@@ -11,6 +11,8 @@ hack, sa traduction — dans son propre serveur Discord.
 > Discord sur ordinateur : connexion, jeu, sauvegarde et horloge fonctionnent.
 > Pas encore essayé sur téléphone, ni avec un jeu GBA. Le verrou par serveur
 > est essayé sur des réponses simulées de Discord, pas sur une vraie instance.
+> Le jeu à deux, les touches et la manette sont essayés en local (deux comptes
+> d'essai), pas encore dans Discord.
 
 ## En deux mots
 
@@ -22,7 +24,13 @@ hack, sa traduction — dans son propre serveur Discord.
   d'hôte** : c'est l'hôte de la requête qui dit quelle Activité répond, et un
   hôte d'Activité ne sert rien d'autre du site.
 - **La partie suit le compte Discord**, d'un appareil à l'autre, au même format
-  que le lecteur du site, horloge temps réel comprise.
+  que le lecteur du site, horloge temps réel comprise — seul comme à deux.
+- **À deux, le salon vocal est le salon de jeu** : deux membres qui ouvrent
+  l'Activité dans le même salon vocal jouent ensemble par le câble link du
+  site, sans code à échanger ; les suivants regardent. Le serveur ne tient
+  qu'un nombre de salons à la fois, et l'Activité fait la file.
+- **Touches et manette** se règlent dans l'Activité, et sont celles du compte :
+  les mêmes que sur le site.
 
 ## Comment ça marche
 
@@ -62,44 +70,80 @@ ne pas pouvoir le faire. L'Activité charge donc un mGBA compilé **sans threads
 départ), qui tourne dans n'importe quelle page. Voir
 [son LISEZMOI](../../coeurs/mgba-splitscreen/LISEZMOI.md).
 
-## Installer
+## Installer : le pas à pas complet
 
-### 1. Créer l'application Discord
+Tout ce qu'il y a à faire chez Discord, puis dans le site, puis sur le
+serveur. Le même pas à pas est affiché dans l'administration (onglet Discord,
+« Lire le pas à pas ») ; les deux s'entretiennent ensemble. Les noms d'onglets
+sont ceux du portail fin 2026 ; Discord les déplace parfois, les notions
+restent.
 
-Sur <https://discord.com/developers/applications> :
+### 0. Avant de commencer
 
-1. **New Application**.
-2. **OAuth2 → Redirects** : ajouter `https://127.0.0.1`. Discord exige une
-   adresse de retour, mais le SDK ne s'en sert pas.
-3. **Activities → Settings** : cocher *Enable Activities*, et les plateformes
-   voulues (ordinateur par défaut ; iOS et Android à cocher).
-4. **Activities → URL Mappings** : préfixe `/`, cible le nom d'hôte de
-   l'Activité (voir l'étape 2), sans `https://`.
+- Un compte Discord et **un serveur Discord à toi** (ou dont tu es
+  administrateur) de **moins de 25 membres** : tant que l'application n'est
+  pas vérifiée par Discord, elle ne se lance que dans un serveur de cette
+  taille, et seulement pour toi, ton équipe et tes testeurs.
+- Le **mode développeur** dans Discord : Paramètres utilisateur → Avancés →
+  Mode développeur. Il ajoute « Copier l'identifiant » aux clics droits.
+- Un **nom d'hôte** pour l'Activité (`prism.exemple.com`), différent de celui
+  du site, que tu peux faire pointer vers le serveur chez ton registrar.
+- Le jeu déjà présent dans la bibliothèque du site (publié ou non).
 
-### 2. Déclarer l'Activité dans l'administration
+### 1. Créer l'application chez Discord
+
+1. <https://discord.com/developers/applications> → **New Application**. Le
+   nom est celui que verront les joueurs dans le lanceur — le nom du jeu, par
+   exemple.
+2. Onglet **General Information** : copier **Application ID** (18 ou
+   19 chiffres), c'est « l'identifiant d'application ». Ajouter une icône et
+   une description, affichées dans le lanceur d'activités.
+3. Ne pas copier la **Public Key** : elle ne sert pas ici, et la prendre pour
+   le secret donne `invalid_client`.
+
+### 2. Le secret et l'adresse de retour (onglet OAuth2)
+
+1. **Client Secret** → **Reset Secret** → copier tout de suite : Discord ne le
+   montre qu'une fois. Le régénérer plus tard invalide l'ancien, partout où il
+   est enregistré.
+2. **Redirects** → Add Redirect → `https://127.0.0.1` → Save Changes. Discord
+   exige une adresse de retour ; l'Activité ne s'en sert jamais.
+
+### 3. Le jeton de bot (seulement pour réserver l'Activité à un serveur)
+
+1. Onglet **Bot** → **Reset Token** → copier tout de suite.
+2. Rien d'autre : le bot n'a pas besoin d'être invité dans le serveur, ni de
+   permission. Avec ce jeton, le site demande seulement à Discord où tourne
+   l'Activité et qui y est.
+3. L'identifiant du serveur : clic droit sur le nom du serveur → **Copier
+   l'identifiant du serveur**.
+
+### 4. Activer l'Activité (onglet Activities)
+
+1. **Getting Started** → **Enable Activities**.
+2. **Settings** : cocher les plateformes voulues (ordinateur, iOS, Android).
+   Pour un jeu Game Boy, l'orientation « portrait » sur téléphone convient.
+3. **URL Mappings** : une seule ligne, préfixe `/`, cible le nom d'hôte de
+   l'Activité **sans** `https://` ni chemin. Discord fera passer tout ce que
+   la page demande par son proxy vers cet hôte.
+
+### 5. Déclarer l'Activité dans le site
 
 Onglet **Discord** de l'administration → *Nouvelle application* : un nom, le
-nom d'hôte, le jeu servi, l'identifiant et le Client Secret de l'application,
-et au besoin le verrou sur un serveur (voir plus bas). Le bouton *Essayer
-auprès de Discord* confronte ce qui est enregistré à Discord, et *Marche à
-suivre* récapitule les valeurs à recopier dans le portail.
+nom d'hôte, le jeu servi, l'identifiant et le Client Secret, et au besoin le
+verrou (identifiant du serveur et jeton de bot). Puis **Essayer auprès de
+Discord** : les identifiants doivent être acceptés avant d'aller plus loin.
+**Marche à suivre** rappelle, pour cette application, ce qui reste à
+recopier dans le portail.
 
 Le **nom d'hôte** est un hôte à part, réservé à cette Activité : ni la page
 de connexion, ni le catalogue n'y sont servis, et sa racine renvoie vers
 l'Activité. L'hôte du site lui-même est refusé — le réserver fermerait le
-site. Ce que l'administration ne peut pas faire pour cet hôte :
-
-- **le DNS**, chez le registrar : le nom pointe vers le serveur ;
-- **le vhost Apache et le certificat**, sur le serveur, en root :
-  `sudo ./deploiement/scripts/hote-activite.sh --domaine prism.exemple.com --mail admin@exemple.com`
-  (même gabarit que le site, tout est relayé vers le même serveur Next).
-
-Attention à ne pas confondre : la **Public Key** de l'onglet General
-Information n'est pas le Client Secret, et ne sert pas ici. Secret et jeton de
-bot sont rangés comme les autres secrets des réglages : lisibles par le seul
-compte du service, jamais renvoyés au navigateur, jamais dans le dépôt — les
-conditions de Discord interdisent de publier ces identifiants dans un projet
-ouvert, identifiant d'application compris.
+site. Secret et jeton de bot sont rangés comme les autres secrets des
+réglages : lisibles par le seul compte du service, jamais renvoyés au
+navigateur, jamais dans le dépôt — les conditions de Discord interdisent de
+publier ces identifiants dans un projet ouvert, identifiant d'application
+compris.
 
 **En repli, l'environnement.** Sans ligne dans l'administration pour l'hôte
 demandé, le site se rabat sur `.env` — une seule Activité, qui répond sur
@@ -114,7 +158,29 @@ DISCORD_JEU="…"             # identifiant du jeu en base (colonne games.id)
 Tant qu'aucune Activité n'est configurée pour un hôte, `/discord` et
 `/api/discord` y répondent 404.
 
-### 3. Essayer
+### 6. Le nom d'hôte, côté serveur
+
+1. Chez le registrar : un enregistrement `A` (ou `CNAME`) qui fait pointer le
+   nom d'hôte vers le serveur. Attendre qu'il soit visible (`nslookup`).
+2. Sur le serveur, en root, depuis le clone du dépôt :
+   `sudo ./deploiement/scripts/hote-activite.sh --domaine prism.exemple.com --mail toi@exemple.com`
+   — même gabarit de vhost que le site, tout est relayé vers le même serveur
+   Next, puis certbot.
+3. Vérifier : `https://prism.exemple.com/` doit afficher l'Activité (page
+   « Cette page s'ouvre depuis Discord ») et `…/connexion` répondre
+   « Introuvable ».
+
+### 7. Lancer dans Discord
+
+1. Entrer dans un salon vocal du serveur.
+2. Ouvrir le **lanceur d'activités** (l'icône de fusée du salon vocal, ou le
+   bouton « Activités ») et chercher l'application par son nom.
+3. Au premier lancement, Discord demande l'autorisation de connaître ton
+   identité : accepter. Le site crée alors ton compte restreint à ce jeu.
+4. Pour qu'un ami l'essaie avant la vérification : onglet **App Testers**,
+   inviter son compte (50 au plus).
+
+### 8. Essayer sans Discord, ou sans déployer
 
 - **Hors de Discord**, pendant le développement : `DISCORD_ESSAI_LOCAL="1"`,
   puis ouvrir `/discord` sur un hôte qui a une Activité — par exemple une
@@ -126,11 +192,70 @@ Tant qu'aucune Activité n'est configurée pour un hôte, `/discord` et
   cible de l'URL Mapping. Le tunnel expose le serveur de développement sur une
   adresse publique tant qu'il tourne : couper l'essai local avant, et remettre
   le mapping en place après.
-- Dans Discord : activer le **mode développeur** (Paramètres → Avancés), entrer
-  dans un salon vocal, ouvrir le lanceur d'activités.
 
-Si la connexion échoue, le journal du serveur donne le motif de Discord :
-`invalid_client` (identifiant ou secret faux) ou `invalid_grant` (code périmé).
+### 9. Quand ça ne marche pas
+
+- **Écran blanc ou noir** : l'URL Mapping ne pointe pas vers le bon hôte, le
+  DNS n'est pas encore visible, ou le certificat manque. Ouvrir l'hôte dans un
+  navigateur pour voir lequel.
+- `invalid_client` dans le journal du serveur : identifiant faux, ou Public
+  Key mise à la place du secret. `invalid_grant` : code périmé, relancer
+  l'Activité.
+- « Cette Activité ne se joue que dans son serveur Discord » : le verrou
+  refuse ; vérifier l'identifiant du serveur et le jeton de bot avec « Essayer
+  auprès de Discord ».
+- L'application n'apparaît pas dans le lanceur : plateforme non cochée dans
+  Activities → Settings ; serveur de 25 membres ou plus ; compte ni
+  propriétaire, ni dans l'équipe, ni testeur.
+- Les joueurs ne se voient pas à deux : ils doivent être dans le **même salon
+  vocal**, c'est lui qui fait le salon de jeu.
+
+### 10. Au-delà de 25 membres
+
+Discord demande la **vérification de l'application** (onglet App
+Verification), donc celle de l'identité de son propriétaire, et l'engagement
+sur ses conditions développeur — dont le respect des droits des tiers. C'est
+une décision à prendre avant d'ouvrir l'Activité à un grand serveur.
+
+## Jouer à deux
+
+Seul, l'émulation tourne chez le joueur. À deux, c'est le **câble link du
+site** (`src/lib/link`) : les deux consoles tournent sur le serveur, dans un
+fil de travail, et chaque page ne reçoit que son écran et le son par
+WebSocket — Discord laisse passer les WebSockets dans une Activité, pas
+WebRTC. Le client est le même composant que sur le site (`SalonLink`), avec
+le jeton de l'Activité à la place du cookie.
+
+- **Le salon vocal est le salon de jeu.** Tous ceux qui ouvrent l'Activité
+  dans le même salon vocal partagent une *instance* Discord ; la session en
+  tire une clé opaque (`cleInstance`), et le serveur ouvre un salon de câble
+  link par instance : privé, sans code, invisible du site. Le premier qui
+  choisit « Jouer à deux » l'ouvre, le second s'y assoit, les suivants
+  regardent (cinq au plus).
+- **La partie de chacun est celle de son compte**, lue au départ et réécrite
+  à la fin, comme sur le site : une partie commencée seule continue à deux.
+- **Les places sont comptées.** Le serveur mesure ce que coûte un salon
+  (réglages → câble link) et refuse au-delà. Dans Discord, plutôt que de
+  refuser, l'instance prend un rang dans une file (`src/lib/link/file.ts`) ;
+  l'écran dit sa position, et le salon s'ouvre à son tour. Une instance qui
+  ferme sa page sort de la file en vingt secondes.
+- **GB, GBC et GBA** : les mêmes cœurs que le câble link du site.
+- Sans verrou par serveur, la clé d'instance est la seule porte : qui la
+  connaît peut s'asseoir dans le salon. Elle ne circule qu'entre la page et
+  le site, mais ce n'est pas une preuve d'appartenance au salon vocal ; le
+  verrou, lui, en est une.
+
+Pour l'essayer hors de Discord : deux onglets sur `/discord?essai=a&instance=x`
+et `/discord?essai=b&instance=x` — le même `instance` tient lieu de salon
+vocal.
+
+## Touches et manette
+
+Le bouton « Touches et manette » de l'accueil ouvre les mêmes écrans que le
+lecteur du site. Ils enregistrent sur le compte Discord par
+`/api/discord/touches` (jeton en en-tête) ; un réglage fait dans l'Activité
+vaut sur le site, et inversement. Non vérifié : que Discord laisse l'API
+Gamepad à l'iframe d'une Activité.
 
 ## Verrouiller l'Activité sur un serveur
 
@@ -200,8 +325,9 @@ utilisateurs par une autre voie que le portail.
 - L'essai du verrou sur une vraie instance.
 - La GBA (le cœur la gère, rien n'a été essayé).
 - Pause quand l'Activité passe en incrustation ; orientation sur téléphone.
-- Manettes, touches personnalisées, points de reprise : le lecteur du site
-  les a, l'Activité non.
+- Points de reprise : le lecteur du site les a, l'Activité non.
+- Le jeu à deux et la manette dans Discord même (essayés en local seulement) ;
+  la latence du proxy de Discord sur l'image et le son.
 - Rattacher un compte existant du site à son utilisateur Discord, pour y
   retrouver sa partie.
 - Le bouton d'essai ne dit pas si un hôte est bien relayé jusqu'au site.
@@ -212,7 +338,9 @@ utilisateurs par une autre voie que le portail.
 | --- | --- |
 | La page et son composant | `src/app/discord/`, `src/components/discord/activite.tsx` |
 | L'adaptateur du cœur (rythme, image, son, sauvegarde) | `src/lib/emulator/mgs.ts` |
-| Session, ROM, sauvegarde, cœur | `src/app/api/discord/` |
+| Session, ROM, sauvegarde, cœur, touches | `src/app/api/discord/` |
+| Jouer à deux : accueil, file, client du salon | `src/components/discord/duo.tsx`, `src/components/link/salon-link.tsx`, `src/lib/link/file.ts`, `serveur.ts` |
+| Touches et manette dans l'Activité | `src/components/discord/reglages.tsx`, `src/lib/keymap/ecriture.ts` |
 | OAuth, jeton, compte, jeu, verrou, applications par hôte | `src/lib/discord/` |
 | L'onglet Discord de l'administration | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost et certificat d'un hôte d'Activité | `deploiement/scripts/hote-activite.sh` |

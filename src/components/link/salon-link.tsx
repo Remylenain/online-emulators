@@ -8,6 +8,7 @@ import { Manette } from "@/components/player/manette";
 import type { Bouton } from "@/lib/emulator/adapter";
 import { toucheDeEvenement, type Touche } from "@/lib/consoles";
 import { useManette } from "@/components/player/use-manette";
+import type { Enregistreur } from "@/lib/keymap/actions";
 import {
   BITS,
   ENTETE_AUDIO,
@@ -29,6 +30,10 @@ import {
  *
  * En spectateur, même chose sans les boutons : les deux écrans arrivent,
  * chacun dans son canvas, et le son du joueur 1.
+ *
+ * Le même composant sert l'Activité Discord, à trois différences près : le
+ * jeton de l'Activité à la place du cookie, un bouton de retour à la place
+ * d'un lien, et pas de code de salon à dicter — le salon vocal en tient lieu.
  */
 
 export function SalonLink({
@@ -39,6 +44,9 @@ export function SalonLink({
   manettes,
   spectateur = false,
   retour,
+  jeton,
+  surQuitter,
+  enregistreur,
 }: {
   salonId: string;
   /** Console du jeu. */
@@ -51,6 +59,12 @@ export function SalonLink({
   /** Regarder sans jouer : deux écrans, pas de touches, pas de fin de session. */
   spectateur?: boolean;
   retour: string;
+  /** Jeton de l'Activité Discord, porté dans l'adresse de la WebSocket. */
+  jeton?: string;
+  /** À la place du lien de retour : l'Activité n'a pas de pages. */
+  surQuitter?: () => void;
+  /** Où enregistrer la manette ; les actions du site par défaut. */
+  enregistreur?: Pick<Enregistreur, "manette" | "retablirManette">;
 }) {
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([null, null]);
   const priseRef = useRef<WebSocket | null>(null);
@@ -101,13 +115,16 @@ export function SalonLink({
     },
     [bouton],
   );
-  useManette(consoleSlug, manette, manettes, surToucheManette, !spectateur);
+  useManette(consoleSlug, manette, manettes, surToucheManette, !spectateur, enregistreur);
+  const discord = jeton !== undefined;
 
   // Connexion, et tout ce qui en découle.
   useEffect(() => {
     const protocole = location.protocol === "https:" ? "wss" : "ws";
     const prise = new WebSocket(
-      `${protocole}://${location.host}/link/ws?salon=${encodeURIComponent(salonId)}${spectateur ? "&spectateur=1" : ""}`,
+      `${protocole}://${location.host}/link/ws?salon=${encodeURIComponent(salonId)}${spectateur ? "&spectateur=1" : ""}${
+        jeton ? `&jeton=${encodeURIComponent(jeton)}` : ""
+      }`,
     );
     prise.binaryType = "arraybuffer";
     priseRef.current = prise;
@@ -277,7 +294,18 @@ export function SalonLink({
       void audioRef.current?.close().catch(() => {});
       audioRef.current = null;
     };
-  }, [salonId, touches, bouton, envoyer, spectateur]);
+  }, [salonId, touches, bouton, envoyer, spectateur, jeton]);
+
+  const quitter = (libelle: string, classes: string) =>
+    surQuitter ? (
+      <button type="button" onClick={surQuitter} className={classes}>
+        {libelle}
+      </button>
+    ) : (
+      <Link href={retour} className={classes}>
+        {libelle}
+      </Link>
+    );
 
   const jeu = etat?.jeu;
   const moi = etat?.joueur ?? 0;
@@ -298,9 +326,7 @@ export function SalonLink({
           <br />
           <span className="text-ink-700">({fin.raison})</span>
         </p>
-        <Link href={retour} className="text-sm text-accent-400 hover:underline">
-          Retour à la fiche du jeu
-        </Link>
+        {quitter(discord ? "Retour" : "Retour à la fiche du jeu", "text-sm text-accent-400 hover:underline")}
       </div>
     );
   }
@@ -341,9 +367,11 @@ export function SalonLink({
   const bandeau = (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
       <span className="font-semibold text-ink-50">{jeu?.titre ?? "Salon"}</span>
-      <span className="text-ink-400">
-        salon <span className="font-mono text-ink-200">{salonId}</span>
-      </span>
+      {!discord && (
+        <span className="text-ink-400">
+          salon <span className="font-mono text-ink-200">{salonId}</span>
+        </span>
+      )}
       {spectateur ? (
         <>
           <Presence participant={etat?.joueurs[0] ?? null} />
@@ -391,9 +419,7 @@ export function SalonLink({
           Terminer et enregistrer
         </Button>
       )}
-      <Link href={retour} className="text-xs text-ink-400 hover:text-ink-200">
-        {spectateur ? "Arrêter de regarder" : "Quitter sans terminer"}
-      </Link>
+      {quitter(spectateur ? "Arrêter de regarder" : "Quitter sans terminer", "text-xs text-ink-400 hover:text-ink-200")}
     </div>
   );
 
@@ -403,10 +429,16 @@ export function SalonLink({
       {erreur && <Alert tone="error">{erreur}</Alert>}
       {etat?.etat === "attente" && !spectateur && (
         <Alert tone="info">
-          {etat.prive
+          {discord
+            ? "En attente du second joueur : il doit ouvrir l'Activité dans ce salon vocal et choisir « Jouer à deux »."
+            : etat.prive
             ? "Salon privé : il n'apparaît pas sur la fiche du jeu. Donne ce code à ton partenaire, il le saisira dans « Rejoindre avec un code » : "
             : "En attente d'un second joueur. Dis-lui d'ouvrir la fiche du jeu et de rejoindre le salon "}
-          <strong className="font-mono">{salonId}</strong>.
+          {!discord && (
+            <>
+              <strong className="font-mono">{salonId}</strong>.
+            </>
+          )}
         </Alert>
       )}
       {ecran}

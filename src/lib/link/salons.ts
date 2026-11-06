@@ -12,9 +12,10 @@ import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
 import { findConsole } from "@/lib/consoles";
 import type { Compte } from "./auth";
 import { refusCapacite } from "./capacite";
+import { peutOuvrir, quitterLaFile } from "./file";
 import type { DescriptionCoeur } from "./moteurs";
 import { ENTETE_AUDIO, ENTETE_IMAGE, TRAME, type MessageServeur } from "./protocole";
-import { salonDuCompte, salons, type Salon } from "./registre";
+import { salonDInstance, salonDuCompte, salons, type Salon } from "./registre";
 
 /**
  * Vie d'un salon : création, arrivée des joueurs, émulation, fin.
@@ -136,7 +137,14 @@ export async function creerSalon(
   compte: Compte,
   prive: boolean,
   spectateurs: boolean,
+  /** Clé de l'instance Discord : le salon est le sien, privé, un par instance. */
+  instance?: string,
 ): Promise<Salon | Refus> {
+  // Le salon de l'instance existe déjà : c'est lui, qu'on l'ait ouvert ou non.
+  if (instance) {
+    const ouvert = salonDInstance(instance);
+    if (ouvert) return ouvert;
+  }
   const deja = salonDuCompte(compte.id);
   if (deja) return { erreur: `Tu es déjà dans le salon ${deja.id}.` };
 
@@ -158,21 +166,27 @@ export async function creerSalon(
     console.log(`[link] salon refusé à ${compte.pseudo} sur ${jeu.titre} : serveur au complet`);
     return { erreur: complet };
   }
+  // Dans Discord, les instances qui attendent passent avant.
+  if (instance && !peutOuvrir(instance, jeu.consoleSlug)) {
+    return { erreur: "D'autres salons attendent avant le tien." };
+  }
 
   const salon: Salon = {
     id: nouveauCode(),
     jeu: { id: jeu.id, titre: jeu.titre, slug: jeu.slug, consoleSlug: jeu.consoleSlug, romPath: jeu.romPath },
     places: [{ userId: compte.id, pseudo: compte.pseudo, connexions: 0, absentDepuis: Date.now() }, null],
     etat: "attente",
-    prive,
+    prive: prive || Boolean(instance),
+    ...(instance ? { instance } : {}),
     spectateurs,
     nombreSpectateurs: 0,
     creeLe: Date.now(),
     derniereActivite: Date.now(),
   };
   salons().set(salon.id, salon);
+  if (instance) quitterLaFile(instance);
   console.log(
-    `[link] ${salon.id} : salon ${prive ? "privé " : ""}ouvert par ${compte.pseudo} sur ${jeu.titre}${spectateurs ? ", spectateurs admis" : ""}`,
+    `[link] ${salon.id} : salon ${instance ? "Discord " : prive ? "privé " : ""}ouvert par ${compte.pseudo} sur ${jeu.titre}${spectateurs ? ", spectateurs admis" : ""}`,
   );
   return salon;
 }

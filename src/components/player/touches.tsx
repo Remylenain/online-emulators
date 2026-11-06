@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { enregistrerTouches, retablirTouches } from "@/lib/keymap/actions";
+import { enregistrerTouches, retablirTouches, type Enregistreur } from "@/lib/keymap/actions";
 import { boutonsSansEntree, enumerer } from "@/lib/keymap/disposition";
 import {
   ACTIONS,
@@ -39,16 +39,21 @@ const LIBELLES: Record<Touche, string> = {
  * autre bouton lui est retirée ; ce bouton reste alors sans touche, et une
  * alerte le dit tant qu'on ne lui en a pas redonné une.
  */
+const ACTIONS_DU_SITE = { touches: enregistrerTouches, retablirTouches };
+
 export function Touches({
   consoleSlug,
   boutons,
   touches,
   surChangement,
+  enregistreur = ACTIONS_DU_SITE,
 }: {
   consoleSlug: string;
   boutons: ButtonName[];
   touches: Record<Touche, string>;
   surChangement: (touches: Record<Touche, string>) => void;
+  /** Où enregistrer : les actions du site par défaut ; l'Activité Discord donne les siennes. */
+  enregistreur?: Pick<Enregistreur, "touches" | "retablirTouches">;
 }) {
   const [enAttente, setEnAttente] = useState<Touche | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -87,18 +92,18 @@ export function Touches({
       setMessage(null);
       surChangement(suivantes as Record<Touche, string>);
 
-      const resultat = await enregistrerTouches(consoleSlug, suivantes);
+      const resultat = await enregistreur.touches(consoleSlug, suivantes);
       if (!resultat.ok) setMessage(resultat.message ?? "Enregistrement refusé.");
     }
 
     window.addEventListener("keydown", surFrappe, { capture: true });
     return () => window.removeEventListener("keydown", surFrappe, { capture: true });
-  }, [enAttente, touches, consoleSlug, surChangement]);
+  }, [enAttente, touches, consoleSlug, surChangement, enregistreur]);
 
   async function retablir() {
     setMessage(null);
     surChangement({ ...DEFAULT_KEYMAP });
-    const resultat = await retablirTouches(consoleSlug);
+    const resultat = await enregistreur.retablirTouches(consoleSlug);
     if (!resultat.ok) setMessage(resultat.message ?? "Opération refusée.");
   }
 

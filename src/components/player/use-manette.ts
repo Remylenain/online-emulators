@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Touche } from "@/lib/consoles";
-import { enregistrerManette, retablirManette, type ResultatTouches } from "@/lib/keymap/actions";
+import { enregistrerManette, retablirManette, type Enregistreur, type ResultatTouches } from "@/lib/keymap/actions";
 import {
   cleManette,
   identiteManette,
@@ -36,12 +36,17 @@ type Disposition = Record<Touche, string>;
  * navigateur (`localStorage`). Celles qui s'y trouvent encore servent tant
  * que le compte n'a rien pour la manette ; le premier réglage les remplace.
  */
+/** Un seul objet : un nouveau à chaque rendu relancerait les effets qui en dépendent. */
+const ACTIONS_DU_SITE = { manette: enregistrerManette, retablirManette };
+
 export function useManette(
   consoleSlug: string,
   dispositionCompte: Disposition,
   manettesCompte: Record<string, Disposition>,
   surTouche: (touche: Touche, enfonce: boolean) => void,
   actif = true,
+  /** Où enregistrer : les actions du site par défaut ; l'Activité Discord donne les siennes. */
+  enregistreur: Pick<Enregistreur, "manette" | "retablirManette"> = ACTIONS_DU_SITE,
 ): {
   branchee: boolean;
   identite: IdentiteManette | null;
@@ -136,12 +141,12 @@ export function useManette(
     async (suivante: Disposition): Promise<ResultatTouches> => {
       if (nommee) {
         setNommees((actuelles) => ({ ...actuelles, [nommee]: suivante }));
-        return enregistrerManette(consoleSlug, suivante, nommee);
+        return enregistreur.manette(consoleSlug, suivante, nommee);
       }
       setCompte(suivante);
-      return enregistrerManette(consoleSlug, suivante);
+      return enregistreur.manette(consoleSlug, suivante);
     },
-    [nommee, consoleSlug],
+    [nommee, consoleSlug, enregistreur],
   );
 
   const retablir = useCallback(async (): Promise<ResultatTouches> => {
@@ -157,11 +162,11 @@ export function useManette(
         delete reste[identite.id];
         ecrireLocales(reste);
       }
-      return retablirManette(consoleSlug, nommee);
+      return enregistreur.retablirManette(consoleSlug, nommee);
     }
     setCompte({ ...MANETTE_PAR_DEFAUT });
-    return retablirManette(consoleSlug);
-  }, [nommee, identite, locales, ecrireLocales, consoleSlug]);
+    return enregistreur.retablirManette(consoleSlug);
+  }, [nommee, identite, locales, ecrireLocales, consoleSlug, enregistreur]);
 
   return { branchee: identite !== null, identite, disposition, aRegler, changer, retablir };
 }

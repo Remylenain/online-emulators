@@ -1,10 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Manette } from "@/components/player/manette";
-import { DEFAULT_KEYMAP, toucheDeEvenement } from "@/lib/consoles";
+import { useManette } from "@/components/player/use-manette";
+import { DEFAULT_KEYMAP, toucheDeEvenement, type Touche } from "@/lib/consoles";
 import type { Bouton } from "@/lib/emulator/adapter";
 import { EmulateurMgs } from "@/lib/emulator/mgs";
+import type { Enregistreur, ResultatTouches } from "@/lib/keymap/actions";
+import { MANETTE_PAR_DEFAUT } from "@/lib/manette";
+import { Duo } from "./duo";
+import { ReglagesActivite } from "./reglages";
 
 /**
  * L'Activité Discord : un jeu du site, joué dans Discord.
@@ -12,14 +17,16 @@ import { EmulateurMgs } from "@/lib/emulator/mgs";
  * Trois temps :
  * 1. **Qui joue.** Le SDK de Discord remet un code, que le serveur échange
  *    contre l'identité de l'utilisateur et un jeton pour nos routes.
- * 2. **« Jouer ».** Un appui est indispensable : sans geste du joueur, le
- *    navigateur ne laisse pas démarrer le son.
- * 3. **La partie.** Le cœur tourne dans la page ; la sauvegarde part vers le
- *    serveur chaque fois que le jeu l'écrit.
+ * 2. **L'accueil.** Seul, à deux, ou régler ses touches. Un appui est de
+ *    toute façon indispensable : sans geste du joueur, le navigateur ne
+ *    laisse pas démarrer le son.
+ * 3. **La partie.** Seul, le cœur tourne dans la page et la sauvegarde part
+ *    vers le serveur chaque fois que le jeu l'écrit. À deux, c'est le câble
+ *    link du site : le salon vocal devient le salon de jeu, l'émulation tourne
+ *    sur le serveur (voir `./duo.tsx`).
  *
- * Ce composant ne dépend du reste du site que par trois adresses —
- * `/api/discord/session`, `/rom` et `/sauvegarde` — et par la manette tactile.
- * C'est voulu : il doit pouvoir vivre ailleurs que dans ce site.
+ * Touches et manette sont celles du compte, les mêmes que sur le site,
+ * enregistrées par `/api/discord/touches` avec le jeton de l'Activité.
  */
 
 type Session = {
@@ -27,11 +34,19 @@ type Session = {
   /** Jeton d'accès Discord, pour terminer la poignée de main du SDK. */
   jetonDiscord: string | null;
   pseudo: string;
-  jeu: { titre: string; console: string; taille: number; empreinte: string };
+  jeu: { id: string; titre: string; console: string; taille: number; empreinte: string };
   coeur: { js: string; wasm: string };
+  /** La clé du salon de cette instance, pour jouer à deux ; `null` hors de Discord sans essai. */
+  instance: string | null;
 };
 
-type Etape = "connexion" | "pret" | "chargement" | "jeu" | "erreur";
+type Dispositions = {
+  touches: Record<Touche, string>;
+  manette: Record<Touche, string>;
+  manettes: Record<string, Record<Touche, string>>;
+};
+
+type Etape = "connexion" | "accueil" | "chargement" | "jeu" | "duo" | "erreur";
 type EtatSauvegarde = "aucun" | "envoi" | "ok" | "echec" | "conflit";
 
 /** Délai entre l'écriture du jeu et l'envoi : une sauvegarde s'écrit en plusieurs fois. */
@@ -46,6 +61,35 @@ function messageDe(erreur: unknown, defaut: string): string {
   return erreur instanceof Error && erreur.message ? erreur.message : defaut;
 }
 
+/** Les écritures de touches et de manette, par le jeton de l'Activité. */
+function enregistreurDiscord(jeton: string): Enregistreur {
+  async function envoyer(corps: Record<string, unknown>): Promise<ResultatTouches> {
+    try {
+      const reponse = await fetch("/api/discord/touches", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${jeton}`, "Content-Type": "application/json" },
+        body: JSON.stringify(corps),
+      });
+      if (!reponse.ok) return { ok: false, message: `Enregistrement refusé (${reponse.status}).` };
+      return (await reponse.json()) as ResultatTouches;
+    } catch {
+      return { ok: false, message: "Le serveur ne répond pas : réglage gardé pour cette partie seulement." };
+    }
+  }
+  return {
+    touches: (console_, mapping) => envoyer({ action: "touches", console: console_, mapping }),
+    retablirTouches: (console_) => envoyer({ action: "retablirTouches", console: console_ }),
+    manette: (console_, mapping, cle) => envoyer({ action: "manette", console: console_, mapping, cle }),
+    retablirManette: (console_, cle) => envoyer({ action: "retablirManette", console: console_, cle }),
+  };
+}
+
+const DISPOSITIONS_PAR_DEFAUT: Dispositions = {
+  touches: { ...DEFAULT_KEYMAP },
+  manette: { ...MANETTE_PAR_DEFAUT },
+  manettes: {},
+};
+
 export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLocal: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const emulateurRef = useRef<EmulateurMgs | null>(null);
@@ -59,6 +103,9 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
 
   const [etape, setEtape] = useState<Etape>("connexion");
   const [session, setSession] = useState<Session | null>(null);
+  const [dispositions, setDispositions] = useState<Dispositions>(DISPOSITIONS_PAR_DEFAUT);
+  const [touches, setTouches] = useState<Record<Touche, string>>(DISPOSITIONS_PAR_DEFAUT.touches);
+  const [reglages, setReglages] = useState(false);
   const [erreur, setErreur] = useState("");
   const [progression, setProgression] = useState("");
   const [etatSauvegarde, setEtatSauvegarde] = useState<EtatSauvegarde>("aucun");
@@ -87,7 +134,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       // Discord ouvre l'iframe avec `frame_id` dans l'adresse ; le SDK refuse
       // de se construire sans lui.
       const dansDiscord = parametres.has("frame_id");
-      let corps: { code: string; instance: string } | { essai: true; nom?: string };
+      let corps: { code: string; instance: string } | { essai: true; nom?: string; instance?: string };
       let authentifier: ((jeton: string) => Promise<unknown>) | null = null;
 
       if (dansDiscord && clientId) {
@@ -107,8 +154,10 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
         corps = { code, instance: sdk.instanceId };
         authentifier = (jeton) => sdk.commands.authenticate({ access_token: jeton });
       } else if (essaiLocal) {
-        // `?essai=nom` : un second compte d'essai, pour ne pas partager la partie.
-        corps = { essai: true, nom: parametres.get("essai") ?? undefined };
+        // `?essai=nom` : un second compte d'essai, pour ne pas partager la partie ;
+        // `?instance=x` : deux onglets qui donnent le même se retrouvent dans
+        // le même salon, comme deux joueurs d'un même salon vocal.
+        corps = { essai: true, nom: parametres.get("essai") ?? undefined, instance: parametres.get("instance") ?? undefined };
       } else {
         throw new Error("Cette page s'ouvre depuis Discord, en lançant l'Activité.");
       }
@@ -127,7 +176,22 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
 
       sessionRef.current = recue;
       setSession(recue);
-      setEtape("pret");
+
+      // Les touches et la manette du compte ; à défaut, celles par défaut.
+      try {
+        const reponseTouches = await fetch("/api/discord/touches", {
+          headers: { Authorization: `Bearer ${recue.jeton}` },
+          cache: "no-store",
+        });
+        if (reponseTouches.ok) {
+          const lues = (await reponseTouches.json()) as Dispositions;
+          setDispositions(lues);
+          setTouches(lues.touches);
+        }
+      } catch {
+        // Sans réglages, la partie se joue avec les touches par défaut.
+      }
+      setEtape("accueil");
     })().catch((cause: unknown) => {
       console.error("[discord]", cause);
       setErreur(messageDe(cause, "La connexion à Discord a échoué."));
@@ -281,21 +345,39 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   );
 
   // -------------------------------------------------------------------------
-  // 3. La partie : son, clavier, manette tactile
+  // 3. La partie : son, clavier, manette, manette tactile
   // -------------------------------------------------------------------------
   useEffect(() => {
     emulateurRef.current?.volume(muet ? 0 : 100);
   }, [muet]);
 
-  useEffect(() => {
-    if (etape !== "jeu") return;
+  const enregistreur = useMemo(() => enregistreurDiscord(session?.jeton ?? ""), [session?.jeton]);
 
-    // Les mêmes touches par défaut que le lecteur du site.
+  // La manette du compte, en solo. À deux, c'est le client du salon qui la lit.
+  const surToucheManette = useCallback((touche: Touche, enfonce: boolean) => {
+    const emulateur = emulateurRef.current;
+    if (!emulateur) return;
+    if (touche === "FAST") emulateur.vitesse(enfonce ? VITESSE_RAPIDE : 1);
+    else emulateur.bouton(touche as Bouton, enfonce);
+  }, []);
+  const manette = useManette(
+    session?.jeu.console ?? "gb",
+    dispositions.manette,
+    dispositions.manettes,
+    surToucheManette,
+    etape === "jeu" || reglages,
+    enregistreur,
+  );
+
+  useEffect(() => {
+    if (etape !== "jeu" || reglages) return;
+
+    // Les touches du compte, les mêmes que sur le site.
     const parTouche = new Map<string, string>();
-    for (const [bouton, touche] of Object.entries(DEFAULT_KEYMAP)) parTouche.set(touche, bouton);
+    for (const [bouton, touche] of Object.entries(touches)) if (touche) parTouche.set(touche, bouton);
 
     function appliquer(evenement: KeyboardEvent, enfonce: boolean) {
-      const bouton = parTouche.get(toucheDeEvenement(evenement));
+      const bouton = parTouche.get(toucheDeEvenement(evenement)) ?? parTouche.get(evenement.code);
       if (!bouton) return;
       // Sans cela, les flèches et la barre d'espace feraient défiler la page.
       evenement.preventDefault();
@@ -314,7 +396,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       window.removeEventListener("keydown", enfoncer);
       window.removeEventListener("keyup", relacher);
     };
-  }, [etape]);
+  }, [etape, touches, reglages]);
 
   const surBouton = useCallback((bouton: Bouton, enfonce: boolean) => {
     emulateurRef.current?.bouton(bouton, enfonce);
@@ -353,27 +435,74 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
         />
 
         {etape !== "jeu" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
+          <div
+            className={`absolute inset-0 flex flex-col items-center justify-center gap-4 text-center ${
+              etape === "duo" ? "p-0 text-left" : "p-6"
+            }`}
+          >
             {etape === "connexion" && <p className="text-ink-400">Connexion à Discord…</p>}
 
-            {etape === "pret" && session && (
+            {etape === "accueil" && session && !reglages && (
               <>
                 <h1 className="text-2xl font-semibold text-ink-50">{session.jeu.titre}</h1>
                 <p className="text-sm text-ink-400">Ta partie est gardée pour {session.pseudo}.</p>
-                <button
-                  type="button"
-                  onClick={() => void jouer()}
-                  className="rounded-xl bg-accent-500 px-10 py-3 text-lg font-semibold text-ink-950 transition-colors hover:bg-accent-400"
-                >
-                  Jouer
-                </button>
-                {!tactile && (
-                  <p className="text-xs text-ink-400">
-                    Flèches pour se déplacer, A et Z pour les boutons A et B, Entrée pour Start, Espace pour
-                    Select.
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void jouer()}
+                    className="rounded-xl bg-accent-500 px-8 py-3 text-lg font-semibold text-ink-950 transition-colors hover:bg-accent-400"
+                  >
+                    Jouer seul
+                  </button>
+                  {session.instance && (
+                    <button
+                      type="button"
+                      onClick={() => setEtape("duo")}
+                      className="rounded-xl border border-accent-500 px-8 py-3 text-lg font-semibold text-accent-400 transition-colors hover:bg-accent-600/20"
+                    >
+                      Jouer à deux
+                    </button>
+                  )}
+                </div>
+                {session.instance && (
+                  <p className="max-w-md text-xs text-ink-400">
+                    À deux : avec quelqu&apos;un de ce salon vocal, par le câble link. La partie de chacun est
+                    celle de son compte, seul comme à deux.
                   </p>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setReglages(true)}
+                  className="rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-sm text-ink-200"
+                >
+                  Touches et manette
+                </button>
               </>
+            )}
+
+            {etape === "accueil" && session && reglages && (
+              <ReglagesActivite
+                consoleSlug={session.jeu.console}
+                tactile={tactile}
+                touches={touches}
+                surTouches={setTouches}
+                manette={manette}
+                enregistreur={enregistreur}
+                fermer={() => setReglages(false)}
+              />
+            )}
+
+            {etape === "duo" && session && session.instance && (
+              <div className="h-full w-full overflow-y-auto">
+                <Duo
+                  jeton={session.jeton}
+                  instance={session.instance}
+                  jeu={{ id: session.jeu.id, console: session.jeu.console, titre: session.jeu.titre }}
+                  dispositions={{ ...dispositions, touches }}
+                  enregistreur={enregistreur}
+                  surQuitter={() => setEtape("accueil")}
+                />
+              </div>
             )}
 
             {etape === "chargement" && <p className="text-ink-400">{progression}</p>}

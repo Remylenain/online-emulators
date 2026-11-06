@@ -10,6 +10,7 @@ import {
 import type { Resultat } from "@/lib/admin/actions";
 import type { ApplicationDiscord } from "@/lib/discord/applications";
 import type { EssaiApplication, Verdict } from "@/lib/discord/essai";
+import { Tutoriel } from "./tutoriel";
 
 type Jeu = { id: string; titre: string; console: string; publie: boolean };
 
@@ -59,6 +60,8 @@ export function Discord({
           ci-dessous.
         </Alert>
       )}
+
+      <Tutoriel ouvertAuDepart={applications.length === 0 && !repli} />
 
       {enEdition === "nouvelle" && (
         <Formulaire application={null} jeux={jeux} hoteDuSite={hoteDuSite} fermer={() => setEnEdition(null)} />
