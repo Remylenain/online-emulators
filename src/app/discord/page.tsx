@@ -4,7 +4,19 @@ import { connection } from "next/server";
 import { Activite } from "@/components/discord/activite";
 import { discordActive, discordEssaiLocal, env } from "@/lib/env";
 
-export const metadata: Metadata = { title: "Discord" };
+/**
+ * Rien du site dans l'en-tête de cette page : ni son nom, ni sa description,
+ * ni son manifeste. Elle s'affiche chez des joueurs qui ne connaissent que
+ * l'Activité, à travers le proxy de Discord ; ce qui l'héberge ne les regarde
+ * pas, et n'a pas à se lire dans le code source de la page.
+ */
+export const metadata: Metadata = {
+  title: { absolute: "Activité" },
+  description: null,
+  manifest: null,
+  icons: null,
+  appleWebApp: null,
+};
 
 /**
  * La page que Discord ouvre dans son iframe : l'Activité.

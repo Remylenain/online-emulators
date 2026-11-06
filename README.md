@@ -26,7 +26,7 @@ le droit de partager.
   à ce que le serveur peut tenir.
 - **Activité Discord** (facultative, à l'essai) : un jeu du site jouable dans
   Discord, émulé dans le navigateur du joueur, avec sa sauvegarde gardée par
-  utilisateur Discord. Voir [docs/discord.md](docs/discord.md).
+  utilisateur Discord. Voir [docs/discord](docs/discord/README.md).
 - **Comptes** : création par l'administrateur, liens d'invitation valables
   24 h pour un ou plusieurs comptes, ou inscriptions ouvertes à tous avec
   e-mail confirmé et captcha, au choix. Réinitialisation de mot de passe par
