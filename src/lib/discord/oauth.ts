@@ -26,7 +26,15 @@ export async function echangerCode(code: string): Promise<string | null> {
     }),
     cache: "no-store",
   });
-  if (!reponse.ok) return null;
+  if (!reponse.ok) {
+    // Le motif de Discord, sans rien de secret : `invalid_client` dit que
+    // l'identifiant ou le secret de l'application est faux, `invalid_grant`
+    // que le code est périmé ou déjà utilisé. Sans cette ligne, les deux se
+    // ressemblent vus de la page.
+    const refus = (await reponse.json().catch(() => null)) as { error?: unknown } | null;
+    console.warn(`[discord] échange du code refusé : ${reponse.status} ${String(refus?.error ?? "")}`);
+    return null;
+  }
   const corps = (await reponse.json()) as { access_token?: unknown };
   return typeof corps.access_token === "string" ? corps.access_token : null;
 }
