@@ -113,6 +113,13 @@
       "when": 1793974333712,
       "tag": "0015_compte_discord",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1793999192889,
+      "tag": "0016_applications_discord",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,8 @@ import fs from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { jeuAccessible } from "@/lib/acces";
 import { compteDepuisRequete } from "@/lib/discord/compte";
-import { jeuConfigure } from "@/lib/discord/jeu";
+import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
+import { jeuDeLActivite } from "@/lib/discord/jeu";
 import { paths } from "@/lib/paths";
 
 /**
@@ -16,7 +17,8 @@ export async function GET(request: Request) {
   const visiteur = compteDepuisRequete(request);
   if (!visiteur) return new NextResponse("Non autorisé", { status: 401 });
 
-  const jeu = await jeuConfigure();
+  const application = configPourHote(hoteDeLaRequete(request.headers));
+  const jeu = application ? await jeuDeLActivite(application.gameId) : null;
   if (!jeu || !(await jeuAccessible(visiteur, jeu.id))) {
     return new NextResponse("Introuvable", { status: 404 });
   }

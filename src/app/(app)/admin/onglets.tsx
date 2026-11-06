@@ -9,6 +9,7 @@ const ONGLETS = [
   { href: "/admin/bibliotheque", libelle: "Bibliothèque" },
   { href: "/admin/temps", libelle: "Temps de jeu" },
   { href: "/admin/reglages", libelle: "Réglages" },
+  { href: "/admin/discord", libelle: "Discord" },
 ] as const;
 
 /**

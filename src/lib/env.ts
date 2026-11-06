@@ -69,19 +69,13 @@ export const env = parsed.data;
 /** Le captcha est contourné tant qu'aucune clé Turnstile n'est fournie. */
 export const captchaEnabled = env.TURNSTILE_SECRET_KEY.length > 0;
 
-/** L'Activité Discord n'existe que si ses trois réglages sont renseignés. */
-export const discordActive =
-  env.DISCORD_CLIENT_ID.length > 0 &&
-  env.DISCORD_CLIENT_SECRET.length > 0 &&
-  env.DISCORD_JEU.length > 0;
-
 /**
  * Essai hors de Discord : un compte de test, sans passer par l'OAuth. Refusé
  * en production quoi que dise l'environnement — ce serait une porte ouverte
- * sur le jeu sans compte.
+ * sur le jeu sans compte. Il faut tout de même une Activité configurée pour
+ * l'hôte demandé (voir `src/lib/discord/applications.ts`).
  */
-export const discordEssaiLocal =
-  env.NODE_ENV !== "production" && env.DISCORD_ESSAI_LOCAL === "1" && env.DISCORD_JEU.length > 0;
+export const discordEssaiLocal = env.NODE_ENV !== "production" && env.DISCORD_ESSAI_LOCAL === "1";
 
 /** Sans SMTP configuré, les e-mails sont écrits dans la console. */
 export const mailEnabled = env.SMTP_HOST.length > 0;

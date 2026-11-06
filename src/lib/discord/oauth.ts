@@ -1,4 +1,4 @@
-import { env } from "@/lib/env";
+import type { ConfigActivite } from "./applications";
 
 /**
  * Les deux appels à l'API de Discord dont l'Activité a besoin.
@@ -14,13 +14,16 @@ const API = "https://discord.com/api";
 export type ProfilDiscord = { id: string; pseudo: string };
 
 /** Le jeton d'accès Discord, ou `null` si le code est refusé. */
-export async function echangerCode(code: string): Promise<string | null> {
+export async function echangerCode(
+  application: Pick<ConfigActivite, "clientId" | "clientSecret">,
+  code: string,
+): Promise<string | null> {
   const reponse = await fetch(`${API}/oauth2/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: env.DISCORD_CLIENT_ID,
-      client_secret: env.DISCORD_CLIENT_SECRET,
+      client_id: application.clientId,
+      client_secret: application.clientSecret,
       grant_type: "authorization_code",
       code,
     }),

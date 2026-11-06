@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { attributsCookieSession, SESSION_COOKIE, SESSION_DURATION_MS } from "@/lib/auth/cookie";
+import { hoteDeLaRequete, hotesDesActivites } from "@/lib/discord/applications";
 
 /**
  * Premier filtre : renvoie vers la connexion toute requête sans cookie de
@@ -27,6 +28,26 @@ const PUBLIC_PATHS = [
   "/api/discord",
 ];
 
+/**
+ * Les hôtes réservés à une Activité Discord, relus de temps en temps : une
+ * application déclarée dans l'administration prend effet en quelques
+ * secondes, sans que chaque requête du site passe par la base.
+ */
+const RELECTURE_MS = 5_000;
+let hotesActivite = new Set<string>();
+let relecture = 0;
+
+function hoteReserve(hote: string): boolean {
+  if (Date.now() >= relecture) {
+    hotesActivite = new Set(hotesDesActivites());
+    relecture = Date.now() + RELECTURE_MS;
+  }
+  return hotesActivite.has(hote);
+}
+
+/** Ce qu'un hôte d'Activité sert, et rien d'autre. */
+const CHEMINS_ACTIVITE = ["/discord", "/api/discord"];
+
 export default function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
@@ -40,11 +61,24 @@ export default function proxy(request: NextRequest) {
    * rend ce renvoi en adresse relative, ce qu'il faut ici — la requête arrive
    * par le proxy de Discord, et une adresse absolue ferait sortir l'iframe de
    * `discordsays.com`.
+   *
+   * Sur un hôte réservé à une Activité, la racine renvoie vers `/discord`
+   * même sans `frame_id` : cet hôte n'a rien d'autre à montrer.
    */
-  if (pathname === "/" && request.nextUrl.searchParams.has("frame_id")) {
+  const reserve = hoteReserve(hoteDeLaRequete(request.headers));
+  if (pathname === "/" && (reserve || request.nextUrl.searchParams.has("frame_id"))) {
     const activite = request.nextUrl.clone();
     activite.pathname = "/discord";
     return NextResponse.redirect(activite);
+  }
+
+  /*
+   * Un hôte réservé à une Activité ne sert que l'Activité : ni la connexion,
+   * ni le catalogue. Ce que ses joueurs lisent de cet hôte ne dit rien du
+   * site qui l'héberge.
+   */
+  if (reserve && !CHEMINS_ACTIVITE.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+    return new NextResponse("Introuvable", { status: 404 });
   }
 
   if (PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {

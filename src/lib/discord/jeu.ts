@@ -1,14 +1,13 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { games } from "@/db/schema";
-import { env } from "@/lib/env";
 
 /**
- * Le jeu servi par l'Activité : un seul, choisi par `DISCORD_JEU`.
+ * Le jeu servi par une Activité : un seul, celui de sa configuration.
  *
  * Une Activité est une application Discord, et une application ne présente
- * qu'une chose. Qui veut proposer un autre jeu installe une autre instance,
- * avec sa propre application.
+ * qu'une chose. Qui veut proposer un autre jeu déclare une autre application,
+ * avec son propre nom d'hôte (voir `./applications.ts`).
  */
 export type JeuDiscord = {
   id: string;
@@ -19,8 +18,8 @@ export type JeuDiscord = {
   cheminRom: string;
 };
 
-export async function jeuConfigure(): Promise<JeuDiscord | null> {
-  if (!env.DISCORD_JEU) return null;
+export async function jeuDeLActivite(gameId: string): Promise<JeuDiscord | null> {
+  if (!gameId) return null;
   const ligne = await db
     .select({
       id: games.id,
@@ -31,7 +30,7 @@ export async function jeuConfigure(): Promise<JeuDiscord | null> {
       cheminRom: games.romPath,
     })
     .from(games)
-    .where(eq(games.id, env.DISCORD_JEU))
+    .where(eq(games.id, gameId))
     .get();
   return ligne ?? null;
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { jeuAccessible } from "@/lib/acces";
 import { compteDepuisRequete } from "@/lib/discord/compte";
-import { jeuConfigure } from "@/lib/discord/jeu";
+import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
+import { jeuDeLActivite } from "@/lib/discord/jeu";
 import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
 
 /**
@@ -17,7 +18,8 @@ const TAILLE_MAX = 1_048_576;
 async function contexte(request: Request) {
   const visiteur = compteDepuisRequete(request);
   if (!visiteur) return { refus: new NextResponse("Non autorisé", { status: 401 }) };
-  const jeu = await jeuConfigure();
+  const application = configPourHote(hoteDeLaRequete(request.headers));
+  const jeu = application ? await jeuDeLActivite(application.gameId) : null;
   if (!jeu || !(await jeuAccessible(visiteur, jeu.id))) {
     return { refus: new NextResponse("Introuvable", { status: 404 }) };
   }

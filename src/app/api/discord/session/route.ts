@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
 import { compteDiscord } from "@/lib/discord/compte";
 import { adressesCoeur } from "@/lib/discord/coeur";
-import { jeuConfigure } from "@/lib/discord/jeu";
+import { jeuDeLActivite } from "@/lib/discord/jeu";
 import { signerJeton } from "@/lib/discord/jeton";
 import { echangerCode, profilDiscord, type ProfilDiscord } from "@/lib/discord/oauth";
 import { verifierLieu } from "@/lib/discord/instance";
-import { discordActive, discordEssaiLocal, env } from "@/lib/env";
+import { discordEssaiLocal } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
 
 /**
@@ -16,7 +17,11 @@ import { rateLimit } from "@/lib/rate-limit";
  * En retour, la page reçoit de quoi jouer : son jeton pour les routes
  * `/api/discord`, la fiche du jeu, et l'adresse du cœur.
  *
- * Si un serveur Discord est imposé (`DISCORD_SERVEUR`), la page envoie aussi
+ * L'Activité qui répond est celle de l'hôte demandé (voir
+ * `src/lib/discord/applications.ts`) : chaque application a son nom d'hôte,
+ * et l'environnement sert de repli.
+ *
+ * Si un serveur Discord est imposé à cette application, la page envoie aussi
  * le nom de son instance, et Discord confirme où elle tourne et que cet
  * utilisateur y est (`src/lib/discord/instance.ts`).
  *
@@ -25,7 +30,8 @@ import { rateLimit } from "@/lib/rate-limit";
  * journalisé ici.
  */
 export async function POST(request: Request) {
-  if (!discordActive && !discordEssaiLocal) return new NextResponse("Introuvable", { status: 404 });
+  const application = configPourHote(hoteDeLaRequete(request.headers));
+  if (!application) return new NextResponse("Introuvable", { status: 404 });
 
   // Chaque ouverture coûte deux appels à l'API de Discord : on borne.
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "inconnue";
@@ -44,7 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ erreur: "Requête illisible." }, { status: 400 });
   }
 
-  const jeu = await jeuConfigure();
+  const jeu = await jeuDeLActivite(application.gameId);
   if (!jeu) {
     return NextResponse.json({ erreur: "Le jeu de cette Activité est introuvable." }, { status: 503 });
   }
@@ -58,11 +64,10 @@ export async function POST(request: Request) {
     const nom = typeof corps.nom === "string" && /^[a-z0-9]{1,16}$/.test(corps.nom) ? corps.nom : "";
     profil = { id: nom ? `essai-local-${nom}` : "essai-local", pseudo: nom ? `Essai ${nom}` : "Essai local" };
   } else {
-    if (!discordActive) return new NextResponse("Introuvable", { status: 404 });
     if (typeof corps.code !== "string" || corps.code.length === 0 || corps.code.length > 200) {
       return NextResponse.json({ erreur: "Code d'autorisation manquant." }, { status: 400 });
     }
-    jetonAcces = await echangerCode(corps.code);
+    jetonAcces = await echangerCode(application, corps.code);
     const connu = jetonAcces ? await profilDiscord(jetonAcces) : null;
     if (!jetonAcces || !connu) {
       return NextResponse.json({ erreur: "Discord n'a pas reconnu cette connexion." }, { status: 401 });
@@ -72,9 +77,9 @@ export async function POST(request: Request) {
     // Le verrou, s'il est réglé : avant de créer le moindre compte, et bien
     // avant de servir le jeu. L'essai local n'y passe pas — il n'existe pas en
     // production, et n'a pas d'instance Discord à montrer.
-    if (env.DISCORD_SERVEUR) {
+    if (application.guildId) {
       const lieu = await verifierLieu(
-        { application: env.DISCORD_CLIENT_ID, jetonBot: env.DISCORD_BOT_TOKEN, serveur: env.DISCORD_SERVEUR },
+        { application: application.clientId, jetonBot: application.botToken, serveur: application.guildId },
         corps.instance,
         profil.id,
       );

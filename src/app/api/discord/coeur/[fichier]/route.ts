@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { FICHIERS_COEUR, lireFichierCoeur, type FichierCoeur } from "@/lib/discord/coeur";
-import { discordActive, discordEssaiLocal } from "@/lib/env";
+import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
 
 /**
  * Sert le cœur d'émulation de l'Activité Discord.
@@ -9,8 +9,8 @@ import { discordActive, discordEssaiLocal } from "@/lib/env";
  * le charge avant de savoir qui joue. Seuls les deux noms connus sont servis ;
  * rien de ce que porte l'adresse ne désigne un fichier.
  */
-export async function GET(_request: Request, context: { params: Promise<{ fichier: string }> }) {
-  if (!discordActive && !discordEssaiLocal) return new NextResponse("Introuvable", { status: 404 });
+export async function GET(request: Request, context: { params: Promise<{ fichier: string }> }) {
+  if (!configPourHote(hoteDeLaRequete(request.headers))) return new NextResponse("Introuvable", { status: 404 });
 
   const { fichier } = await context.params;
   if (!Object.hasOwn(FICHIERS_COEUR, fichier)) return new NextResponse("Introuvable", { status: 404 });

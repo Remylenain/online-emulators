@@ -18,7 +18,9 @@ hack, sa traduction — dans son propre serveur Discord.
   envoie la page, l'émulateur (≈ 900 Ko) et la ROM, puis ne fait plus que
   ranger les sauvegardes. Un petit serveur suffit, même avec du monde.
 - **Une Activité = une application Discord = un jeu.** Pour un autre jeu, une
-  autre application et une autre instance du site.
+  autre application, déclarée dans l'administration avec **son propre nom
+  d'hôte** : c'est l'hôte de la requête qui dit quelle Activité répond, et un
+  hôte d'Activité ne sert rien d'autre du site.
 - **La partie suit le compte Discord**, d'un appareil à l'autre, au même format
   que le lecteur du site, horloge temps réel comprise.
 
@@ -71,14 +73,37 @@ Sur <https://discord.com/developers/applications> :
    adresse de retour, mais le SDK ne s'en sert pas.
 3. **Activities → Settings** : cocher *Enable Activities*, et les plateformes
    voulues (ordinateur par défaut ; iOS et Android à cocher).
-4. **Activities → URL Mappings** : préfixe `/`, cible le nom d'hôte du site,
-   sans `https://`.
+4. **Activities → URL Mappings** : préfixe `/`, cible le nom d'hôte de
+   l'Activité (voir l'étape 2), sans `https://`.
 
-### 2. Régler le site
+### 2. Déclarer l'Activité dans l'administration
 
-Dans `.env`, jamais dans le dépôt — les conditions de Discord interdisent de
-publier ces identifiants dans un projet ouvert, identifiant d'application
-compris :
+Onglet **Discord** de l'administration → *Nouvelle application* : un nom, le
+nom d'hôte, le jeu servi, l'identifiant et le Client Secret de l'application,
+et au besoin le verrou sur un serveur (voir plus bas). Le bouton *Essayer
+auprès de Discord* confronte ce qui est enregistré à Discord, et *Marche à
+suivre* récapitule les valeurs à recopier dans le portail.
+
+Le **nom d'hôte** est un hôte à part, réservé à cette Activité : ni la page
+de connexion, ni le catalogue n'y sont servis, et sa racine renvoie vers
+l'Activité. L'hôte du site lui-même est refusé — le réserver fermerait le
+site. Ce que l'administration ne peut pas faire pour cet hôte :
+
+- **le DNS**, chez le registrar : le nom pointe vers le serveur ;
+- **le vhost Apache et le certificat**, sur le serveur, en root :
+  `sudo ./deploiement/scripts/hote-activite.sh --domaine prism.exemple.com --mail admin@exemple.com`
+  (même gabarit que le site, tout est relayé vers le même serveur Next).
+
+Attention à ne pas confondre : la **Public Key** de l'onglet General
+Information n'est pas le Client Secret, et ne sert pas ici. Secret et jeton de
+bot sont rangés comme les autres secrets des réglages : lisibles par le seul
+compte du service, jamais renvoyés au navigateur, jamais dans le dépôt — les
+conditions de Discord interdisent de publier ces identifiants dans un projet
+ouvert, identifiant d'application compris.
+
+**En repli, l'environnement.** Sans ligne dans l'administration pour l'hôte
+demandé, le site se rabat sur `.env` — une seule Activité, qui répond sur
+l'hôte du site et sur tout hôte non déclaré :
 
 ```
 DISCORD_CLIENT_ID="…"       # Application ID, onglet General Information
@@ -86,19 +111,16 @@ DISCORD_CLIENT_SECRET="…"   # Client Secret, onglet OAuth2 (bouton Reset Secre
 DISCORD_JEU="…"             # identifiant du jeu en base (colonne games.id)
 ```
 
-Attention à ne pas confondre : la **Public Key** de l'onglet General
-Information n'est pas le Client Secret, et ne sert pas ici.
-
-Puis appliquer la migration (`npm run db:migrate`) et redémarrer. Tant que
-ces trois réglages ne sont pas renseignés, `/discord` et `/api/discord`
-répondent 404.
+Tant qu'aucune Activité n'est configurée pour un hôte, `/discord` et
+`/api/discord` y répondent 404.
 
 ### 3. Essayer
 
 - **Hors de Discord**, pendant le développement : `DISCORD_ESSAI_LOCAL="1"`,
-  puis ouvrir `/discord`. Un compte d'essai remplace l'utilisateur Discord ;
-  `?essai=nom` en ouvre un autre, `?muet=1` coupe le son. Ignoré en
-  production.
+  puis ouvrir `/discord` sur un hôte qui a une Activité — par exemple une
+  application déclarée sur `127.0.0.1`, le site restant sur `localhost`. Un
+  compte d'essai remplace l'utilisateur Discord ; `?essai=nom` en ouvre un
+  autre, `?muet=1` coupe le son. Ignoré en production.
 - **Dans Discord, sans rien déployer** : un tunnel vers le serveur local
   (`cloudflared tunnel --url http://localhost:3000`), et son nom d'hôte comme
   cible de l'URL Mapping. Le tunnel expose le serveur de développement sur une
@@ -113,10 +135,13 @@ Si la connexion échoue, le journal du serveur donne le motif de Discord :
 ## Verrouiller l'Activité sur un serveur
 
 Par défaut, l'Activité se joue partout où Discord accepte de la lancer. Pour
-la réserver à **un seul serveur** :
+la réserver à **un seul serveur** : dans l'administration, cocher *Réserver
+l'Activité à un seul serveur Discord*, avec l'identifiant du serveur (clic
+droit → Copier l'identifiant, mode développeur activé) et le jeton de bot
+(onglet Bot du portail). En repli, dans `.env` :
 
 ```
-DISCORD_SERVEUR="…"     # identifiant du serveur (clic droit → Copier l'identifiant)
+DISCORD_SERVEUR="…"     # identifiant du serveur
 DISCORD_BOT_TOKEN="…"   # Token, onglet Bot du portail
 ```
 
@@ -142,10 +167,11 @@ jeu ni sauvegarde.
   masquer l'adresse IP des joueurs et celle du serveur de l'application.
 - **La page ne nomme pas le site** : pas de nom, de description ni de manifeste
   dans son en-tête, aucune adresse absolue.
-- **Le reste du site passe aussi par le proxy.** Si l'URL Mapping vise le site
-  entier, ses autres pages — la page de connexion, par exemple — se lisent à
-  la même adresse `discordsays.com`, et disent ce qu'il est. Pour ne montrer
-  que l'Activité, lui donner un nom d'hôte à elle.
+- **Un hôte d'Activité ne sert que l'Activité.** Déclarée dans
+  l'administration avec son nom d'hôte, rien d'autre du site n'y répond — la
+  page de connexion, par exemple, serait sinon lisible à la même adresse
+  `discordsays.com`, et dirait ce qu'est le site. C'est le cas de l'Activité
+  de repli (`.env`), qui répond sur l'hôte du site.
 - **Le logiciel se reconnaît.** Ce dépôt est public : la forme des adresses
   et les textes de la page suffisent à l'identifier. Cela dit quel logiciel
   tourne, pas où.
@@ -178,7 +204,7 @@ utilisateurs par une autre voie que le portail.
   les a, l'Activité non.
 - Rattacher un compte existant du site à son utilisateur Discord, pour y
   retrouver sa partie.
-- Un nom d'hôte réservé à l'Activité, qui ne serve rien d'autre du site.
+- Le bouton d'essai ne dit pas si un hôte est bien relayé jusqu'au site.
 
 ## Où est le code
 
@@ -187,6 +213,8 @@ utilisateurs par une autre voie que le portail.
 | La page et son composant | `src/app/discord/`, `src/components/discord/activite.tsx` |
 | L'adaptateur du cœur (rythme, image, son, sauvegarde) | `src/lib/emulator/mgs.ts` |
 | Session, ROM, sauvegarde, cœur | `src/app/api/discord/` |
-| OAuth, jeton, compte, jeu, verrou | `src/lib/discord/` |
+| OAuth, jeton, compte, jeu, verrou, applications par hôte | `src/lib/discord/` |
+| L'onglet Discord de l'administration | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
+| Vhost et certificat d'un hôte d'Activité | `deploiement/scripts/hote-activite.sh` |
 | Le cœur et sa recette de compilation | `coeurs/mgba-splitscreen/` |
 | Le renvoi de la racine et les en-têtes | `src/proxy.ts`, `next.config.ts` |

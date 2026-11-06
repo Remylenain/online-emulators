@@ -506,6 +506,46 @@ export const bezelChoices = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
+// Activités Discord
+// ---------------------------------------------------------------------------
+
+/**
+ * Une application Discord déclarée depuis l'administration : un nom d'hôte,
+ * les identifiants de l'application, et **le seul jeu** qu'elle sert.
+ *
+ * Le nom d'hôte désigne l'application : une requête qui arrive sur cet hôte
+ * est servie avec ces réglages et ce jeu, et rien d'autre du site (voir
+ * `src/proxy.ts`). L'environnement (`DISCORD_*`) reste le repli pour une
+ * installation à une seule Activité, sans ligne ici.
+ *
+ * Le secret et le jeton de bot sont rangés comme les autres secrets des
+ * réglages (voir `src/lib/parametres.ts`) : lisibles par le seul compte du
+ * service, jamais renvoyés au navigateur.
+ */
+export const discordApps = sqliteTable(
+  "discord_apps",
+  {
+    id: text("id").primaryKey(),
+    /** Pour l'administrateur : « Pokémon Prism », « Traduction de X ». */
+    name: text("name").notNull(),
+    /** Nom d'hôte, en minuscules, sans schéma ni port. */
+    host: text("host").notNull(),
+    clientId: text("client_id").notNull(),
+    clientSecret: text("client_secret").notNull(),
+    /** Verrou facultatif : le seul serveur Discord où l'Activité se joue. */
+    guildId: text("guild_id").notNull().default(""),
+    /** Exigé par le verrou ; vide sinon. */
+    botToken: text("bot_token").notNull().default(""),
+    gameId: text("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (table) => [uniqueIndex("discord_apps_host_unique").on(table.host)],
+);
+
+// ---------------------------------------------------------------------------
 // Relations, pour l'API de requêtes de Drizzle
 // ---------------------------------------------------------------------------
 
