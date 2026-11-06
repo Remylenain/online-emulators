@@ -54,7 +54,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: baseSecurity },
-      { source: "/((?!discord(?:/|$)).*)", headers: pasDeCadre },
+      // Tout sauf `/discord`… et sauf la racine quand Discord l'ouvre : elle
+      // ne fait alors que renvoyer vers `/discord` (voir `src/proxy.ts`), et
+      // un refus de cadre posé sur ce renvoi pourrait bloquer l'iframe avant
+      // même qu'elle n'y arrive. Seule la racine est concernée : ajouter
+      // `frame_id` à une autre adresse ne lève rien.
+      { source: "/((?!discord(?:/|$)).+)", headers: pasDeCadre },
+      { source: "/", missing: [{ type: "query", key: "frame_id" }], headers: pasDeCadre },
       { source: "/jouer/:path*", headers: crossOriginIsolation },
       // Le cœur et son wasm doivent être servis en same-origin : le worker
       // pthread démarre depuis l'URL de mgba.js.

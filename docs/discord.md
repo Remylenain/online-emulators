@@ -8,8 +8,10 @@ dans Discord, ni sur téléphone.
 
 ## Comment ça marche
 
-- Discord ouvre la page `/discord` du site dans une iframe, à travers son
-  proxy (`https://<identifiant d'application>.discordsays.com`).
+- Discord ouvre le site dans une iframe, à travers son proxy
+  (`https://<identifiant d'application>.discordsays.com`). Il charge toujours
+  la **racine** de l'URL Mapping, avec `frame_id` dans l'adresse ; le site
+  renvoie alors vers la page `/discord` (`src/proxy.ts`).
 - **L'émulation tourne chez le joueur**, pas sur le serveur : la page charge
   un cœur mGBA compilé sans threads (`coeurs/mgba-splitscreen`, variante « une
   console »). Le lecteur ordinaire du site ne peut pas servir ici : son cœur

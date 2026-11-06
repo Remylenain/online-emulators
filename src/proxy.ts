@@ -30,6 +30,23 @@ const PUBLIC_PATHS = [
 export default function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
+  /*
+   * Discord n'ouvre jamais `/discord` : son iframe charge toujours la racine
+   * de l'URL Mapping, avec `frame_id` (et le reste de son contexte) dans
+   * l'adresse. Sans ce renvoi, la racine envoyait à la page de connexion, que
+   * le site interdit d'afficher dans un cadre — écran blanc dans Discord.
+   *
+   * Les paramètres suivent : le SDK les lit dans l'adresse de la page. Next
+   * rend ce renvoi en adresse relative, ce qu'il faut ici — la requête arrive
+   * par le proxy de Discord, et une adresse absolue ferait sortir l'iframe de
+   * `discordsays.com`.
+   */
+  if (pathname === "/" && request.nextUrl.searchParams.has("frame_id")) {
+    const activite = request.nextUrl.clone();
+    activite.pathname = "/discord";
+    return NextResponse.redirect(activite);
+  }
+
   if (PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
     return NextResponse.next();
   }
