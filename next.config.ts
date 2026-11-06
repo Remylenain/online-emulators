@@ -17,7 +17,6 @@ const baseSecurity = [
   // Bibliothèque privée : rien ne doit être indexé, nulle part.
   { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "same-origin" },
 
   /**
@@ -38,10 +37,24 @@ const baseSecurity = [
   { key: "Strict-Transport-Security", value: "max-age=31536000" },
 ];
 
+/**
+ * Aucune page du site ne s'affiche dans le cadre d'un autre site… sauf
+ * l'Activité Discord, qui n'existe que là : Discord l'ouvre dans une iframe,
+ * derrière son proxy. `/discord` ne porte aucune session — on n'y entre
+ * qu'avec ce que le client Discord fournit —, donc rien à y détourner par un
+ * cadre piégé.
+ */
+const pasDeCadre = [{ key: "X-Frame-Options", value: "DENY" }];
+
 const nextConfig: NextConfig = {
+  // En développement, l'Activité arrive par le proxy de Discord et par un
+  // tunnel : ce sont d'autres origines que celle du serveur local.
+  allowedDevOrigins: ["*.discordsays.com", "*.trycloudflare.com"],
+
   async headers() {
     return [
       { source: "/:path*", headers: baseSecurity },
+      { source: "/((?!discord(?:/|$)).*)", headers: pasDeCadre },
       { source: "/jouer/:path*", headers: crossOriginIsolation },
       // Le cœur et son wasm doivent être servis en same-origin : le worker
       // pthread démarre depuis l'URL de mgba.js.

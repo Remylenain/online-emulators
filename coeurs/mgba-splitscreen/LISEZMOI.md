@@ -45,3 +45,30 @@ seul module WebAssembly. Le serveur du câble link le fait tourner sous Node
 
 Ce dossier n'est pas dans `public/` : le navigateur n'en a pas besoin, seul le
 serveur le charge.
+
+## Variante « une console » (Activité Discord)
+
+`mgba-une-console.cjs` et `mgba-une-console.wasm` sont le même cœur, compilé
+depuis la même révision et le même `mgba_splitscreen_web.c`, pour un autre
+usage : une seule console, dans le **navigateur**. C'est le lecteur de
+l'Activité Discord (`src/lib/emulator/mgs.ts`), servi par
+`/api/discord/coeur/` — l'iframe de Discord n'a pas d'isolation cross-origin,
+et le cœur à threads du lecteur ordinaire ne peut pas y tourner.
+
+- **Recompiler :** comme ci-dessus, mais avec `build-une-console.sh` (copié
+  lui aussi dans `mgba-splitscreen/web/`). Le `.js` produit est rangé ici en
+  `.cjs`.
+- **Mémoire :** 32 Mio au départ, extensible jusqu'à 256, au lieu des 256 Mio
+  fixes du build à quatre consoles. C'est ce qui le rend chargeable sur un
+  téléphone.
+- **Notre seconde modification**, `mgs_load_save_file` : charge la sauvegarde
+  comme un fichier en mémoire (`loadSave`) au lieu de la copier dans la SRAM
+  (`savedataRestore`, ce que fait `mgs_import_save`). Sur Game Boy, c'est la
+  seule voie par laquelle mGBA lit et réécrit le pied d'horloge du `.sav`
+  (48 octets) : sans elle, un jeu MBC3 à horloge repart de zéro à chaque
+  lancement et redemande l'heure. Vérifié sur une sauvegarde venue du lecteur
+  du site : l'horloge reprend à la seconde près.
+- **Le build du câble link n'a pas été recompilé** : son binaire ne contient
+  pas `mgs_load_save_file`, et n'en a pas besoin.
+- Essayé en GB Color seulement. La GBA passe par le même chemin, mais n'a pas
+  été essayée avec ce build.

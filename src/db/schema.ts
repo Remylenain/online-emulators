@@ -54,6 +54,12 @@ export const users = sqliteTable(
       .default("normal"),
     /** Lien d'inscription par lequel le compte est né, s'il est né ainsi. */
     inviteId: text("invite_id"),
+    /**
+     * Identifiant de l'utilisateur Discord rattaché au compte, s'il y en a un.
+     * Un compte né de l'Activité Discord n'a que lui : pas d'adresse, et un
+     * mot de passe inutilisable (voir `src/lib/discord/compte.ts`).
+     */
+    discordId: text("discord_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
@@ -62,6 +68,7 @@ export const users = sqliteTable(
     // seulement par la casse du pseudo ou de l'adresse.
     uniqueIndex("users_pseudo_unique").on(sql`lower(${table.pseudo})`),
     uniqueIndex("users_email_unique").on(sql`lower(${table.email})`),
+    uniqueIndex("users_discord_unique").on(table.discordId),
   ],
 );
 

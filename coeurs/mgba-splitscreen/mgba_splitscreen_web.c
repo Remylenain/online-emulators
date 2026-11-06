@@ -822,6 +822,41 @@ int mgs_import_save(int player, const uint8_t* data, size_t size) {
 	return ok ? 0 : -5;
 }
 
+/* Load a save as an in-memory *file* rather than as raw SRAM bytes.
+ *
+ * mgs_import_save goes through savedataRestore, which on Game Boy copies the
+ * bytes straight into SRAM when no save file is attached: the real-time-clock
+ * footer mGBA appends to a .sav (48 bytes) is then neither read nor ever
+ * written back, and an MBC3 game restarts its clock from zero at every boot.
+ * Going through loadSave attaches a memory-backed VFile instead: the core
+ * reads the footer, keeps the clock running across sessions, and
+ * mgs_export_save returns the file with an up-to-date footer.
+ *
+ * Call it after mgs_load_rom and before the first mgs_run_frame. The core
+ * takes ownership of the VFile; `data` is copied and may be freed.
+ * Returns 0 on success. */
+int mgs_load_save_file(int player, const uint8_t* data, size_t size) {
+	if (player < 0 || player >= g_count || !g_players[player].running) {
+		return -2;
+	}
+	if (!data || size == 0) {
+		return -1;
+	}
+	struct Player* p = &g_players[player];
+	if (!p->core->loadSave) {
+		return -3;
+	}
+	struct VFile* vf = VFileMemChunk(data, size);
+	if (!vf) {
+		return -4;
+	}
+	if (!p->core->loadSave(p->core, vf)) {
+		vf->close(vf);
+		return -5;
+	}
+	return 0;
+}
+
 /* After a state-set import, the lockstep coordinator's per-player event
  * queues and asleep flags come back with the restored cores (mid-link saves
  * carry them in the driver state), and if they're left in place the games

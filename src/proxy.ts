@@ -16,7 +16,16 @@ import { attributsCookieSession, SESSION_COOKIE, SESSION_DURATION_MS } from "@/l
  * droit de poser un cookie, ce filtre si. Reposer un cookie dont la session
  * est morte ne change rien : la page suivante renverra à la connexion.
  */
-const PUBLIC_PATHS = ["/connexion", "/mot-de-passe-oublie", "/reinitialiser", "/inscription"];
+const PUBLIC_PATHS = [
+  "/connexion",
+  "/mot-de-passe-oublie",
+  "/reinitialiser",
+  "/inscription",
+  // L'Activité Discord tourne dans une iframe, sans cookie : ses routes
+  // contrôlent elles-mêmes un jeton porté en en-tête (`src/lib/discord`).
+  "/discord",
+  "/api/discord",
+];
 
 export default function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

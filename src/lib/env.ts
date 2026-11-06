@@ -29,6 +29,16 @@ const schema = z.object({
 
   TURNSTILE_SITE_KEY: z.string().default(""),
   TURNSTILE_SECRET_KEY: z.string().default(""),
+
+  // Activité Discord (facultative). Rien de tout cela ne va dans le dépôt :
+  // les conditions développeur de Discord rangent l'identifiant d'application
+  // avec les secrets, et interdisent de les publier dans un projet ouvert.
+  DISCORD_CLIENT_ID: z.string().default(""),
+  DISCORD_CLIENT_SECRET: z.string().default(""),
+  /** Identifiant du jeu servi par l'Activité (colonne `games.id`). */
+  DISCORD_JEU: z.string().default(""),
+  /** « 1 » : ouvre `/discord` hors de Discord, pour l'essayer. Jamais en production. */
+  DISCORD_ESSAI_LOCAL: z.string().default(""),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -44,6 +54,20 @@ export const env = parsed.data;
 
 /** Le captcha est contourné tant qu'aucune clé Turnstile n'est fournie. */
 export const captchaEnabled = env.TURNSTILE_SECRET_KEY.length > 0;
+
+/** L'Activité Discord n'existe que si ses trois réglages sont renseignés. */
+export const discordActive =
+  env.DISCORD_CLIENT_ID.length > 0 &&
+  env.DISCORD_CLIENT_SECRET.length > 0 &&
+  env.DISCORD_JEU.length > 0;
+
+/**
+ * Essai hors de Discord : un compte de test, sans passer par l'OAuth. Refusé
+ * en production quoi que dise l'environnement — ce serait une porte ouverte
+ * sur le jeu sans compte.
+ */
+export const discordEssaiLocal =
+  env.NODE_ENV !== "production" && env.DISCORD_ESSAI_LOCAL === "1" && env.DISCORD_JEU.length > 0;
 
 /** Sans SMTP configuré, les e-mails sont écrits dans la console. */
 export const mailEnabled = env.SMTP_HOST.length > 0;

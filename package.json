@@ -24,6 +24,7 @@
     "db:seed": "node --env-file=.env scripts/seed.ts"
   },
   "dependencies": {
+    "@discord/embedded-app-sdk": "^2.5.0",
     "@node-rs/argon2": "^2.2.2",
     "@thenick775/mgba-wasm": "^2.6.0",
     "better-sqlite3": "^13.0.3",

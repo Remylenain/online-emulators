@@ -24,6 +24,9 @@ le droit de partager.
   Échanges et combats comme avec un vrai câble. Salons publics ou privés
   avec code, jusqu'à cinq spectateurs par salon, nombre de salons limité
   à ce que le serveur peut tenir.
+- **Activité Discord** (facultative, à l'essai) : un jeu du site jouable dans
+  Discord, émulé dans le navigateur du joueur, avec sa sauvegarde gardée par
+  utilisateur Discord. Voir [docs/discord.md](docs/discord.md).
 - **Comptes** : création par l'administrateur, liens d'invitation valables
   24 h pour un ou plusieurs comptes, ou inscriptions ouvertes à tous avec
   e-mail confirmé et captcha, au choix. Réinitialisation de mot de passe par
