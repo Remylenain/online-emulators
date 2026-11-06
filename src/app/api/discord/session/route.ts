@@ -4,7 +4,8 @@ import { adressesCoeur } from "@/lib/discord/coeur";
 import { jeuConfigure } from "@/lib/discord/jeu";
 import { signerJeton } from "@/lib/discord/jeton";
 import { echangerCode, profilDiscord, type ProfilDiscord } from "@/lib/discord/oauth";
-import { discordActive, discordEssaiLocal } from "@/lib/env";
+import { verifierLieu } from "@/lib/discord/instance";
+import { discordActive, discordEssaiLocal, env } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
 
 /**
@@ -14,6 +15,10 @@ import { rateLimit } from "@/lib/rate-limit";
  * ici contre un jeton d'accès, puis Discord nous dit qui est l'utilisateur.
  * En retour, la page reçoit de quoi jouer : son jeton pour les routes
  * `/api/discord`, la fiche du jeu, et l'adresse du cœur.
+ *
+ * Si un serveur Discord est imposé (`DISCORD_SERVEUR`), la page envoie aussi
+ * le nom de son instance, et Discord confirme où elle tourne et que cet
+ * utilisateur y est (`src/lib/discord/instance.ts`).
  *
  * Le jeton d'accès Discord repart vers la page, qui en a besoin pour terminer
  * la poignée de main du SDK (`authenticate`). Il n'est ni conservé ni
@@ -32,7 +37,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let corps: { code?: unknown; essai?: unknown; nom?: unknown };
+  let corps: { code?: unknown; essai?: unknown; nom?: unknown; instance?: unknown };
   try {
     corps = (await request.json()) as typeof corps;
   } catch {
@@ -63,6 +68,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ erreur: "Discord n'a pas reconnu cette connexion." }, { status: 401 });
     }
     profil = connu;
+
+    // Le verrou, s'il est réglé : avant de créer le moindre compte, et bien
+    // avant de servir le jeu. L'essai local n'y passe pas — il n'existe pas en
+    // production, et n'a pas d'instance Discord à montrer.
+    if (env.DISCORD_SERVEUR) {
+      const lieu = await verifierLieu(
+        { application: env.DISCORD_CLIENT_ID, jetonBot: env.DISCORD_BOT_TOKEN, serveur: env.DISCORD_SERVEUR },
+        corps.instance,
+        profil.id,
+      );
+      if (!lieu.permis) {
+        console.warn(`[discord] session refusée par le verrou : ${lieu.motif}`);
+        return NextResponse.json(
+          { erreur: "Cette Activité ne se joue que dans son serveur Discord." },
+          { status: 403 },
+        );
+      }
+    }
   }
 
   const compte = compteDiscord(profil, jeu.id);

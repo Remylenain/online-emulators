@@ -37,11 +37,25 @@ const schema = z.object({
   DISCORD_CLIENT_SECRET: z.string().default(""),
   /** Identifiant du jeu servi par l'Activité (colonne `games.id`). */
   DISCORD_JEU: z.string().default(""),
+  /**
+   * Verrou facultatif : l'identifiant du seul serveur Discord où l'Activité
+   * accepte d'être jouée. Demande aussi `DISCORD_BOT_TOKEN`, sans lequel
+   * Discord ne dit pas où une Activité tourne.
+   */
+  DISCORD_SERVEUR: z.string().regex(/^\d{17,20}$|^$/, "DISCORD_SERVEUR est un identifiant de serveur Discord").default(""),
+  DISCORD_BOT_TOKEN: z.string().default(""),
   /** « 1 » : ouvre `/discord` hors de Discord, pour l'essayer. Jamais en production. */
   DISCORD_ESSAI_LOCAL: z.string().default(""),
 });
 
-const parsed = schema.safeParse(process.env);
+const parsed = schema
+  .refine((valeurs) => !valeurs.DISCORD_SERVEUR || valeurs.DISCORD_BOT_TOKEN.length > 0, {
+    path: ["DISCORD_BOT_TOKEN"],
+    // Mieux vaut refuser de démarrer que démarrer avec un verrou qui ne
+    // peut rien vérifier.
+    message: "DISCORD_SERVEUR est réglé : DISCORD_BOT_TOKEN est alors obligatoire",
+  })
+  .safeParse(process.env);
 
 if (!parsed.success) {
   const details = parsed.error.issues

@@ -87,7 +87,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       // Discord ouvre l'iframe avec `frame_id` dans l'adresse ; le SDK refuse
       // de se construire sans lui.
       const dansDiscord = parametres.has("frame_id");
-      let corps: { code: string } | { essai: true; nom?: string };
+      let corps: { code: string; instance: string } | { essai: true; nom?: string };
       let authentifier: ((jeton: string) => Promise<unknown>) | null = null;
 
       if (dansDiscord && clientId) {
@@ -102,7 +102,9 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
           // Le strict nécessaire : savoir qui joue, pour retrouver sa partie.
           scope: ["identify"],
         });
-        corps = { code };
+        // Le nom de l'instance sert au verrou par serveur : c'est le serveur
+        // du site qui demande à Discord où elle tourne, pas la page qui le dit.
+        corps = { code, instance: sdk.instanceId };
         authentifier = (jeton) => sdk.commands.authenticate({ access_token: jeton });
       } else if (essaiLocal) {
         // `?essai=nom` : un second compte d'essai, pour ne pas partager la partie.

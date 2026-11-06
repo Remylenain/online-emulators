@@ -85,6 +85,36 @@ répondent 404.
 - Activer le **mode développeur** de Discord (Paramètres → Avancés), entrer
   dans un salon vocal, ouvrir le lanceur d'activités.
 
+## Verrouiller l'Activité sur un serveur
+
+Par défaut, l'Activité se joue partout où Discord accepte de la lancer. Pour
+la réserver à **un seul serveur** :
+
+```
+DISCORD_SERVEUR="…"     # identifiant du serveur (clic droit → Copier l'identifiant)
+DISCORD_BOT_TOKEN="…"   # Token, onglet Bot du portail
+```
+
+À l'ouverture d'une session, le site demande alors à Discord où tourne
+l'instance de l'Activité et qui s'y trouve
+(`src/lib/discord/instance.ts`). La session n'est ouverte que si l'instance
+existe, qu'elle tourne dans ce serveur, et que l'utilisateur en fait partie.
+Sinon : pas de jeton, donc ni jeu ni sauvegarde.
+
+- La page ne décide de rien : elle donne le nom de son instance, et c'est
+  Discord qui répond au site. Un nom inventé ne correspond à aucune instance.
+- En cas de doute (Discord injoignable, jeton de bot refusé), c'est non.
+- Le jeton de bot ne sert qu'à cette question. Le bot n'a pas besoin d'être
+  invité dans le serveur, ni d'aucune permission.
+- `DISCORD_SERVEUR` sans `DISCORD_BOT_TOKEN` empêche le site de démarrer,
+  plutôt que de laisser croire à un verrou qui ne vérifie rien.
+- Le verrou est contrôlé à l'ouverture de la session, valable douze heures.
+- L'essai local (`DISCORD_ESSAI_LOCAL`) n'y passe pas : il n'a pas d'instance
+  Discord, et n'existe pas en production.
+
+État : la décision est essayée sur des réponses simulées de Discord ; pas
+encore sur une vraie instance.
+
 ## Les limites qui ne dépendent pas du site
 
 - Une Activité **non vérifiée** ne se lance que dans un serveur de moins de
