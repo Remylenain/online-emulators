@@ -3,8 +3,9 @@
 Un jeu du site, jouable dans Discord : l'utilisateur lance l'Activité, appuie
 sur « Jouer », et sa partie est gardée pour son compte Discord.
 
-État : **prototype**. Essayé en local sur une ROM Game Boy Color ; pas encore
-dans Discord, ni sur téléphone.
+État : **prototype**. Essayé sur une ROM Game Boy Color, en local puis dans
+Discord sur ordinateur, par un tunnel : connexion, jeu, sauvegarde et horloge
+fonctionnent. Pas encore essayé sur téléphone.
 
 ## Comment ça marche
 
@@ -79,6 +80,8 @@ répondent 404.
   cible de l'URL Mapping. Attention : le tunnel expose le serveur de
   développement sur une adresse publique tant qu'il tourne ; remettre le
   mapping en place ensuite.
+- Les adresses de la page n'ont pas besoin du préfixe `/.proxy/` que montrent
+  certains exemples de Discord : les chemins ordinaires passent par le proxy.
 - Activer le **mode développeur** de Discord (Paramètres → Avancés), entrer
   dans un salon vocal, ouvrir le lanceur d'activités.
 
@@ -94,7 +97,7 @@ répondent 404.
 
 ## Ce qui reste à faire
 
-- L'essai dans Discord : web, bureau, puis iOS et Android.
+- L'essai dans Discord sur iOS et Android.
 - La GBA (le cœur la gère, rien n'a été essayé).
 - Pause quand l'Activité passe en incrustation ; orientation sur téléphone.
 - Manettes, touches personnalisées, points de reprise : le lecteur du site
