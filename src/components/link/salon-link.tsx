@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Button } from "@/components/ui";
+import { usePleinEcranAuto } from "@/components/player/plein-ecran";
 import { Manette } from "@/components/player/manette";
 import type { Bouton } from "@/lib/emulator/adapter";
 import { toucheDeEvenement, type Touche } from "@/lib/consoles";
@@ -64,6 +65,8 @@ export function SalonLink({
   const [connecte, setConnecte] = useState(false);
   const [muet, setMuet] = useState(false);
   const [tactile, setTactile] = useState(false);
+  // Sur téléphone, le premier appui fait disparaître les barres du système.
+  usePleinEcranAuto(tactile);
 
   useEffect(() => {
     const requete = window.matchMedia("(pointer: coarse)");

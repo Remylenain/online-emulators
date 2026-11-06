@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FichierSauvegarde } from "./fichier-sauvegarde";
 import { ChoixHabillage, type Habillage } from "./habillage";
 import { Manette } from "./manette";
+import { usePleinEcranAuto } from "./plein-ecran";
 import { ManetteConfig } from "./manette-config";
 import { Touches } from "./touches";
 import { useManette } from "./use-manette";
@@ -142,7 +143,10 @@ export function Lecteur({
   const volumeRef = useRef(100);
   useEffect(() => {
     try {
-      const retenu = Number(localStorage.getItem(CLE_VOLUME));
+      // Rien d'enregistré : on garde 100 %. `Number(null)` vaut 0, et un
+      // premier passage sur le site démarrait sinon sans le son.
+      const brut = localStorage.getItem(CLE_VOLUME);
+      const retenu = brut === null ? NaN : Number(brut);
       if (Number.isInteger(retenu) && retenu >= 0 && retenu <= 100) {
         volumeRef.current = retenu;
         setVolume(retenu);
@@ -498,6 +502,8 @@ export function Lecteur({
   const [paysage, setPaysage] = useState(false);
   /** Le menu plein écran du lecteur tactile. */
   const [menuOuvert, setMenuOuvert] = useState(false);
+  // Sur téléphone, le premier appui fait disparaître les barres du système.
+  usePleinEcranAuto(tactile);
   useEffect(() => {
     const requete = window.matchMedia("(pointer: coarse)");
     const orientation = window.matchMedia("(orientation: landscape)");
@@ -892,8 +898,15 @@ export function Lecteur({
                 height: `${visible.hauteur}px`,
                 "--cote": `${Math.round(visible.largeur * 0.22)}px`,
                 "--haut": `${visible.hauteur}px`,
+                // En plein écran, la page va jusqu'au bord : la barre du haut
+                // ne doit pas passer sous l'encoche de la caméra.
+                paddingTop: "env(safe-area-inset-top)",
               }
-            : { "--cote": "22vw", "--haut": "100dvh" }) as unknown as React.CSSProperties
+            : {
+                "--cote": "22vw",
+                "--haut": "100dvh",
+                paddingTop: "env(safe-area-inset-top)",
+              }) as unknown as React.CSSProperties
         }
       >
         {/* En paysage, la barre ne s'affiche que hors partie : en jeu, Menu
@@ -964,13 +977,12 @@ export function Lecteur({
               <span className="text-sm font-semibold text-ink-50">Menu</span>
               <span className="flex gap-2">
                 {/*
-                  Plein écran, pour un navigateur qui garde sa barre d'adresse.
-                  Une fois le site ajouté à l'écran d'accueil, il se lance
-                  déjà en plein écran et le bouton n'a plus lieu d'être.
+                  Le plein écran se prend tout seul au premier appui
+                  (`usePleinEcranAuto`) ; ce bouton sert à en sortir, ou à y
+                  revenir après l'avoir quitté. Absent là où le navigateur ne
+                  le permet pas — Safari sur iPhone.
                 */}
-                {typeof document !== "undefined" &&
-                  document.fullscreenEnabled &&
-                  !window.matchMedia("(display-mode: standalone)").matches && (
+                {typeof document !== "undefined" && document.fullscreenEnabled && (
                     <button
                       type="button"
                       onClick={() => {
