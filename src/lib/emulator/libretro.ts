@@ -8,14 +8,8 @@
  * où deux navigateurs doivent calculer exactement la même image à partir
  * des mêmes boutons.
  *
- * Utilisé par le câble link (TGB Dual, deux Game Boy reliées dans un seul
- * cœur) et par l'essai PlayStation (PCSX-ReARMed).
- *
- * Deux façons de donner un jeu au cœur. Une ROM de cartouche lui est remise
- * en mémoire. Un disque, lui, est lu par morceaux, par son chemin
- * (`need_fullpath` dans le vocabulaire libretro) : le cœur doit alors avoir
- * été compilé avec le système de fichiers d'Emscripten, où l'on dépose
- * l'image avant de lui en donner le chemin.
+ * Utilisé par le banc d'essai du câble link (TGB Dual, deux Game Boy reliées
+ * dans un seul cœur).
  */
 
 /** Bits des boutons dans l'API libretro (RETRO_DEVICE_ID_JOYPAD_*). */
@@ -32,38 +26,11 @@ export const BOUTONS_LIBRETRO = {
   R: 1 << 11,
 } as const;
 
-/**
- * Les mêmes bits, sous leurs noms PlayStation. La manette libretro est
- * calquée sur celle de la Super Nintendo : la croix de la PlayStation est son
- * B, le rond son A, le carré son Y, le triangle son X.
- */
-export const BOUTONS_PSX = {
-  CROIX: 1 << 0,
-  CARRE: 1 << 1,
-  SELECT: 1 << 2,
-  START: 1 << 3,
-  UP: 1 << 4,
-  DOWN: 1 << 5,
-  LEFT: 1 << 6,
-  RIGHT: 1 << 7,
-  ROND: 1 << 8,
-  TRIANGLE: 1 << 9,
-  L1: 1 << 10,
-  R1: 1 << 11,
-  L2: 1 << 12,
-  R2: 1 << 13,
-  L3: 1 << 14,
-  R3: 1 << 15,
-} as const;
-
 // Commandes d'environnement libretro (voir libretro.h).
 const ENV_GET_CAN_DUPE = 3;
-const ENV_GET_SYSTEM_DIRECTORY = 9;
 const ENV_SET_PIXEL_FORMAT = 10;
 const ENV_GET_VARIABLE = 15;
 const ENV_GET_VARIABLE_UPDATE = 17;
-const ENV_GET_SAVE_DIRECTORY = 31;
-const ENV_SET_SYSTEM_AV_INFO = 32;
 const ENV_SET_GEOMETRY = 37;
 const ENV_GET_INPUT_BITMASKS = 51 | 0x10000;
 
@@ -73,30 +40,10 @@ const FORMAT_RGB565 = 2;
 const DEVICE_JOYPAD = 1;
 const ID_MASQUE = 256;
 
-/** Dossiers du système de fichiers d'Emscripten, quand le cœur en a un. */
-const DOSSIER_JEU = "/jeu";
-const DOSSIER_SYSTEME = "/systeme";
-const DOSSIER_SAUVEGARDES = "/sauvegardes";
-
-/** Ce qu'on utilise du système de fichiers d'Emscripten. */
-type SystemeDeFichiers = {
-  mkdir(chemin: string): void;
-  createDataFile(
-    dossier: string,
-    nom: string,
-    donnees: Uint8Array,
-    lisible: boolean,
-    inscriptible: boolean,
-    sansCopie: boolean,
-  ): void;
-};
-
 type ModuleLibretro = {
   HEAPU8: Uint8Array;
   HEAP16: Int16Array;
   HEAPU32: Uint32Array;
-  /** Présent seulement si le cœur a été compilé avec le système de fichiers. */
-  FS?: SystemeDeFichiers;
   addFunction(fonction: (...args: number[]) => number | void, signature: string): number;
   _malloc(taille: number): number;
   _free(pointeur: number): void;
@@ -121,15 +68,7 @@ type ModuleLibretro = {
   _retro_get_memory_size(id: number): number;
 };
 
-export type Jeu = {
-  nom: string;
-  donnees: Uint8Array;
-  /**
-   * Le cœur lit ce jeu par son chemin, et non en mémoire : l'image d'un
-   * disque. Elle est déposée dans le système de fichiers du cœur, sans copie.
-   */
-  fichier?: boolean;
-};
+export type Jeu = { nom: string; donnees: Uint8Array };
 
 export class CoeurLibretro {
   private module: ModuleLibretro | null = null;
@@ -144,9 +83,6 @@ export class CoeurLibretro {
 
   ips = 60;
   frequence = 44100;
-
-  /** Ce que le cœur écrit sur sa sortie d'erreur ; par défaut, la console du navigateur. */
-  surJournal: ((texte: string) => void) | null = null;
 
   private readonly urlModule: string;
   /** Options fixées par le site (clé → valeur), lues par le cœur au démarrage. */
@@ -173,11 +109,7 @@ export class CoeurLibretro {
     this.wasm = wasm;
   }
 
-  /**
-   * `systeme` : des fichiers à poser dans le dossier système du cœur avant le
-   * démarrage — un BIOS, pour un cœur qui sait en chercher un.
-   */
-  async charger(jeux: Jeu[], typeSpecial?: number, systeme: Jeu[] = []): Promise<void> {
+  async charger(jeux: Jeu[], typeSpecial?: number): Promise<void> {
     const url = this.urlModule;
     const { default: creer } = (await import(
       /* webpackIgnore: true */ /* turbopackIgnore: true */ url
@@ -192,43 +124,23 @@ export class CoeurLibretro {
 
     let module: ModuleLibretro;
     if (this.wasm) {
-      const journal = this.surJournal ?? (() => {});
-      module = await creer({ wasmBinary: this.wasm, print: journal, printErr: journal });
+      module = await creer({ wasmBinary: this.wasm, print: () => {}, printErr: () => {} });
     } else {
       // Le `.wasm` est cherché à côté du `.js`, avec la même version dans
       // l'adresse. Sans elle, le navigateur resservait un ancien cœur en cache
       // (la version qui figeait l'image), sans la moindre erreur.
       const version = new URL(url, window.location.href).search;
-      const journal = this.surJournal;
       module = await creer({
         locateFile: (fichier: string, prefixe: string) => `${prefixe}${fichier}${version}`,
-        ...(journal ? { print: journal, printErr: journal } : {}),
       });
     }
     this.module = module;
-
-    // Les dossiers existent avant `retro_init` : le cœur les demande dès là.
-    if (module.FS) {
-      for (const dossier of [DOSSIER_JEU, DOSSIER_SYSTEME, DOSSIER_SAUVEGARDES]) module.FS.mkdir(dossier);
-      for (const fichier of systeme) {
-        module.FS.createDataFile(DOSSIER_SYSTEME, fichier.nom, fichier.donnees, true, false, true);
-      }
-    }
-
     this.brancherRappels(module);
     module._retro_init();
 
     // struct retro_game_info { path; data; size; meta; } — 16 octets chacune.
     const pInfos = module._malloc(16 * jeux.length);
     jeux.forEach((jeu, i) => {
-      if (jeu.fichier) {
-        if (!module.FS) throw new Error("Ce cœur n'a pas de système de fichiers : il ne lit pas de disque.");
-        // `sansCopie` : le système de fichiers garde le tableau tel quel, au
-        // lieu de doubler en mémoire une image de plusieurs centaines de Mo.
-        module.FS.createDataFile(DOSSIER_JEU, jeu.nom, jeu.donnees, true, false, true);
-        module.HEAPU32.set([this.chaineC(`${DOSSIER_JEU}/${jeu.nom}`), 0, 0, 0], (pInfos >> 2) + i * 4);
-        return;
-      }
       const pNom = this.chaineC(jeu.nom);
       const pDonnees = module._malloc(jeu.donnees.length);
       module.HEAPU8.set(jeu.donnees, pDonnees);
@@ -284,18 +196,6 @@ export class CoeurLibretro {
         case ENV_GET_VARIABLE_UPDATE:
           module.HEAPU8[donnees] = 0;
           return 1;
-        case ENV_GET_SYSTEM_DIRECTORY:
-        case ENV_GET_SAVE_DIRECTORY:
-          if (!module.FS) return 0;
-          module.HEAPU32[donnees >> 2] = this.chaineC(
-            commande === ENV_GET_SYSTEM_DIRECTORY ? DOSSIER_SYSTEME : DOSSIER_SAUVEGARDES,
-          );
-          return 1;
-        case ENV_SET_SYSTEM_AV_INFO:
-          // Le cœur change de cadence en cours de route : un disque PAL à
-          // 50 images par seconde reconnu après le démarrage.
-          this.lireCadenceEn(donnees);
-          return 1;
         case ENV_SET_GEOMETRY:
         case ENV_GET_INPUT_BITMASKS:
           return 1;
@@ -341,19 +241,10 @@ export class CoeurLibretro {
     // remplissage), puis fps et sample_rate en double précision.
     const p = module._malloc(40);
     module._retro_get_system_av_info(p);
-    this.lireCadenceEn(p);
-    module._free(p);
-  }
-
-  private lireCadenceEn(pointeur: number): void {
-    const vue = new DataView(this.exige().HEAPU8.buffer, pointeur, 40);
+    const vue = new DataView(module.HEAPU8.buffer, p, 40);
     this.ips = vue.getFloat64(24, true) || 60;
     this.frequence = vue.getFloat64(32, true) || 44100;
-  }
-
-  /** Le tas du cœur, en octets. L'image d'un disque n'y est pas : elle vit dans le système de fichiers. */
-  get memoire(): number {
-    return this.module?.HEAPU8.length ?? 0;
+    module._free(p);
   }
 
   private convertirImage(pointeur: number, largeur: number, hauteur: number, pas: number): void {
