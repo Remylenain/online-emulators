@@ -474,13 +474,7 @@ export async function remettreAZero(userId: string): Promise<Resultat> {
     .get();
   if (!compte) return { ok: false, message: "Compte introuvable." };
 
-  // Les jeux touchés, pour recalculer ensuite leurs compteurs dénormalisés.
-  const touches = new Set<string>();
-  for (const table of [playSessions, ratings] as const) {
-    for (const l of await db.select({ gameId: table.gameId }).from(table).where(eq(table.userId, userId)).all()) {
-      touches.add(l.gameId);
-    }
-  }
+  const touches = await jeuxTouches(userId);
 
   db.transaction((tx) => {
     // Les copies de secours suivent la sauvegarde par cascade.
@@ -489,25 +483,91 @@ export async function remettreAZero(userId: string): Promise<Resultat> {
     tx.delete(playSessions).where(eq(playSessions.userId, userId)).run();
     tx.delete(ratings).where(eq(ratings.userId, userId)).run();
     tx.delete(favorites).where(eq(favorites.userId, userId)).run();
-    for (const gameId of touches) {
-      tx.update(games)
-        .set({
-          playCount: sql`(select count(*) from ${playSessions} where ${playSessions.gameId} = ${gameId})`,
-          ratingAvg: sql`coalesce((select avg(${ratings.score}) from ${ratings} where ${ratings.gameId} = ${gameId}), 0)`,
-          ratingCount: sql`(select count(*) from ${ratings} where ${ratings.gameId} = ${gameId})`,
-        })
-        .where(eq(games.id, gameId))
-        .run();
-    }
+    recalculerCompteurs(tx, touches);
   });
 
-  // Les fichiers, une fois la base d'accord : saves/<compte>/ et states/<compte>/.
-  await fs.rm(paths.data(path.posix.join("saves", userId)), { recursive: true, force: true });
-  await fs.rm(paths.data(path.posix.join("states", userId)), { recursive: true, force: true });
+  await effacerFichiersDeJeu(userId);
 
   revalidatePath("/admin/comptes");
   revalidatePath("/admin/temps");
   return { ok: true, message: `Compte de ${compte.pseudo} remis à zéro.` };
+}
+
+/** Les jeux où ce compte a joué ou noté : leurs compteurs sont à refaire après son départ. */
+async function jeuxTouches(userId: string): Promise<Set<string>> {
+  const touches = new Set<string>();
+  for (const table of [playSessions, ratings] as const) {
+    for (const l of await db.select({ gameId: table.gameId }).from(table).where(eq(table.userId, userId)).all()) {
+      touches.add(l.gameId);
+    }
+  }
+  return touches;
+}
+
+/** Nombre de parties et note moyenne sont dénormalisés sur le jeu : on les recompte. */
+function recalculerCompteurs(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  jeux: Set<string>,
+): void {
+  for (const gameId of jeux) {
+    tx.update(games)
+      .set({
+        playCount: sql`(select count(*) from ${playSessions} where ${playSessions.gameId} = ${gameId})`,
+        ratingAvg: sql`coalesce((select avg(${ratings.score}) from ${ratings} where ${ratings.gameId} = ${gameId}), 0)`,
+        ratingCount: sql`(select count(*) from ${ratings} where ${ratings.gameId} = ${gameId})`,
+      })
+      .where(eq(games.id, gameId))
+      .run();
+  }
+}
+
+/** Les fichiers de jeu d'un compte : `saves/<compte>/` et `states/<compte>/`. */
+async function effacerFichiersDeJeu(userId: string): Promise<void> {
+  await fs.rm(paths.data(path.posix.join("saves", userId)), { recursive: true, force: true });
+  await fs.rm(paths.data(path.posix.join("states", userId)), { recursive: true, force: true });
+}
+
+/**
+ * Suppression définitive d'un compte, avec tout ce qui lui appartenait.
+ *
+ * Réservée aux comptes déjà désactivés : désactiver ferme les sessions et
+ * laisse le temps de se raviser ; supprimer ne se défait pas. Les deux gestes
+ * sont séparés exprès.
+ *
+ * Ce qui part : le compte, ses sessions, ses sauvegardes et leurs copies, ses
+ * points de reprise, son temps de jeu, ses notes, ses favoris, ses touches,
+ * ses habillages, ses jeux attribués, son avatar — en base par les cascades
+ * des clés étrangères, sur le disque par les dossiers à son nom. Les liens
+ * d'inscription qu'il avait créés restent, sans auteur.
+ */
+export async function supprimerCompte(userId: string): Promise<Resultat> {
+  const admin = await requireAdmin();
+  if (admin.id === userId) {
+    return { ok: false, message: "Tu ne peux pas supprimer ton propre compte." };
+  }
+
+  const compte = await db
+    .select({ pseudo: users.pseudo, isActive: users.isActive })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  if (!compte) return { ok: false, message: "Compte introuvable." };
+  if (compte.isActive) {
+    return { ok: false, message: `Désactive d'abord le compte de ${compte.pseudo} : seul un compte désactivé se supprime.` };
+  }
+
+  const touches = await jeuxTouches(userId);
+
+  db.transaction((tx) => {
+    tx.delete(users).where(eq(users.id, userId)).run();
+    recalculerCompteurs(tx, touches);
+  });
+
+  await effacerFichiersDeJeu(userId);
+  await fs.rm(paths.data(paths.avatar(userId)), { force: true });
+
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: `Compte de ${compte.pseudo} supprimé, avec toutes ses données.` };
 }
 
 export async function basculerActivation(userId: string): Promise<Resultat> {

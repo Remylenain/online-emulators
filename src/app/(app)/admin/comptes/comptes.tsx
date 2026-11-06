@@ -12,6 +12,7 @@ import {
   importerSauvegarde,
   reinitialiserMotDePasse,
   remettreAZero,
+  supprimerCompte,
   renvoyerInvitation,
   revoquerInvitation,
   voirLeSiteComme,
@@ -377,6 +378,27 @@ function FicheCompte({
                 >
                   {compte.isActive ? "Désactiver" : "Réactiver"}
                 </Petit>
+                {/* Seul un compte désactivé se supprime : deux gestes séparés,
+                    le second ne se défait pas. */}
+                {!compte.isActive && (
+                  <Petit
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Supprimer définitivement le compte de ${compte.pseudo} ? ` +
+                            "Le compte, ses sauvegardes, copies de secours, points de reprise, temps de jeu, " +
+                            "notes, favoris et réglages seront effacés. C'est irréversible.",
+                        )
+                      ) {
+                        agir(() => supprimerCompte(compte.id));
+                      }
+                    }}
+                    disabled={enCours}
+                    danger
+                  >
+                    Supprimer définitivement
+                  </Petit>
+                )}
               </>
             ) : (
               <span className="text-xs text-ink-700">C&apos;est toi.</span>
