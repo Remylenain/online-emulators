@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 export type EtatResume = {
   emplacement: number;
@@ -16,6 +16,28 @@ export const INTERVALLE_AUTO = 2 * 60 * 1000;
 
 function segment(emplacement: number, auto: boolean): string {
   return auto ? `a${emplacement}` : String(emplacement);
+}
+
+/**
+ * Où et comment parler au serveur. Le site passe par ses routes et son
+ * cookie ; l'Activité Discord par les siennes et son jeton — dans l'en-tête,
+ * et dans l'adresse de la vignette, qu'une balise `<img>` charge sans en-tête.
+ */
+export type AccesEtats = {
+  liste: string;
+  emplacement: (segment: string) => string;
+  vignette: (segment: string, version: number) => string;
+  /** Où déposer une image de l'écran après la capture, quand l'état n'en porte pas. */
+  vignetteEcriture?: (segment: string) => string;
+  entetes?: Record<string, string>;
+};
+
+function accesDuSite(gameId: string): AccesEtats {
+  return {
+    liste: `/api/state/${gameId}`,
+    emplacement: (seg) => `/api/state/${gameId}/${seg}`,
+    vignette: (seg, version) => `/api/state/${gameId}/${seg}?v=${version}`,
+  };
 }
 
 /**
@@ -38,11 +60,21 @@ export function Savestates({
   gameId,
   surEcrire,
   surLire,
+  surVignette,
+  acces: accesDonne,
+  autos = true,
 }: {
   gameId: string;
   surEcrire: () => Uint8Array | null;
   surLire: (donnees: Uint8Array) => boolean;
+  /** L'image de l'écran au moment de la capture, pour un cœur dont l'état n'en porte pas. */
+  surVignette?: () => Promise<Blob | null>;
+  /** À défaut, les routes du site. */
+  acces?: AccesEtats;
+  /** Montrer la série automatique ; l'Activité Discord n'en tient pas. */
+  autos?: boolean;
 }) {
+  const acces = useMemo(() => accesDonne ?? accesDuSite(gameId), [accesDonne, gameId]);
   const [etats, setEtats] = useState<EtatResume[]>([]);
   const [occupe, setOccupe] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -50,14 +82,14 @@ export function Savestates({
 
   const rafraichir = useCallback(async () => {
     try {
-      const reponse = await fetch(`/api/state/${gameId}`, { cache: "no-store" });
+      const reponse = await fetch(acces.liste, { cache: "no-store", headers: acces.entetes });
       if (!reponse.ok) return;
       setEtats((await reponse.json()).etats);
     } catch {
       // Sans liste, les emplacements s'affichent vides : le joueur peut quand
       // même en créer, ce qui remettra la liste à jour.
     }
-  }, [gameId]);
+  }, [acces]);
 
   useEffect(() => {
     void rafraichir();
@@ -67,14 +99,28 @@ export function Savestates({
     async (emplacement: number, auto: boolean) => {
       const donnees = surEcrire();
       if (!donnees) return false;
-      const reponse = await fetch(`/api/state/${gameId}/${segment(emplacement, auto)}`, {
+      const reponse = await fetch(acces.emplacement(segment(emplacement, auto)), {
         method: "PUT",
-        headers: { "Content-Type": "application/octet-stream" },
+        headers: { ...acces.entetes, "Content-Type": "application/octet-stream" },
         body: new Uint8Array(donnees),
       });
-      return reponse.ok;
+      if (!reponse.ok) return false;
+
+      // La vignette ensuite, à part : sans elle, l'emplacement reste valable,
+      // seulement sans image.
+      if (acces.vignetteEcriture && surVignette) {
+        const image = await surVignette();
+        if (image) {
+          await fetch(acces.vignetteEcriture(segment(emplacement, auto)), {
+            method: "PUT",
+            headers: { ...acces.entetes, "Content-Type": "image/png" },
+            body: image,
+          }).catch(() => undefined);
+        }
+      }
+      return true;
     },
-    [gameId, surEcrire],
+    [acces, surEcrire, surVignette],
   );
 
   async function capturer(emplacement: number, auto: boolean) {
@@ -98,7 +144,7 @@ export function Savestates({
     setOccupe(cle);
     setMessage(null);
     try {
-      const reponse = await fetch(`/api/state/${gameId}/${cle}`, { cache: "no-store" });
+      const reponse = await fetch(acces.emplacement(cle), { cache: "no-store", headers: acces.entetes });
       if (!reponse.ok) {
         setMessage("Cette reprise est introuvable.");
         return;
@@ -115,7 +161,7 @@ export function Savestates({
     const cle = segment(emplacement, auto);
     setOccupe(cle);
     try {
-      await fetch(`/api/state/${gameId}/${cle}`, { method: "DELETE" });
+      await fetch(acces.emplacement(cle), { method: "DELETE", headers: acces.entetes });
       await rafraichir();
     } finally {
       setOccupe(null);
@@ -130,23 +176,25 @@ export function Savestates({
         auto={false}
         etats={etats}
         occupe={occupe}
-        gameId={gameId}
+        acces={acces}
         version={version}
         surCapturer={capturer}
         surReprendre={reprendre}
         surEffacer={effacer}
       />
 
-      <Serie
-        titre="Reprises automatiques"
-        explication="Une toutes les deux minutes, en roulement sur cinq emplacements : de quoi revenir dix minutes en arrière."
-        auto
-        etats={etats}
-        occupe={occupe}
-        gameId={gameId}
-        version={version}
-        surReprendre={reprendre}
-      />
+      {autos && (
+        <Serie
+          titre="Reprises automatiques"
+          explication="Une toutes les deux minutes, en roulement sur cinq emplacements : de quoi revenir dix minutes en arrière."
+          auto
+          etats={etats}
+          occupe={occupe}
+          acces={acces}
+          version={version}
+          surReprendre={reprendre}
+        />
+      )}
 
       {message && (
         <p role="alert" className="text-xs text-red-300">
@@ -163,7 +211,7 @@ function Serie({
   auto,
   etats,
   occupe,
-  gameId,
+  acces,
   version,
   surCapturer,
   surReprendre,
@@ -174,7 +222,7 @@ function Serie({
   auto: boolean;
   etats: EtatResume[];
   occupe: string | null;
-  gameId: string;
+  acces: AccesEtats;
   version: number;
   surCapturer?: (emplacement: number, auto: boolean) => void;
   surReprendre: (emplacement: number, auto: boolean) => void;
@@ -203,7 +251,7 @@ function Serie({
                 {existant ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`/api/state/${gameId}/${segment(emplacement, auto)}?v=${version}`}
+                    src={acces.vignette(segment(emplacement, auto), version)}
                     alt={`Aperçu de l'emplacement ${emplacement}`}
                     className="size-full object-contain"
                     style={{ imageRendering: "pixelated" }}

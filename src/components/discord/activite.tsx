@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChoixVitesse, Commande, lireVolumeRetenu, retenirVolume, Volume } from "@/components/player/commandes";
 import { Manette } from "@/components/player/manette";
+import { Savestates, type AccesEtats } from "@/components/player/savestates";
 import { useManette } from "@/components/player/use-manette";
 import { DEFAULT_KEYMAP, toucheDeEvenement, type Touche } from "@/lib/consoles";
 import type { Bouton } from "@/lib/emulator/adapter";
@@ -27,7 +29,10 @@ import { ReglagesActivite } from "./reglages";
  *    sur le serveur (voir `./duo.tsx`).
  *
  * Touches et manette sont celles du compte, les mêmes que sur le site,
- * enregistrées par `/api/discord/touches` avec le jeton de l'Activité.
+ * enregistrées par `/api/discord/touches` avec le jeton de l'Activité. En
+ * solo, le joueur a aussi la vitesse, le son, et un menu de pause : cinq
+ * points de reprise — posés à la main seulement, par `/api/discord/etat` —
+ * et les astuces de l'administrateur qui défilent.
  */
 
 type Session = {
@@ -39,6 +44,8 @@ type Session = {
   coeur: { js: string; wasm: string };
   /** La clé du salon de cette instance, pour jouer à deux ; `null` hors de Discord sans essai. */
   instance: string | null;
+  /** Le mot de l'administrateur, et ses astuces dans un ordre tiré au sort pour ce lancement. */
+  accueil: { mot: string; astuces: string[] };
 };
 
 type Dispositions = {
@@ -52,8 +59,10 @@ type EtatSauvegarde = "aucun" | "envoi" | "ok" | "echec" | "conflit";
 
 /** Délai entre l'écriture du jeu et l'envoi : une sauvegarde s'écrit en plusieurs fois. */
 const DELAI_ENVOI_MS = 1500;
-/** Multiplicateur de la touche d'accélération. */
+/** Multiplicateur de la touche d'accélération tenue. */
 const VITESSE_RAPIDE = 3;
+/** Emplacement de passage du cœur : les emplacements du joueur vivent sur le serveur. */
+const PASSAGE = 1;
 
 /** Au-delà, `fetch` refuse l'option `keepalive`, qui laisse finir un envoi page fermée. */
 const TAILLE_MAX_DERNIER_ENVOI = 60_000;
@@ -111,6 +120,14 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   const [progression, setProgression] = useState("");
   const [etatSauvegarde, setEtatSauvegarde] = useState<EtatSauvegarde>("aucun");
   const [muet, setMuet] = useState(false);
+  const [volume, setVolume] = useState(100);
+  const volumeRef = useRef(100);
+  /** La vitesse choisie dans la liste ; la touche d'accélération passe par-dessus le temps d'un appui. */
+  const [vitesse, setVitesse] = useState(1);
+  const vitesseRef = useRef(1);
+  const [accelere, setAccelere] = useState(false);
+  /** Le menu de pause, par-dessus le jeu ; la console est en pause pendant ce temps. */
+  const [panneau, setPanneau] = useState<"pause" | null>(null);
   const [tactile, setTactile] = useState(false);
   const [isolation, setIsolation] = useState<boolean | null>(null);
 
@@ -129,6 +146,11 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       // `?muet=1` : pour essayer la page sans bruit. Discord n'ajoute jamais ce
       // paramètre ; il ne sert qu'à l'ouverture hors de Discord.
       if (parametres.has("muet")) setMuet(true);
+      const volumeRetenu = lireVolumeRetenu();
+      if (volumeRetenu !== null) {
+        volumeRef.current = volumeRetenu;
+        setVolume(volumeRetenu);
+      }
       setIsolation(Boolean(window.crossOriginIsolated));
       setTactile(window.matchMedia("(pointer: coarse)").matches);
 
@@ -284,7 +306,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
 
     const emulateur = new EmulateurMgs(courante.coeur);
     emulateurRef.current = emulateur;
-    emulateur.volume(muet ? 0 : 100);
+    emulateur.volume(muet ? 0 : volumeRef.current);
     // Tout de suite, tant qu'on est dans l'appui : après les téléchargements,
     // le navigateur ne laisserait plus démarrer le son.
     emulateur.armerSon();
@@ -346,32 +368,87 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   );
 
   // -------------------------------------------------------------------------
-  // 3. La partie : son, clavier, manette, manette tactile
+  // 3. La partie : son, vitesse, clavier, manette, manette tactile
   // -------------------------------------------------------------------------
   useEffect(() => {
-    emulateurRef.current?.volume(muet ? 0 : 100);
-  }, [muet]);
+    emulateurRef.current?.volume(muet ? 0 : volume);
+  }, [muet, volume]);
+
+  const changerVolume = useCallback((pourcentage: number) => {
+    volumeRef.current = pourcentage;
+    setVolume(pourcentage);
+    retenirVolume(pourcentage);
+  }, []);
+
+  const changerVitesse = useCallback((multiplicateur: number) => {
+    vitesseRef.current = multiplicateur;
+    setVitesse(multiplicateur);
+    emulateurRef.current?.vitesse(multiplicateur);
+  }, []);
+
+  /** La touche d'accélération : ×3 tant qu'elle est tenue, puis retour à la vitesse de la liste. */
+  const accelerer = useCallback((enfonce: boolean) => {
+    emulateurRef.current?.vitesse(enfonce ? VITESSE_RAPIDE : vitesseRef.current);
+    setAccelere(enfonce);
+  }, []);
+
+  /** Un panneau par-dessus le jeu met la console en pause ; la refermer la relance. */
+  const ouvrirPanneau = useCallback((lequel: "pause" | null) => {
+    const emulateur = emulateurRef.current;
+    if (lequel) emulateur?.pause();
+    else emulateur?.reprendre();
+    setPanneau(lequel);
+  }, []);
+
+  // Les points de reprise, par les routes de l'Activité : le jeton en en-tête,
+  // et dans l'adresse de la vignette, qu'une balise <img> charge sans en-tête.
+  const accesEtats = useMemo<AccesEtats | null>(() => {
+    const jeton = session?.jeton;
+    if (!jeton) return null;
+    return {
+      liste: "/api/discord/etat",
+      emplacement: (seg) => `/api/discord/etat/${seg}`,
+      vignette: (seg, version) => `/api/discord/etat/${seg}?vignette=1&jeton=${encodeURIComponent(jeton)}&v=${version}`,
+      vignetteEcriture: (seg) => `/api/discord/etat/${seg}?vignette=1`,
+      entetes: { Authorization: `Bearer ${jeton}` },
+    };
+  }, [session?.jeton]);
+
+  // Le cœur de l'Activité rend un état sans image : la vignette est l'écran
+  // tel qu'il est, pris sur le canvas — en pause, c'est bien l'instant capturé.
+  const capturerEcran = useCallback(
+    () =>
+      new Promise<Blob | null>((resoudre) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return resoudre(null);
+        canvas.toBlob((image) => resoudre(image), "image/png");
+      }),
+    [],
+  );
 
   const enregistreur = useMemo(() => enregistreurDiscord(session?.jeton ?? ""), [session?.jeton]);
 
   // La manette du compte, en solo. À deux, c'est le client du salon qui la lit.
-  const surToucheManette = useCallback((touche: Touche, enfonce: boolean) => {
-    const emulateur = emulateurRef.current;
-    if (!emulateur) return;
-    if (touche === "FAST") emulateur.vitesse(enfonce ? VITESSE_RAPIDE : 1);
-    else emulateur.bouton(touche as Bouton, enfonce);
-  }, []);
+  const surToucheManette = useCallback(
+    (touche: Touche, enfonce: boolean) => {
+      const emulateur = emulateurRef.current;
+      if (!emulateur) return;
+      if (touche === "FAST") accelerer(enfonce);
+      else emulateur.bouton(touche as Bouton, enfonce);
+    },
+    [accelerer],
+  );
   const manette = useManette(
     session?.jeu.console ?? "gb",
     dispositions.manette,
     dispositions.manettes,
     surToucheManette,
-    etape === "jeu" || reglages,
+    (etape === "jeu" && panneau === null) || reglages,
     enregistreur,
   );
 
   useEffect(() => {
-    if (etape !== "jeu" || reglages) return;
+    if (etape !== "jeu" || reglages || panneau !== null) return;
 
     // Les touches du compte, les mêmes que sur le site.
     const parTouche = new Map<string, string>();
@@ -385,7 +462,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       if (evenement.repeat) return;
       const emulateur = emulateurRef.current;
       if (!emulateur) return;
-      if (bouton === "FAST") emulateur.vitesse(enfonce ? VITESSE_RAPIDE : 1);
+      if (bouton === "FAST") accelerer(enfonce);
       else emulateur.bouton(bouton as Bouton, enfonce);
     }
     const enfoncer = (evenement: KeyboardEvent) => appliquer(evenement, true);
@@ -397,7 +474,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       window.removeEventListener("keydown", enfoncer);
       window.removeEventListener("keyup", relacher);
     };
-  }, [etape, touches, reglages]);
+  }, [etape, touches, reglages, panneau, accelerer]);
 
   const surBouton = useCallback((bouton: Bouton, enfonce: boolean) => {
     emulateurRef.current?.bouton(bouton, enfonce);
@@ -446,6 +523,9 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
             {etape === "accueil" && session && !reglages && (
               <>
                 <h1 className="text-2xl font-semibold text-ink-50">{session.jeu.titre}</h1>
+                {session.accueil.mot && (
+                  <p className="max-w-lg whitespace-pre-line text-sm text-ink-200">{session.accueil.mot}</p>
+                )}
                 <p className="text-sm text-ink-400">Ta partie est gardée pour {session.pseudo}.</p>
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
@@ -479,6 +559,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
                   Touches et manette
                 </button>
                 <PartieActivite jeton={session.jeton} titre={session.jeu.titre} />
+                {session.accueil.astuces[0] !== undefined && <Astuce texte={session.accueil.astuces[0]} />}
               </>
             )}
 
@@ -523,29 +604,82 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
             )}
           </div>
         )}
+
+        {etape === "jeu" && panneau === "pause" && session && accesEtats && (
+          <div className="absolute inset-0 flex flex-col gap-3 overflow-y-auto bg-ink-950/95 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-ink-50">Pause</h2>
+              <Commande onClick={() => ouvrirPanneau(null)}>Reprendre la partie</Commande>
+            </div>
+            {session.accueil.astuces.length > 0 && <AstucesQuiDefilent liste={session.accueil.astuces} />}
+            <p className="text-xs text-ink-400">
+              Une reprise est l&apos;instant exact où tu l&apos;as prise : elle suit ton compte, comme ta
+              partie. Cinq emplacements, que tu remplis quand tu veux.
+            </p>
+            <Savestates
+              gameId={session.jeu.id}
+              acces={accesEtats}
+              autos={false}
+              surEcrire={() => emulateurRef.current?.ecrireEtat() ?? null}
+              surLire={(donnees) => emulateurRef.current?.lireEtat(PASSAGE, donnees) ?? false}
+              surVignette={capturerEcran}
+            />
+          </div>
+        )}
+
       </div>
 
       {tactile && etape === "jeu" && session && (
         <Manette gachettes={session.jeu.console === "gba"} surBouton={surBouton} />
       )}
 
-      <footer className="flex items-center justify-between gap-3 px-3 py-2 text-xs text-ink-400">
+      <footer className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2 text-xs text-ink-400">
         <span aria-live="polite">{libelleSauvegarde[etatSauvegarde]}</span>
-        <span className="flex items-center gap-3">
+        <span className="flex flex-wrap items-center gap-2">
           {/* Constat du prototype : Discord n'isole pas ses iframes. */}
           {isolation !== null && etape !== "jeu" && (
             <span title="self.crossOriginIsolated">Isolation cross-origin : {isolation ? "oui" : "non"}</span>
           )}
-          <button
-            type="button"
-            onClick={() => setMuet((valeur) => !valeur)}
-            aria-pressed={muet}
-            className="rounded-lg border border-ink-700 bg-ink-800 px-3 py-1.5 text-ink-200"
-          >
-            {muet ? "Son coupé" : "Son actif"}
-          </button>
+          {etape === "jeu" && (
+            <>
+              <Commande onClick={() => ouvrirPanneau(panneau === "pause" ? null : "pause")} actif={panneau === "pause"}>
+                {panneau === "pause" ? "Reprendre" : "Pause"}
+              </Commande>
+              <ChoixVitesse
+                valeur={vitesse}
+                accelere={accelere}
+                surChoix={changerVitesse}
+                toucheAcceleration={tactile ? null : touches.FAST}
+                vitesseTouche={VITESSE_RAPIDE}
+              />
+            </>
+          )}
+          <Volume valeur={volume} muet={muet} surChangement={changerVolume} surMuet={() => setMuet((valeur) => !valeur)} />
         </span>
       </footer>
     </main>
   );
+}
+
+function Astuce({ texte }: { texte: string }) {
+  return (
+    <p className="max-w-lg rounded-lg border border-ink-800 bg-ink-900/60 px-4 py-2 text-xs text-ink-300">
+      <span className="font-semibold text-ink-100">Astuce : </span>
+      {texte}
+    </p>
+  );
+}
+
+/** Pendant la pause, les astuces défilent, une à la fois, à partir d'un point au hasard. */
+const DEFILEMENT_MS = 7000;
+
+function AstucesQuiDefilent({ liste }: { liste: string[] }) {
+  const [depart] = useState(() => Math.floor(Math.random() * liste.length));
+  const [pas, setPas] = useState(0);
+  useEffect(() => {
+    if (liste.length < 2) return;
+    const minuterie = setInterval(() => setPas((p) => p + 1), DEFILEMENT_MS);
+    return () => clearInterval(minuterie);
+  }, [liste.length]);
+  return <Astuce texte={liste[(depart + pas) % liste.length] ?? ""} />;
 }

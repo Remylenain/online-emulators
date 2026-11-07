@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { jeuAccessible } from "@/lib/acces";
-import { compteDepuisRequete } from "@/lib/discord/compte";
-import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
-import { jeuDeLActivite } from "@/lib/discord/jeu";
-import { ecrireSauvegarde, lireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/saves";
+import { contexteDeLActivite } from "@/lib/discord/contexte";
+import { ecrireSauvegarde, effacerSauvegarde, lireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/saves";
 
 /**
  * La sauvegarde du compte pour le jeu de l'Activité.
@@ -12,20 +9,12 @@ import { ecrireSauvegarde, lireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/s
  * à l'écriture, refus plutôt qu'écrasement en cas de conflit —, et même
  * stockage : une partie commencée dans Discord est la sauvegarde du compte,
  * celle que le lecteur du site ouvrirait.
+ *
+ * DELETE : repartir de zéro. La partie rejoint les versions précédentes, et
+ * le prochain « Jouer » démarre comme la première fois.
  */
-async function contexte(request: Request) {
-  const visiteur = compteDepuisRequete(request);
-  if (!visiteur) return { refus: new NextResponse("Non autorisé", { status: 401 }) };
-  const application = configPourHote(hoteDeLaRequete(request.headers));
-  const jeu = application ? await jeuDeLActivite(application.gameId) : null;
-  if (!jeu || !(await jeuAccessible(visiteur, jeu.id))) {
-    return { refus: new NextResponse("Introuvable", { status: 404 }) };
-  }
-  return { visiteur, jeu };
-}
-
 export async function GET(request: Request) {
-  const c = await contexte(request);
+  const c = await contexteDeLActivite(request);
   if ("refus" in c) return c.refus;
 
   const sauvegarde = await lireSauvegarde(c.visiteur.id, c.jeu.id);
@@ -42,7 +31,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const c = await contexte(request);
+  const c = await contexteDeLActivite(request);
   if ("refus" in c) return c.refus;
 
   const corps = await request.arrayBuffer();
@@ -70,4 +59,10 @@ export async function PUT(request: Request) {
     );
   }
   return NextResponse.json({ etat: resultat.etat, revision: resultat.revision });
+}
+
+export async function DELETE(request: Request) {
+  const c = await contexteDeLActivite(request);
+  if ("refus" in c) return c.refus;
+  return NextResponse.json({ effacee: await effacerSauvegarde(c.visiteur.id, c.jeu.id) });
 }

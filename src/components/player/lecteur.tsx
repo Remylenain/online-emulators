@@ -9,10 +9,11 @@ import { ManetteConfig } from "./manette-config";
 import { Touches } from "./touches";
 import { useManette } from "./use-manette";
 import { INTERVALLE_AUTO, Savestates } from "./savestates";
+import { ChoixVitesse, Commande, lireVolumeRetenu, retenirVolume, Volume } from "./commandes";
 import { EmulateurMgba } from "@/lib/emulator/mgba";
 import { choisirHabillage } from "@/lib/bezel/actions";
 import type { Bouton, Emulateur } from "@/lib/emulator/adapter";
-import { BUTTONS, keyLabel, toucheDeEvenement, type ButtonName, type Touche } from "@/lib/consoles";
+import { BUTTONS, toucheDeEvenement, type ButtonName, type Touche } from "@/lib/consoles";
 
 const BOUTONS_SIMPLES = [...BUTTONS.common] as ButtonName[];
 const BOUTONS_AVEC_GACHETTES = [...BUTTONS.common, ...BUTTONS.shoulder] as ButtonName[];
@@ -142,19 +143,12 @@ export function Lecteur({
   const [volume, setVolume] = useState(100);
   const volumeRef = useRef(100);
   useEffect(() => {
-    try {
-      // Rien d'enregistré : on garde 100 %. `Number(null)` vaut 0, et un
-      // premier passage sur le site démarrait sinon sans le son.
-      const brut = localStorage.getItem(CLE_VOLUME);
-      const retenu = brut === null ? NaN : Number(brut);
-      if (Number.isInteger(retenu) && retenu >= 0 && retenu <= 100) {
-        volumeRef.current = retenu;
-        setVolume(retenu);
-        emulateurRef.current?.volume(muetRef.current ? 0 : retenu);
-      }
-    } catch {
-      // Stockage indisponible : 100 % fera l'affaire.
-    }
+    // Rien d'enregistré, ou stockage indisponible : 100 % fera l'affaire.
+    const retenu = lireVolumeRetenu();
+    if (retenu === null) return;
+    volumeRef.current = retenu;
+    setVolume(retenu);
+    emulateurRef.current?.volume(muetRef.current ? 0 : retenu);
   }, []);
   const [sauvegarde, setSauvegarde] = useState<EtatSauvegarde>({ etat: "inconnu" });
   /**
@@ -674,11 +668,7 @@ export function Lecteur({
   const changerVolume = useCallback((pourcentage: number) => {
     volumeRef.current = pourcentage;
     setVolume(pourcentage);
-    try {
-      localStorage.setItem(CLE_VOLUME, String(pourcentage));
-    } catch {
-      // Sans stockage, le réglage vaut pour cette partie seulement.
-    }
+    retenirVolume(pourcentage);
     if (!muetRef.current) emulateurRef.current?.volume(pourcentage);
   }, []);
 
@@ -1157,108 +1147,7 @@ function EtatDeSauvegarde({
   );
 }
 
-const VITESSES = [1, 2, 3, 4, 5];
 /** Vitesse de la touche d'accélération tenue (Maj gauche par défaut). */
 const VITESSE_TOUCHE = 4;
 /** Vitesse du bouton ▶▶ de la disposition tactile. */
 const VITESSE_TACTILE = 3;
-const CLE_VOLUME = "oe_volume";
-
-/**
- * Vitesse de jeu, de ×1 à ×5. Mise en évidence comme un bouton actif dès
- * qu'elle dépasse ×1, ou tant que la touche d'accélération est tenue.
- */
-function ChoixVitesse({
-  valeur,
-  accelere,
-  surChoix,
-  toucheAcceleration,
-}: {
-  valeur: number;
-  accelere: boolean;
-  surChoix: (multiplicateur: number) => void;
-  /** Touche à tenir pour accélérer, pour l'infobulle ; null sur tactile. */
-  toucheAcceleration: string | null | undefined;
-}) {
-  return (
-    <select
-      value={valeur}
-      onChange={(evenement) => surChoix(Number(evenement.target.value))}
-      aria-label="Vitesse de jeu"
-      title={
-        toucheAcceleration
-          ? `Maintiens ${keyLabel(toucheAcceleration)} pour passer en ×4 le temps d'un instant`
-          : undefined
-      }
-      className={`rounded-lg border bg-ink-950 px-3 py-1.5 text-sm transition-colors ${
-        valeur > 1 || accelere
-          ? "border-accent-600 text-accent-400"
-          : "border-ink-700 text-ink-200 hover:border-ink-400 hover:text-ink-50"
-      }`}
-    >
-      {VITESSES.map((multiplicateur) => (
-        <option key={multiplicateur} value={multiplicateur}>
-          {multiplicateur === 1 ? "Vitesse ×1" : `Accéléré ×${multiplicateur}`}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-/** Le son : un bouton pour le couper, un curseur de 0 à 100 %. */
-function Volume({
-  valeur,
-  muet,
-  surChangement,
-  surMuet,
-}: {
-  valeur: number;
-  muet: boolean;
-  surChangement: (pourcentage: number) => void;
-  surMuet: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <Commande onClick={surMuet} actif={muet}>
-        {muet ? "Son coupé" : "Son"}
-      </Commande>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={valeur}
-        onChange={(evenement) => surChangement(Number(evenement.target.value))}
-        disabled={muet}
-        aria-label="Volume"
-        className="w-24 accent-accent-500 disabled:opacity-40"
-      />
-      <span className="w-10 font-mono text-xs text-ink-400">{muet ? 0 : valeur} %</span>
-    </div>
-  );
-}
-
-function Commande({
-  onClick,
-  actif,
-  children,
-}: {
-  onClick: () => void;
-  actif?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={actif}
-      className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
-        actif
-          ? "border-accent-600 bg-accent-600/15 text-accent-400"
-          : "border-ink-700 text-ink-200 hover:border-ink-400 hover:text-ink-50"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}

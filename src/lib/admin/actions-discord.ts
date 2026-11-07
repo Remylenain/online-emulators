@@ -6,14 +6,17 @@ import { db } from "@/db";
 import { games } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/guard";
 import {
+  ajouterAstuce,
   configParId,
   creerApplication,
   hoteDejaPris,
   hoteNormalise,
   modifierApplication,
   supprimerApplication,
+  supprimerAstuce,
 } from "@/lib/discord/applications";
 import { essayerApplication, type EssaiApplication } from "@/lib/discord/essai";
+import { LONGUEUR_MAX_ACCUEIL, LONGUEUR_MAX_ASTUCE } from "@/lib/discord/limites";
 import { env } from "@/lib/env";
 import type { Resultat } from "./actions";
 
@@ -38,8 +41,12 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
   const guildId = String(donnees.get("guildId") ?? "").trim();
   const botToken = String(donnees.get("botToken") ?? "").trim();
   const gameId = String(donnees.get("gameId") ?? "").trim();
+  const welcome = String(donnees.get("welcome") ?? "").trim();
 
   if (name.length < 1 || name.length > 60) return { ok: false, message: "Le nom fait entre 1 et 60 caractères." };
+  if (welcome.length > LONGUEUR_MAX_ACCUEIL) {
+    return { ok: false, message: `Le mot d'accueil fait au plus ${LONGUEUR_MAX_ACCUEIL} caractères.` };
+  }
   if (!FORME_HOTE.test(host)) {
     return { ok: false, message: "Le nom d'hôte est invalide : lettres, chiffres, tirets et points, sans schéma ni port." };
   }
@@ -68,7 +75,7 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
     if (guildId && !botToken) {
       return { ok: false, message: "Le verrou sur un serveur demande le jeton de bot (onglet Bot du portail)." };
     }
-    creerApplication({ name, host, clientId, clientSecret, guildId, botToken, gameId });
+    creerApplication({ name, host, clientId, clientSecret, guildId, botToken, gameId, welcome });
   } else {
     const existante = configParId(id);
     if (!existante) return { ok: false, message: "Cette application n'existe plus." };
@@ -84,6 +91,7 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
       // Lever le verrou retire aussi le jeton : il ne servait qu'à lui.
       ...(botToken ? { botToken } : guildId ? {} : { botToken: "" }),
       gameId,
+      welcome,
     });
   }
   revalidatePath("/admin/discord");
@@ -95,6 +103,27 @@ export async function supprimerApplicationDiscord(id: string): Promise<Resultat>
   supprimerApplication(id);
   revalidatePath("/admin/discord");
   return { ok: true, message: "Application supprimée. Les comptes nés de cette Activité restent." };
+}
+
+/** Une astuce de plus : mot du jour, conseil, rappel. L'accueil en tire une au hasard. */
+export async function ajouterAstuceDiscord(appId: string, texte: string): Promise<Resultat> {
+  await requireAdmin();
+  const propre = texte.trim().replace(/\s+/g, " ");
+  if (!propre) return { ok: false, message: "L'astuce est vide." };
+  if (propre.length > LONGUEUR_MAX_ASTUCE) {
+    return { ok: false, message: `Une astuce fait au plus ${LONGUEUR_MAX_ASTUCE} caractères.` };
+  }
+  if (!configParId(appId)) return { ok: false, message: "Cette application n'existe plus." };
+  ajouterAstuce(appId, propre);
+  revalidatePath("/admin/discord");
+  return { ok: true, message: "Astuce ajoutée." };
+}
+
+export async function supprimerAstuceDiscord(id: string): Promise<Resultat> {
+  await requireAdmin();
+  if (!supprimerAstuce(id)) return { ok: false, message: "Cette astuce n'existe plus." };
+  revalidatePath("/admin/discord");
+  return { ok: true, message: "Astuce supprimée." };
 }
 
 /** Les réglages enregistrés, confrontés à Discord. */

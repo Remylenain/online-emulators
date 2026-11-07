@@ -31,6 +31,11 @@ hack, sa traduction — dans son propre serveur Discord.
   qu'un nombre de salons à la fois, et l'Activité fait la file.
 - **Touches et manette** se règlent dans l'Activité, et sont celles du compte :
   les mêmes que sur le site.
+- **En solo, un menu de pause** : cinq points de reprise posés à la main, les
+  astuces de l'administrateur qui défilent ; la vitesse et le son se règlent
+  en bas de l'écran.
+- **Un mot d'accueil et des astuces** par application, écrits dans
+  l'administration : le mot à chaque lancement, une astuce au hasard.
 
 ## Comment ça marche
 
@@ -135,6 +140,12 @@ verrou (identifiant du serveur et jeton de bot). Puis **Essayer auprès de
 Discord** : les identifiants doivent être acceptés avant d'aller plus loin.
 **Marche à suivre** rappelle, pour cette application, ce qui reste à
 recopier dans le portail.
+
+Le formulaire a aussi un **mot d'accueil** (affiché à chaque lancement sous
+le titre du jeu : une présentation, une consigne aux testeurs), et la carte
+de l'application des **astuces** à ajouter une par une : mot du jour,
+conseil, rappel. L'accueil en montre une au hasard, et le menu de pause les
+fait toutes défiler.
 
 Le **nom d'hôte** est un hôte à part, réservé à cette Activité : ni la page
 de connexion, ni le catalogue n'y sont servis, et sa racine renvoie vers
@@ -267,8 +278,26 @@ rien écrire ; et le serveur refuse au-delà de 132 Kio
 d'horloge — pour le site comme pour l'Activité. Le pire cas est un salon qui
 tombe, ou une partie trafiquée qui gêne l'autre joueur.
 
+« Repartir de zéro » met la partie de côté de la même façon : elle rejoint
+les versions précédentes (le site sait la restaurer), et le prochain
+« Jouer » démarre comme la première fois. Les points de reprise restent.
+
 Non vérifié : que le client Discord laisse l'iframe déclencher un
 téléchargement. Le repli est le site, même compte, même partie.
+
+## Le menu de pause : reprises, astuces, vitesse, son
+
+En solo, « Pause » en bas de l'écran arrête la console et ouvre le menu :
+
+- **Cinq points de reprise**, posés à la main seulement — pas de rotation
+  automatique comme sur le site. Même stockage que le lecteur du site
+  (`/api/discord/etat`, jeton en en-tête) : une reprise prise dans Discord
+  s'y retrouve. Le cœur de l'Activité rend un état brut, sans image : la
+  page y joint une capture de l'écran (`?vignette=1`), rangée à part.
+- **Les astuces** de l'application défilent, une toutes les sept secondes.
+- **La vitesse** (×1 à ×5, et la touche d'accélération par-dessus) et **le
+  son** (bouton et curseur, retenu dans le navigateur) sont en bas de
+  l'écran, pendant le jeu.
 
 ## Touches et manette
 
@@ -346,7 +375,6 @@ utilisateurs par une autre voie que le portail.
 - L'essai du verrou sur une vraie instance.
 - La GBA (le cœur la gère, rien n'a été essayé).
 - Pause quand l'Activité passe en incrustation ; orientation sur téléphone.
-- Points de reprise : le lecteur du site les a, l'Activité non.
 - Le jeu à deux et la manette dans Discord même (essayés en local seulement) ;
   la latence du proxy de Discord sur l'image et le son.
 - Rattacher un compte existant du site à son utilisateur Discord, pour y
@@ -362,7 +390,10 @@ utilisateurs par une autre voie que le portail.
 | Session, ROM, sauvegarde, cœur, touches | `src/app/api/discord/` |
 | Jouer à deux : accueil, file, client du salon | `src/components/discord/duo.tsx`, `src/components/link/salon-link.tsx`, `src/lib/link/file.ts`, `serveur.ts` |
 | Touches et manette dans l'Activité | `src/components/discord/reglages.tsx`, `src/lib/keymap/ecriture.ts` |
-| Télécharger et importer sa partie | `src/components/discord/partie.tsx` |
+| Télécharger, importer, repartir de zéro | `src/components/discord/partie.tsx` |
+| Points de reprise et vignettes | `src/app/api/discord/etat/`, `src/components/player/savestates.tsx`, `src/lib/states.ts` |
+| Vitesse et son, partagés avec le lecteur du site | `src/components/player/commandes.tsx` |
+| Mot d'accueil et astuces | `src/lib/discord/applications.ts` (`discord_tips`), `src/lib/admin/actions-discord.ts` |
 | OAuth, jeton, compte, jeu, verrou, applications par hôte | `src/lib/discord/` |
 | L'onglet Discord de l'administration | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost et certificat d'un hôte d'Activité | `deploiement/scripts/hote-activite.sh` |

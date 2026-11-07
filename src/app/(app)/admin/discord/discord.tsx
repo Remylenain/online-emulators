@@ -3,12 +3,15 @@
 import { useActionState, useState, useTransition } from "react";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 import {
+  ajouterAstuceDiscord,
   enregistrerApplication,
   essayerApplicationDiscord,
   supprimerApplicationDiscord,
+  supprimerAstuceDiscord,
 } from "@/lib/admin/actions-discord";
 import type { Resultat } from "@/lib/admin/actions";
 import type { ApplicationDiscord } from "@/lib/discord/applications";
+import { LONGUEUR_MAX_ACCUEIL, LONGUEUR_MAX_ASTUCE } from "@/lib/discord/limites";
 import type { EssaiApplication, Verdict } from "@/lib/discord/essai";
 import { Tutoriel } from "./tutoriel";
 
@@ -164,7 +167,84 @@ function Carte({ application, modifier }: { application: ApplicationDiscord; mod
       )}
 
       {marche && <MarcheASuivre application={application} />}
+
+      <Astuces application={application} />
     </Panel>
+  );
+}
+
+/**
+ * Le mot d'accueil et les astuces, tels que le joueur les verra : le premier
+ * à chaque lancement, une des secondes au hasard. Les astuces s'ajoutent et
+ * se retirent d'ici, une par une, sans passer par le formulaire.
+ */
+function Astuces({ application }: { application: ApplicationDiscord }) {
+  const [texte, setTexte] = useState("");
+  const [retour, setRetour] = useState<Resultat | null>(null);
+  const [enCours, demarrer] = useTransition();
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-ink-800 pt-3 text-sm">
+      {application.welcome ? (
+        <p className="text-ink-300">
+          <span className="text-ink-400">Mot d&apos;accueil : </span>
+          <span className="whitespace-pre-line text-ink-100">{application.welcome}</span>
+        </p>
+      ) : (
+        <p className="text-xs text-ink-400">Pas de mot d&apos;accueil : « Modifier » pour en écrire un.</p>
+      )}
+
+      <h4 className="text-sm font-semibold text-ink-200">
+        Astuces
+        <span className="ml-2 font-normal text-ink-400">
+          Mot du jour, conseil, rappel : une au hasard à chaque lancement.
+        </span>
+      </h4>
+      {application.astuces.length === 0 && <p className="text-xs text-ink-400">Aucune pour l&apos;instant.</p>}
+      {application.astuces.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {application.astuces.map((astuce) => (
+            <li key={astuce.id} className="flex items-start justify-between gap-3 rounded border border-ink-800 bg-ink-900/50 px-3 py-1.5">
+              <span className="text-ink-200">{astuce.texte}</span>
+              <button
+                type="button"
+                disabled={enCours}
+                onClick={() => demarrer(async () => setRetour(await supprimerAstuceDiscord(astuce.id)))}
+                className="shrink-0 text-xs text-ink-400 underline-offset-4 hover:text-red-300 hover:underline"
+              >
+                Retirer
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        onSubmit={(evenement) => {
+          evenement.preventDefault();
+          const propre = texte.trim();
+          if (!propre) return;
+          demarrer(async () => {
+            const resultat = await ajouterAstuceDiscord(application.id, propre);
+            setRetour(resultat);
+            if (resultat.ok) setTexte("");
+          });
+        }}
+        className="flex flex-wrap items-center gap-2"
+      >
+        <Input
+          value={texte}
+          onChange={(evenement) => setTexte(evenement.target.value)}
+          maxLength={LONGUEUR_MAX_ASTUCE}
+          placeholder="Une astuce de plus…"
+          aria-label="Nouvelle astuce"
+          className="min-w-0 flex-1"
+        />
+        <Button type="submit" variant="ghost" disabled={enCours || texte.trim().length === 0}>
+          Ajouter
+        </Button>
+      </form>
+      {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
+    </div>
   );
 }
 
@@ -309,6 +389,21 @@ function Formulaire({
             />
           </Field>
         </div>
+
+        <Field
+          label="Mot d'accueil"
+          htmlFor="welcome"
+          hint="Affiché à chaque lancement, sous le titre du jeu : une présentation, une consigne pour les testeurs. Vide : rien. Les astuces, elles, s'ajoutent sur la carte de l'application."
+        >
+          <textarea
+            id="welcome"
+            name="welcome"
+            defaultValue={application?.welcome ?? ""}
+            maxLength={LONGUEUR_MAX_ACCUEIL}
+            rows={3}
+            className="w-full rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-ink-50 placeholder:text-ink-700 focus:border-accent-500 focus:ring-2 focus:ring-accent-600/30 focus:outline-none"
+          />
+        </Field>
 
         <label className="flex items-center gap-2 text-sm text-ink-200">
           <input type="checkbox" checked={verrou} onChange={(e) => setVerrou(e.target.checked)} className="size-4 accent-accent-500" />

@@ -168,6 +168,56 @@ export async function ecrireSauvegarde(
   return { etat: "ecrit", revision };
 }
 
+/**
+ * Repartir de zéro : la partie est mise de côté avec les autres versions
+ * précédentes, puis le fichier disparaît. La ligne reste, pour que les copies
+ * de secours restent attachées à quelque chose et que « restaurer » marche
+ * encore ; sans fichier, `lireSauvegarde` rend `null`, et le jeu démarre
+ * comme la première fois. Rend `false` s'il n'y avait pas de partie.
+ */
+export async function effacerSauvegarde(userId: string, gameId: string): Promise<boolean> {
+  const existante = await db
+    .select()
+    .from(saveFiles)
+    .where(and(eq(saveFiles.userId, userId), eq(saveFiles.gameId, gameId)))
+    .get();
+  if (!existante) return false;
+
+  const absolu = paths.data(existante.path);
+  try {
+    await fs.access(absolu);
+  } catch {
+    // Déjà sans fichier : rien à effacer.
+    return false;
+  }
+
+  const relatifBackup = paths.saveBackup(userId, gameId, existante.revision);
+  try {
+    await fs.copyFile(absolu, paths.data(relatifBackup));
+    db.insert(saveBackups)
+      .values({
+        id: newId(),
+        saveFileId: existante.id,
+        path: relatifBackup,
+        size: existante.size,
+        revision: existante.revision,
+      })
+      .run();
+    await purgerBackups(existante.id);
+  } catch {
+    // Sans copie, on efface quand même : c'est ce que le joueur a demandé.
+  }
+
+  await fs.rm(absolu, { force: true });
+  // La révision avance : une page qui jouait encore sur l'ancienne partie
+  // verra son envoi refusé plutôt que de la ressusciter en silence.
+  db.update(saveFiles)
+    .set({ size: 0, hash: null, revision: existante.revision + 1, updatedAt: new Date() })
+    .where(eq(saveFiles.id, existante.id))
+    .run();
+  return true;
+}
+
 async function purgerBackups(saveFileId: string): Promise<void> {
   const tous = await db
     .select({ id: saveBackups.id, path: saveBackups.path, createdAt: saveBackups.createdAt })

@@ -539,10 +539,30 @@ export const discordApps = sqliteTable(
     gameId: text("game_id")
       .notNull()
       .references(() => games.id, { onDelete: "cascade" }),
+    /** Mot d'accueil, le même à chaque lancement ; vide : rien d'affiché. */
+    welcome: text("welcome").notNull().default(""),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
   (table) => [uniqueIndex("discord_apps_host_unique").on(table.host)],
+);
+
+/**
+ * Les astuces d'une Activité : mot du jour, conseil, rappel. L'accueil en
+ * tire une au hasard à chaque lancement. Autant qu'on veut, dans l'ordre
+ * d'ajout pour l'administrateur.
+ */
+export const discordTips = sqliteTable(
+  "discord_tips",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => discordApps.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (table) => [index("discord_tips_app_idx").on(table.appId, table.createdAt)],
 );
 
 // ---------------------------------------------------------------------------

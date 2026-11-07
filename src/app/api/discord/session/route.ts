@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
+import { astucesMelangees, configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
 import { compteDiscord } from "@/lib/discord/compte";
 import { adressesCoeur } from "@/lib/discord/coeur";
 import { jeuDeLActivite } from "@/lib/discord/jeu";
@@ -108,6 +108,9 @@ export async function POST(request: Request) {
       coeur: adressesCoeur(),
       // Pour jouer à deux : la clé du salon de cette instance (voir `src/lib/link`).
       instance: typeof corps.instance === "string" ? cleInstance(corps.instance) : null,
+      // Le mot d'accueil de l'administrateur, et ses astuces dans un ordre
+      // tiré au sort : la première pour l'accueil, toutes pour la pause.
+      accueil: { mot: application.welcome, astuces: astucesMelangees(application.id) },
     },
     { headers: { "Cache-Control": "no-store" } },
   );

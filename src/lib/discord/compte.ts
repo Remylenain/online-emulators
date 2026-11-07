@@ -78,13 +78,18 @@ export function compteDiscord(profil: ProfilDiscord, gameId: string): { id: stri
 
 /**
  * Qui est derrière une requête de l'Activité : le jeton de l'en-tête
- * `Authorization`, puis le compte en base. Un compte désactivé entre-temps
- * est refusé, même avec un jeton encore valable.
+ * `Authorization` — ou, pour une lecture seulement, dans l'adresse
+ * (`?jeton=`), parce qu'une balise `<img>` ne porte pas d'en-tête —, puis le
+ * compte en base. Un compte désactivé entre-temps est refusé, même avec un
+ * jeton encore valable.
  */
 export function compteDepuisRequete(request: Request): Visiteur | null {
   const entete = request.headers.get("authorization") ?? "";
-  if (!entete.startsWith("Bearer ")) return null;
-  const userId = lireJeton(entete.slice(7).trim());
+  let brut: string | null = null;
+  if (entete.startsWith("Bearer ")) brut = entete.slice(7).trim();
+  else if (request.method === "GET") brut = new URL(request.url).searchParams.get("jeton");
+  if (!brut) return null;
+  const userId = lireJeton(brut);
   if (!userId) return null;
 
   const compte = db

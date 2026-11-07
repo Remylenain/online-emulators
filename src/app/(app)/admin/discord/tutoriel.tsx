@@ -147,6 +147,12 @@ export function Tutoriel({ ouvertAuDepart }: { ouvertAuDepart: boolean }) {
                 <strong className="text-ink-100">Marche à suivre</strong> rappelle, pour cette application, ce qui
                 reste à recopier dans le portail.
               </li>
+              <li>
+                Facultatif : un <strong className="text-ink-100">mot d&apos;accueil</strong> dans le formulaire
+                (affiché à chaque lancement sous le titre du jeu), et des{" "}
+                <strong className="text-ink-100">astuces</strong> sur la carte de l&apos;application — mot du jour,
+                conseil, rappel. L&apos;accueil en montre une au hasard, le menu de pause les fait défiler.
+              </li>
             </ol>
           </section>
 

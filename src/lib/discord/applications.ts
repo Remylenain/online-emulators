@@ -1,6 +1,6 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { discordApps, games } from "@/db/schema";
+import { discordApps, discordTips, games } from "@/db/schema";
 import { newId } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 
@@ -23,6 +23,8 @@ export type ConfigActivite = {
   /** Vides sans verrou. */
   guildId: string;
   botToken: string;
+  /** Mot d'accueil ; vide : rien. L'environnement n'en a pas. */
+  welcome: string;
 };
 
 /** Le nom d'hôte seul, en minuscules : sans port, ni crochets d'IPv6 superflus. */
@@ -47,6 +49,7 @@ function depuisEnvironnement(): ConfigActivite | null {
     gameId: env.DISCORD_JEU,
     guildId: env.DISCORD_SERVEUR,
     botToken: env.DISCORD_BOT_TOKEN,
+    welcome: "",
   };
 }
 
@@ -60,6 +63,7 @@ export function configPourHote(hote: string): ConfigActivite | null {
       gameId: discordApps.gameId,
       guildId: discordApps.guildId,
       botToken: discordApps.botToken,
+      welcome: discordApps.welcome,
     })
     .from(discordApps)
     .where(eq(discordApps.host, hoteNormalise(hote)))
@@ -92,6 +96,9 @@ export type ApplicationDiscord = {
   /** Le jeton lui-même ne redescend jamais : seulement s'il existe. */
   botTokenDefini: boolean;
   gameId: string;
+  welcome: string;
+  /** Les astuces, dans l'ordre d'ajout. */
+  astuces: Astuce[];
   jeu: { titre: string; console: string } | null;
 };
 
@@ -105,6 +112,7 @@ export function listerApplications(): ApplicationDiscord[] {
       guildId: discordApps.guildId,
       botToken: discordApps.botToken,
       gameId: discordApps.gameId,
+      welcome: discordApps.welcome,
       titre: games.title,
       console: games.consoleSlug,
     })
@@ -115,6 +123,7 @@ export function listerApplications(): ApplicationDiscord[] {
     .map(({ botToken, titre, console: consoleSlug, ...ligne }) => ({
       ...ligne,
       botTokenDefini: botToken.length > 0,
+      astuces: listerAstuces(ligne.id),
       jeu: titre && consoleSlug ? { titre, console: consoleSlug } : null,
     }));
 }
@@ -129,6 +138,7 @@ export type ChampsApplication = {
   /** Omis : le jeton enregistré est gardé. */
   botToken?: string;
   gameId: string;
+  welcome: string;
 };
 
 export function hoteDejaPris(host: string, saufId?: string): boolean {
@@ -152,6 +162,7 @@ export function creerApplication(champs: ChampsApplication & { clientSecret: str
       guildId: champs.guildId.trim(),
       botToken: champs.botToken ?? "",
       gameId: champs.gameId,
+      welcome: champs.welcome.trim(),
     })
     .run();
   return id;
@@ -167,6 +178,7 @@ export function modifierApplication(id: string, champs: ChampsApplication): void
       guildId: champs.guildId.trim(),
       ...(champs.botToken !== undefined ? { botToken: champs.botToken } : {}),
       gameId: champs.gameId,
+      welcome: champs.welcome.trim(),
       updatedAt: new Date(),
     })
     .where(eq(discordApps.id, id))
@@ -188,9 +200,54 @@ export function configParId(id: string): ConfigActivite | null {
         gameId: discordApps.gameId,
         guildId: discordApps.guildId,
         botToken: discordApps.botToken,
+        welcome: discordApps.welcome,
       })
       .from(discordApps)
       .where(eq(discordApps.id, id))
       .get() ?? null
   );
+}
+
+// ---------------------------------------------------------------------------
+// Les astuces : mot du jour, conseil, rappel — une au hasard par lancement
+// ---------------------------------------------------------------------------
+
+export type Astuce = { id: string; texte: string };
+
+export function listerAstuces(appId: string): Astuce[] {
+  return db
+    .select({ id: discordTips.id, texte: discordTips.text })
+    .from(discordTips)
+    .where(eq(discordTips.appId, appId))
+    .orderBy(asc(discordTips.createdAt), asc(discordTips.id))
+    .all();
+}
+
+export function ajouterAstuce(appId: string, texte: string): string {
+  const id = newId();
+  db.insert(discordTips).values({ id, appId, text: texte.trim() }).run();
+  return id;
+}
+
+/** Rend l'application de l'astuce supprimée, pour rafraîchir sa carte ; `null` si elle n'existait plus. */
+export function supprimerAstuce(id: string): string | null {
+  const ligne = db.select({ appId: discordTips.appId }).from(discordTips).where(eq(discordTips.id, id)).get();
+  if (!ligne) return null;
+  db.delete(discordTips).where(eq(discordTips.id, id)).run();
+  return ligne.appId;
+}
+
+/**
+ * Toutes les astuces, mélangées : la première s'affiche à l'accueil, les
+ * autres défilent sur le menu de pause. L'environnement n'en a jamais.
+ */
+export function astucesMelangees(appId: string | null): string[] {
+  if (!appId) return [];
+  return db
+    .select({ texte: discordTips.text })
+    .from(discordTips)
+    .where(eq(discordTips.appId, appId))
+    .orderBy(sql`random()`)
+    .all()
+    .map((ligne) => ligne.texte);
 }
