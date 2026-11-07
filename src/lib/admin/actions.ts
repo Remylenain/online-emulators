@@ -52,7 +52,7 @@ import {
   retoucheSchema,
 } from "@/lib/library/retouches";
 import { sendInvitation } from "@/lib/mail";
-import { ecrireSauvegarde } from "@/lib/saves";
+import { ecrireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/saves";
 import { normalizeForSearch, optionalEmailSchema, pseudoSchema } from "@/lib/validation";
 
 /**
@@ -641,8 +641,6 @@ export async function reinitialiserMotDePasse(userId: string): Promise<Resultat>
   return { ok: true, message: `Nouveau mot de passe pour ${compte.pseudo}.`, motDePasse };
 }
 
-/** Taille maximale d'une sauvegarde importée : la même que celle du lecteur. */
-const TAILLE_MAX_SAUVEGARDE = 1_048_576;
 
 /**
  * Dépose une sauvegarde de jeu sur le compte de quelqu'un.

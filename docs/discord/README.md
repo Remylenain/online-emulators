@@ -249,6 +249,27 @@ Pour l'essayer hors de Discord : deux onglets sur `/discord?essai=a&instance=x`
 et `/discord?essai=b&instance=x` — le même `instance` tient lieu de salon
 vocal.
 
+## Sa partie : l'emporter, en apporter une
+
+À l'accueil, « Télécharger ma partie » donne le fichier de sauvegarde
+(`.sav`, le format du lecteur du site, lisible par mGBA ou une vraie
+cartouche) et « Remplacer par un fichier » en importe un, après confirmation ;
+le serveur garde les versions précédentes. C'est la même partie que sur le
+site, portée par le compte.
+
+Ce qui est importé finit dans un cœur d'émulation — chez le joueur en solo,
+**sur le serveur** à deux. Ce qui le contient : une sauvegarde est de la
+mémoire de cartouche lue par le jeu émulé, jamais du code exécuté ; les
+cœurs sont du WebAssembly, sans accès au système ; chaque salon tourne dans
+son fil de travail, borné en mémoire, dont le plantage ferme le salon sans
+rien écrire ; et le serveur refuse au-delà de 132 Kio
+(`TAILLE_MAX_SAUVEGARDE`), la plus grande cartouche plus un pied de page
+d'horloge — pour le site comme pour l'Activité. Le pire cas est un salon qui
+tombe, ou une partie trafiquée qui gêne l'autre joueur.
+
+Non vérifié : que le client Discord laisse l'iframe déclencher un
+téléchargement. Le repli est le site, même compte, même partie.
+
 ## Touches et manette
 
 Le bouton « Touches et manette » de l'accueil ouvre les mêmes écrans que le
@@ -341,6 +362,7 @@ utilisateurs par une autre voie que le portail.
 | Session, ROM, sauvegarde, cœur, touches | `src/app/api/discord/` |
 | Jouer à deux : accueil, file, client du salon | `src/components/discord/duo.tsx`, `src/components/link/salon-link.tsx`, `src/lib/link/file.ts`, `serveur.ts` |
 | Touches et manette dans l'Activité | `src/components/discord/reglages.tsx`, `src/lib/keymap/ecriture.ts` |
+| Télécharger et importer sa partie | `src/components/discord/partie.tsx` |
 | OAuth, jeton, compte, jeu, verrou, applications par hôte | `src/lib/discord/` |
 | L'onglet Discord de l'administration | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost et certificat d'un hôte d'Activité | `deploiement/scripts/hote-activite.sh` |

@@ -3,7 +3,7 @@ import { jeuAccessible } from "@/lib/acces";
 import { compteDepuisRequete } from "@/lib/discord/compte";
 import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
 import { jeuDeLActivite } from "@/lib/discord/jeu";
-import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
+import { ecrireSauvegarde, lireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/saves";
 
 /**
  * La sauvegarde du compte pour le jeu de l'Activité.
@@ -13,8 +13,6 @@ import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
  * stockage : une partie commencée dans Discord est la sauvegarde du compte,
  * celle que le lecteur du site ouvrirait.
  */
-const TAILLE_MAX = 1_048_576;
-
 async function contexte(request: Request) {
   const visiteur = compteDepuisRequete(request);
   if (!visiteur) return { refus: new NextResponse("Non autorisé", { status: 401 }) };
@@ -49,8 +47,8 @@ export async function PUT(request: Request) {
 
   const corps = await request.arrayBuffer();
   if (corps.byteLength === 0) return NextResponse.json({ erreur: "Sauvegarde vide." }, { status: 400 });
-  if (corps.byteLength > TAILLE_MAX) {
-    return NextResponse.json({ erreur: "Sauvegarde trop volumineuse." }, { status: 413 });
+  if (corps.byteLength > TAILLE_MAX_SAUVEGARDE) {
+    return NextResponse.json({ erreur: "Ce fichier est trop gros pour être une sauvegarde." }, { status: 413 });
   }
 
   const entete = request.headers.get("X-Revision");

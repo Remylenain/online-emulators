@@ -8,6 +8,17 @@ import { newId } from "@/lib/auth/session";
 import { paths } from "@/lib/paths";
 
 /**
+ * Au-delà, ce n'est pas une sauvegarde de ces consoles. La plus grande SRAM
+ * ou flash d'une cartouche GB, GBC ou GBA fait 128 Kio ; les émulateurs y
+ * ajoutent parfois un pied de page — l'horloge temps réel, quelques dizaines
+ * d'octets — qu'il faut laisser passer, d'où la marge. Les tailles exactes
+ * ne sont pas imposées : le lecteur avertit, le serveur borne. Ce qui est
+ * reçu finit dans un cœur d'émulation sur le serveur (câble link) : autant
+ * qu'il n'y entre que ce qui a la taille d'une sauvegarde.
+ */
+export const TAILLE_MAX_SAUVEGARDE = 128 * 1024 + 4096;
+
+/**
  * Sauvegardes SRAM, une par compte et par jeu.
  *
  * Le fichier vit sur disque, la base n'en garde que la trace : taille,

@@ -9,6 +9,7 @@ import { EmulateurMgs } from "@/lib/emulator/mgs";
 import type { Enregistreur, ResultatTouches } from "@/lib/keymap/actions";
 import { MANETTE_PAR_DEFAUT } from "@/lib/manette";
 import { Duo } from "./duo";
+import { PartieActivite } from "./partie";
 import { ReglagesActivite } from "./reglages";
 
 /**
@@ -477,6 +478,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
                 >
                   Touches et manette
                 </button>
+                <PartieActivite jeton={session.jeton} titre={session.jeu.titre} />
               </>
             )}
 

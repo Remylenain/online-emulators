@@ -320,7 +320,16 @@ async function demarrer(salon: Salon): Promise<void> {
   ]);
   if (!coeur) throw new Error(`Pas de cœur link pour ${salon.jeu.consoleSlug}.`);
 
-  const ouvrier = new Worker(new URL("./ouvrier.ts", import.meta.url));
+  /*
+   * Le fil reçoit des sauvegardes venues des joueurs et les donne au cœur :
+   * de la mémoire de cartouche pour un jeu émulé dans du WebAssembly, jamais
+   * du code exécuté ici. S'il plante, `on("error")` ferme le salon sans rien
+   * écrire. La limite borne son tas JavaScript — la mémoire du cœur, elle,
+   * est fixée par le module wasm (256 Mio pour mGBA Splitscreen).
+   */
+  const ouvrier = new Worker(new URL("./ouvrier.ts", import.meta.url), {
+    resourceLimits: { maxOldGenerationSizeMb: 512, maxYoungGenerationSizeMb: 64 },
+  });
   etat.ouvrier = ouvrier;
   salon.etat = "en-jeu";
   console.log(`[link] ${salon.id} : démarrage de ${salon.jeu.titre} (${salon.places[0].pseudo} / ${salon.places[1]!.pseudo})`);

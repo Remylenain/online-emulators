@@ -5,7 +5,7 @@ import { games } from "@/db/schema";
 import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
 import { nomDeFichier } from "@/lib/format";
-import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
+import { ecrireSauvegarde, lireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/saves";
 
 /**
  * La sauvegarde SRAM du compte connecté pour un jeu.
@@ -18,7 +18,6 @@ import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
  * accidentel d'un gros fichier, pas contre un joueur malveillant — il n'aurait
  * de toute façon que sa propre partie à abîmer.
  */
-const TAILLE_MAX = 1_048_576;
 
 export async function GET(request: Request, context: { params: Promise<{ gameId: string }> }) {
   const viewer = await getCurrentUser();
@@ -66,8 +65,8 @@ export async function PUT(request: Request, context: { params: Promise<{ gameId:
   if (corps.byteLength === 0) {
     return NextResponse.json({ erreur: "Sauvegarde vide." }, { status: 400 });
   }
-  if (corps.byteLength > TAILLE_MAX) {
-    return NextResponse.json({ erreur: "Sauvegarde trop volumineuse." }, { status: 413 });
+  if (corps.byteLength > TAILLE_MAX_SAUVEGARDE) {
+    return NextResponse.json({ erreur: "Ce fichier est trop gros pour être une sauvegarde." }, { status: 413 });
   }
 
   const entete = request.headers.get("X-Revision");
