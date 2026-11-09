@@ -13,14 +13,18 @@ import {
   oublierScraper,
   type Resultat,
 } from "@/lib/admin/actions";
+import { definirLaVitrine } from "@/lib/admin/actions-vitrine";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 import type { EtatCapacite } from "@/lib/link/capacite";
+import { ENTREES_MAX, LIBELLE_MAX, type Vitrine as ReglageVitrine } from "@/lib/vitrine-limites";
 
 export function Reglages({
   nom,
   description,
   application,
   capacite,
+  vitrine,
+  jeux,
   mail,
   captcha,
   adresseAdmin,
@@ -31,6 +35,8 @@ export function Reglages({
   /** Nom sous l'icône une fois le site installé sur un téléphone ; vide = nom du site. */
   application: string;
   capacite: EtatCapacite;
+  vitrine: ReglageVitrine;
+  jeux: JeuDeVitrine[];
   mail: ReglageMail;
   captcha: ReglageCaptcha;
   /** Adresse de l'administrateur connecté, proposée pour l'e-mail de test. */
@@ -67,11 +73,76 @@ export function Reglages({
           </Button>
         </form>
       </Panel>
+      <Vitrine vitrine={vitrine} jeux={jeux} />
       <CableLink capacite={capacite} />
       <Mail mail={mail} adresseAdmin={adresseAdmin} />
       <Captcha captcha={captcha} />
       <Scraper scraper={scraper} />
     </section>
+  );
+}
+
+export type JeuDeVitrine = { id: string; titre: string; console: string; publie: boolean };
+
+/**
+ * La vitrine : ouvrir quelques jeux aux visiteurs sans compte. L'accueil du
+ * site leur montre alors un bouton par jeu, et ils jouent en invités — leur
+ * partie reste dans leur navigateur, le serveur n'en garde rien.
+ */
+function Vitrine({ vitrine, jeux }: { vitrine: ReglageVitrine; jeux: JeuDeVitrine[] }) {
+  const [retour, action, enCours] = useActionState<Resultat | null, FormData>(definirLaVitrine, null);
+  const lignes = Array.from({ length: ENTREES_MAX }, (_, i) => vitrine.entrees[i] ?? { libelle: "", jeu: "" });
+
+  return (
+    <Panel className="max-w-xl">
+      <form action={action} className="flex flex-col gap-4">
+        <h3 className="text-sm font-semibold text-ink-200">Vitrine : jouer sans compte</h3>
+        {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
+        <p className="text-sm text-ink-400">
+          Ouverte, l&apos;accueil du site montre à un visiteur sans compte un bouton par jeu choisi
+          ci-dessous, et rien d&apos;autre. Il joue en invité : sa sauvegarde, ses points de reprise et ses
+          réglages restent dans son navigateur. Le reste du site demande toujours un compte.
+        </p>
+        <label className="flex items-center gap-2 text-sm text-ink-200">
+          <input type="checkbox" name="active" defaultChecked={vitrine.active} className="size-4 accent-accent-500" />
+          Ouvrir ces jeux aux visiteurs sans compte
+        </label>
+
+        {lignes.map((ligne, i) => (
+          <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Field label={`Bouton ${i + 1}`} htmlFor={`libelle-${i}`} hint={i === 0 ? "Vide : le titre du jeu." : undefined}>
+              <Input
+                id={`libelle-${i}`}
+                name={`libelle-${i}`}
+                defaultValue={ligne.libelle}
+                maxLength={LIBELLE_MAX}
+                placeholder={i === 0 ? "Jouer en français" : i === 1 ? "Play in English" : ""}
+              />
+            </Field>
+            <Field label="Jeu lancé" htmlFor={`jeu-${i}`}>
+              <select
+                id={`jeu-${i}`}
+                name={`jeu-${i}`}
+                defaultValue={ligne.jeu}
+                className="w-full rounded-lg border border-ink-700 bg-ink-950 px-3 py-2 text-sm text-ink-50"
+              >
+                <option value="">Aucun</option>
+                {jeux.map((jeu) => (
+                  <option key={jeu.id} value={jeu.id}>
+                    {jeu.console.toUpperCase()} — {jeu.titre}
+                    {jeu.publie ? "" : " (dépublié)"}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        ))}
+
+        <Button type="submit" disabled={enCours} className="self-start">
+          {enCours ? "Enregistrement…" : "Enregistrer la vitrine"}
+        </Button>
+      </form>
+    </Panel>
   );
 }
 

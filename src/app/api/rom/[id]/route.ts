@@ -6,6 +6,7 @@ import { games } from "@/db/schema";
 import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
 import { paths } from "@/lib/paths";
+import { jeuInvite } from "@/lib/vitrine";
 
 /**
  * Sert la ROM d'un jeu au lecteur.
@@ -14,16 +15,23 @@ import { paths } from "@/lib/paths";
  * exige donc une session valide, comme le reste, et ne sert que des jeux
  * publiés — dépublier un jeu doit suffire à le retirer de la circulation.
  *
+ * Une seule exception, voulue par l'administrateur : les jeux de la vitrine
+ * (`src/lib/vitrine.ts`), qu'un invité lance sans compte. Eux seuls sortent
+ * sans session, et seulement tant que la vitrine est allumée.
+ *
  * Le chemin vient de la base et passe par `paths.library()`, qui refuse tout
  * ce qui sortirait de LIBRARY_DIR : l'identifiant de l'URL ne désigne jamais
  * un fichier directement.
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
-
   const { id } = await context.params;
-  if (!(await jeuAccessible(viewer, id))) return new NextResponse("Introuvable", { status: 404 });
+
+  if (!viewer) {
+    if (!(await jeuInvite(id))) return new NextResponse("Non autorisé", { status: 401 });
+  } else if (!(await jeuAccessible(viewer, id)) && !(await jeuInvite(id))) {
+    return new NextResponse("Introuvable", { status: 404 });
+  }
 
   const game = await db
     .select({ romPath: games.romPath, romSize: games.romSize, romSha1: games.romSha1 })

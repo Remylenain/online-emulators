@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { asc } from "drizzle-orm";
+import { db } from "@/db";
+import { games } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/guard";
 import { etatCapacite } from "@/lib/link/capacite";
 import {
@@ -9,6 +12,7 @@ import {
   lireParametre,
   nomDuSite,
 } from "@/lib/parametres";
+import { vitrine } from "@/lib/vitrine";
 import { Reglages } from "./reglages";
 
 export const metadata: Metadata = { title: "Réglages" };
@@ -24,12 +28,19 @@ export default async function ReglagesPage() {
   const mail = configMail();
   const captcha = configCaptcha();
   const scraper = configScraper();
+  const jeux = await db
+    .select({ id: games.id, titre: games.title, console: games.consoleSlug, publie: games.isPublished })
+    .from(games)
+    .orderBy(asc(games.consoleSlug), asc(games.searchText))
+    .all();
   return (
     <Reglages
       nom={nomDuSite()}
       description={descriptionDuSite()}
       application={lireParametre("nom_application") ?? ""}
       capacite={etatCapacite()}
+      vitrine={vitrine()}
+      jeux={jeux}
       // Ni le mot de passe ni la clé secrète ne descendent : seulement s'ils existent.
       mail={{
         host: mail.host,

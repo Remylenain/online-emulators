@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { bezels } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { paths } from "@/lib/paths";
+import { vitrineOuverte } from "@/lib/vitrine";
 
 /**
  * Sert un habillage d'écran, depuis la copie produite par le scan.
@@ -12,10 +13,13 @@ import { paths } from "@/lib/paths";
  * L'adresse porte l'empreinte de l'image (`?v=`) : une image remplacée change
  * d'adresse, ce qui permet une mise en cache longue sans jamais resservir
  * l'ancienne version.
+ *
+ * Un habillage n'est que le dessin d'une console : il sort aussi sans compte
+ * quand la vitrine est allumée, pour le lecteur de l'invité.
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer && !vitrineOuverte()) return new NextResponse("Non autorisé", { status: 401 });
 
   const { id } = await context.params;
   const row = await db

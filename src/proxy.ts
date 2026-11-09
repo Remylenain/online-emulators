@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { attributsCookieSession, SESSION_COOKIE, SESSION_DURATION_MS } from "@/lib/auth/cookie";
 import { hoteDeLaRequete, hotesDesActivites } from "@/lib/discord/applications";
+import { vitrineOuverte } from "@/lib/vitrine";
 
 /**
  * Premier filtre : renvoie vers la connexion toute requête sans cookie de
@@ -29,20 +30,37 @@ const PUBLIC_PATHS = [
 ];
 
 /**
- * Les hôtes réservés à une Activité Discord, relus de temps en temps : une
- * application déclarée dans l'administration prend effet en quelques
+ * Ce que la vitrine ouvre aux visiteurs sans compte, quand l'administrateur
+ * l'a allumée (`src/lib/vitrine.ts`) : sa page d'accueil, le lecteur de
+ * l'invité, et ce qu'il lui faut pour jouer. Les routes décident elles-mêmes
+ * de ce qu'elles servent — une ROM hors vitrine reste refusée.
+ */
+const CHEMINS_VITRINE = ["/accueil", "/partie", "/api/rom", "/api/bezel"];
+
+/**
+ * Les hôtes réservés à une Activité Discord et l'état de la vitrine, relus de
+ * temps en temps : un réglage de l'administration prend effet en quelques
  * secondes, sans que chaque requête du site passe par la base.
  */
 const RELECTURE_MS = 5_000;
 let hotesActivite = new Set<string>();
+let vitrine = false;
 let relecture = 0;
 
+function relire(): void {
+  if (Date.now() < relecture) return;
+  hotesActivite = new Set(hotesDesActivites());
+  vitrine = vitrineOuverte();
+  relecture = Date.now() + RELECTURE_MS;
+}
+
 function hoteReserve(hote: string): boolean {
-  if (Date.now() >= relecture) {
-    hotesActivite = new Set(hotesDesActivites());
-    relecture = Date.now() + RELECTURE_MS;
-  }
+  relire();
   return hotesActivite.has(hote);
+}
+
+function correspond(chemins: string[], pathname: string): boolean {
+  return chemins.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
 /** Ce qu'un hôte d'Activité sert, et rien d'autre. */
@@ -77,15 +95,28 @@ export default function proxy(request: NextRequest) {
    * ni le catalogue. Ce que ses joueurs lisent de cet hôte ne dit rien du
    * site qui l'héberge.
    */
-  if (reserve && !CHEMINS_ACTIVITE.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+  if (reserve && !correspond(CHEMINS_ACTIVITE, pathname)) {
     return new NextResponse("Introuvable", { status: 404 });
   }
 
-  if (PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+  const jeton = request.cookies.get(SESSION_COOKIE)?.value;
+
+  /*
+   * Vitrine allumée : sans compte, la racine montre l'accueil de la vitrine
+   * au lieu de renvoyer à la connexion. Une réécriture et non un renvoi :
+   * l'adresse reste celle du site. Avec un cookie, la racine reste le
+   * catalogue du compte.
+   */
+  if (vitrine && !jeton && pathname === "/") {
+    const accueil = request.nextUrl.clone();
+    accueil.pathname = "/accueil";
+    return NextResponse.rewrite(accueil);
+  }
+
+  if (correspond(PUBLIC_PATHS, pathname) || (vitrine && correspond(CHEMINS_VITRINE, pathname))) {
     return NextResponse.next();
   }
 
-  const jeton = request.cookies.get(SESSION_COOKIE)?.value;
   if (jeton) {
     const reponse = NextResponse.next();
     reponse.cookies.set(SESSION_COOKIE, jeton, attributsCookieSession(new Date(Date.now() + SESSION_DURATION_MS)));

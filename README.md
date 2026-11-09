@@ -27,6 +27,9 @@ le droit de partager.
 - **Activité Discord** (facultative, à l'essai) : un jeu du site jouable dans
   Discord, émulé dans le navigateur du joueur, avec sa sauvegarde gardée par
   utilisateur Discord. Voir [docs/discord](docs/discord/README.md).
+- **Vitrine** (facultative) : quelques jeux ouverts aux visiteurs sans
+  compte, qui jouent en invités — leur partie reste dans leur navigateur, le
+  serveur n'en garde rien. Voir [docs/vitrine.md](docs/vitrine.md).
 - **Comptes** : création par l'administrateur, liens d'invitation valables
   24 h pour un ou plusieurs comptes, ou inscriptions ouvertes à tous avec
   e-mail confirmé et captcha, au choix. Réinitialisation de mot de passe par

@@ -1,0 +1,104 @@
+# La vitrine : jouer sans compte
+
+Par défaut, tout le site est derrière la connexion. La **vitrine** ouvre
+quelques jeux, choisis par l'administrateur, aux visiteurs sans compte : la
+page d'accueil leur montre un bouton par jeu, et ils jouent en **invités**.
+
+Ce que le serveur garde d'un invité : **rien**. Sa sauvegarde, ses points de
+reprise et ses réglages restent dans son navigateur.
+
+Le cas d'usage typique : une seconde instance du site, publique, réduite à un
+ou deux jeux, à côté d'une bibliothèque privée — voir
+[« Une seconde instance sur le même serveur »](deploiement.md#une-seconde-instance-sur-le-même-serveur).
+La vitrine marche aussi sur une instance unique : le reste du catalogue y
+demande alors toujours un compte.
+
+## L'allumer
+
+Administration → Réglages → **Vitrine : jouer sans compte**.
+
+- Cocher « Ouvrir ces jeux aux visiteurs sans compte ».
+- Jusqu'à quatre boutons : un libellé (« Jouer en français », « Play in
+  English »…) et le jeu qu'il lance. Libellé vide : le titre du jeu.
+- Un jeu doit être **publié** pour être proposé. Le dépublier le retire aussi
+  de la vitrine.
+
+Le réglage prend effet en quelques secondes, sans redémarrage. Décocher la
+case referme tout.
+
+## Ce qui change pour un visiteur
+
+| Adresse | Vitrine éteinte | Vitrine allumée, sans compte |
+| --- | --- | --- |
+| `/` | renvoi vers la connexion | l'accueil de la vitrine |
+| `/partie/<console>/<jeu>` | renvoi vers la connexion | le lecteur, pour un jeu de la vitrine |
+| `/api/rom/<jeu>` | refusé | servi pour un jeu de la vitrine, refusé pour tout autre |
+| `/api/bezel/<id>` | refusé | servi (les habillages d'écran) |
+| tout le reste | renvoi vers la connexion | renvoi vers la connexion |
+
+Un compte connecté ne voit pas de différence : la racine reste son catalogue,
+et `/partie/…` le renvoie vers `/jouer/…`, où sa partie est sur le serveur.
+La page de connexion gagne un lien « Jouer sans compte ».
+
+Un nom d'hôte réservé à une Activité Discord ne sert toujours que l'Activité :
+la vitrine et une Activité ne partagent pas le même hôte.
+
+## Ce que garde le navigateur d'un invité
+
+| Quoi | Où |
+| --- | --- |
+| La sauvegarde du jeu | IndexedDB, base `oe_invite` |
+| Dix points de reprise (cinq manuels, cinq automatiques) | IndexedDB, base `oe_invite` |
+| Touches, manette, habillage, volume | `localStorage` |
+
+Le lecteur est le même que celui des comptes. Pour un invité, ses requêtes
+d'enregistrement (`/api/save`, `/api/state`, `/api/play`) ne partent pas sur
+le réseau : un `fetch` de remplacement y répond depuis le navigateur, avec les
+mêmes codes et les mêmes en-têtes que les routes du site
+(`src/lib/invite/stockage.ts`). Seuls le jeu lui-même et les habillages
+viennent du serveur.
+
+### Les limites, dites au joueur
+
+Un stockage de navigateur est fragile :
+
+- vider les données du site efface la partie ;
+- rien ne suit d'un appareil ou d'un navigateur à l'autre ;
+- Safari efface le stockage d'un site resté sept jours sans visite ;
+- en navigation privée, tout disparaît à la fermeture.
+
+Le lecteur le dit, et propose le fichier de sauvegarde comme parade :
+« Télécharger » pour l'emporter, « Remplacer par un fichier » pour le
+reprendre ailleurs. Deux rappels, tant qu'une sauvegarde faite dans le jeu n'a
+pas été téléchargée :
+
+- au bouton **Quitter**, une fenêtre du site propose de la télécharger —
+  on peut partir sans ;
+- à la **fermeture de l'onglet**, le navigateur demande confirmation. Son
+  texte ne se choisit pas, et les navigateurs de téléphone l'ignorent
+  souvent : le vrai rappel est le premier.
+
+Les points de reprise ne s'exportent pas : seul le fichier de sauvegarde
+voyage.
+
+## Ce que la vitrine ne fait pas
+
+- Pas de câble link pour un invité : il tourne sur le serveur et reste
+  réservé aux comptes.
+- Pas de passage automatique d'invité à compte : pour garder sa partie en
+  créant un compte, on télécharge sa sauvegarde puis on l'importe une fois
+  connecté.
+- L'interface n'existe qu'en français, quel que soit le libellé du bouton.
+- Les pages restent marquées `noindex` : la vitrine est ouverte, pas
+  référencée.
+
+## Où est le code
+
+| Quoi | Où |
+| --- | --- |
+| Le réglage, les jeux ouverts aux invités | `src/lib/vitrine.ts`, `src/lib/vitrine-limites.ts` |
+| Le formulaire de l'administration | `src/app/(app)/admin/reglages/reglages.tsx`, `src/lib/admin/actions-vitrine.ts` |
+| Ce qui s'ouvre sans compte | `src/proxy.ts` (`CHEMINS_VITRINE`), `src/app/api/rom/[id]/route.ts`, `src/app/api/bezel/[id]/route.ts` |
+| L'accueil et le lecteur de l'invité | `src/app/(invite)/` |
+| Le stockage dans le navigateur | `src/lib/invite/stockage.ts` |
+| Le lecteur, côté invité | `src/components/player/lecteur-invite.tsx`, et `invite` dans `lecteur.tsx` |

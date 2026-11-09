@@ -30,6 +30,12 @@ export type AccesEtats = {
   /** Où déposer une image de l'écran après la capture, quand l'état n'en porte pas. */
   vignetteEcriture?: (segment: string) => string;
   entetes?: Record<string, string>;
+  /**
+   * Par où passent les requêtes : le réseau par défaut. Un invité de la
+   * vitrine donne un `fetch` qui répond depuis son navigateur
+   * (`src/lib/invite/stockage.ts`).
+   */
+  requete?: typeof fetch;
 };
 
 function accesDuSite(gameId: string): AccesEtats {
@@ -75,6 +81,7 @@ export function Savestates({
   autos?: boolean;
 }) {
   const acces = useMemo(() => accesDonne ?? accesDuSite(gameId), [accesDonne, gameId]);
+  const requete = acces.requete ?? fetch;
   const [etats, setEtats] = useState<EtatResume[]>([]);
   const [occupe, setOccupe] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -82,14 +89,14 @@ export function Savestates({
 
   const rafraichir = useCallback(async () => {
     try {
-      const reponse = await fetch(acces.liste, { cache: "no-store", headers: acces.entetes });
+      const reponse = await requete(acces.liste, { cache: "no-store", headers: acces.entetes });
       if (!reponse.ok) return;
       setEtats((await reponse.json()).etats);
     } catch {
       // Sans liste, les emplacements s'affichent vides : le joueur peut quand
       // même en créer, ce qui remettra la liste à jour.
     }
-  }, [acces]);
+  }, [acces, requete]);
 
   useEffect(() => {
     void rafraichir();
@@ -99,7 +106,7 @@ export function Savestates({
     async (emplacement: number, auto: boolean) => {
       const donnees = surEcrire();
       if (!donnees) return false;
-      const reponse = await fetch(acces.emplacement(segment(emplacement, auto)), {
+      const reponse = await requete(acces.emplacement(segment(emplacement, auto)), {
         method: "PUT",
         headers: { ...acces.entetes, "Content-Type": "application/octet-stream" },
         body: new Uint8Array(donnees),
@@ -111,7 +118,7 @@ export function Savestates({
       if (acces.vignetteEcriture && surVignette) {
         const image = await surVignette();
         if (image) {
-          await fetch(acces.vignetteEcriture(segment(emplacement, auto)), {
+          await requete(acces.vignetteEcriture(segment(emplacement, auto)), {
             method: "PUT",
             headers: { ...acces.entetes, "Content-Type": "image/png" },
             body: image,
@@ -120,7 +127,7 @@ export function Savestates({
       }
       return true;
     },
-    [acces, surEcrire, surVignette],
+    [acces, requete, surEcrire, surVignette],
   );
 
   async function capturer(emplacement: number, auto: boolean) {
@@ -144,7 +151,7 @@ export function Savestates({
     setOccupe(cle);
     setMessage(null);
     try {
-      const reponse = await fetch(acces.emplacement(cle), { cache: "no-store", headers: acces.entetes });
+      const reponse = await requete(acces.emplacement(cle), { cache: "no-store", headers: acces.entetes });
       if (!reponse.ok) {
         setMessage("Cette reprise est introuvable.");
         return;
@@ -161,7 +168,7 @@ export function Savestates({
     const cle = segment(emplacement, auto);
     setOccupe(cle);
     try {
-      await fetch(acces.emplacement(cle), { method: "DELETE", headers: acces.entetes });
+      await requete(acces.emplacement(cle), { method: "DELETE", headers: acces.entetes });
       await rafraichir();
     } finally {
       setOccupe(null);

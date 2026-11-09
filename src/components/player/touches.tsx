@@ -47,6 +47,7 @@ export function Touches({
   touches,
   surChangement,
   enregistreur = ACTIONS_DU_SITE,
+  local = false,
 }: {
   consoleSlug: string;
   boutons: ButtonName[];
@@ -54,6 +55,8 @@ export function Touches({
   surChangement: (touches: Record<Touche, string>) => void;
   /** Où enregistrer : les actions du site par défaut ; l'Activité Discord donne les siennes. */
   enregistreur?: Pick<Enregistreur, "touches" | "retablirTouches">;
+  /** Invité : les touches restent dans le navigateur, et le texte le dit. */
+  local?: boolean;
 }) {
   const [enAttente, setEnAttente] = useState<Touche | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -115,8 +118,10 @@ export function Touches({
       <h2 className="text-sm font-semibold text-ink-200">
         Touches
         <span className="ml-2 font-normal text-ink-700">
-          Clique sur une touche, puis appuie sur celle que tu veux. Échap annule. Tes touches sont
-          enregistrées sur ton compte, pour toutes les consoles.
+          Clique sur une touche, puis appuie sur celle que tu veux. Échap annule.{" "}
+          {local
+            ? "Tes touches sont gardées dans ce navigateur."
+            : "Tes touches sont enregistrées sur ton compte, pour toutes les consoles."}
         </span>
       </h2>
 

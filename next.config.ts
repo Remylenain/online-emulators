@@ -62,6 +62,8 @@ const nextConfig: NextConfig = {
       { source: "/((?!discord(?:/|$)).+)", headers: pasDeCadre },
       { source: "/", missing: [{ type: "query", key: "frame_id" }], headers: pasDeCadre },
       { source: "/jouer/:path*", headers: crossOriginIsolation },
+      // Le même lecteur, pour un invité de la vitrine.
+      { source: "/partie/:path*", headers: crossOriginIsolation },
       // Le cœur et son wasm doivent être servis en same-origin : le worker
       // pthread démarre depuis l'URL de mgba.js.
       { source: "/mgba/:path*", headers: crossOriginIsolation },

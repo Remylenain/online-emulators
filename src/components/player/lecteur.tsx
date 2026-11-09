@@ -1,17 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FichierSauvegarde } from "./fichier-sauvegarde";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FichierSauvegarde, telechargerSauvegarde } from "./fichier-sauvegarde";
 import { ChoixHabillage, type Habillage } from "./habillage";
 import { Manette } from "./manette";
 import { usePleinEcranAuto } from "./plein-ecran";
 import { ManetteConfig } from "./manette-config";
 import { Touches } from "./touches";
 import { useManette } from "./use-manette";
-import { INTERVALLE_AUTO, Savestates } from "./savestates";
+import { INTERVALLE_AUTO, Savestates, type AccesEtats } from "./savestates";
 import { ChoixVitesse, Commande, lireVolumeRetenu, retenirVolume, Volume } from "./commandes";
 import { EmulateurMgba } from "@/lib/emulator/mgba";
 import { choisirHabillage } from "@/lib/bezel/actions";
+import {
+  choisirHabillageInvite,
+  demanderPersistance,
+  enregistreurInvite,
+  requeteInvite,
+  vignetteInvite,
+} from "@/lib/invite/stockage";
 import type { Bouton, Emulateur } from "@/lib/emulator/adapter";
 import { BUTTONS, toucheDeEvenement, type ButtonName, type Touche } from "@/lib/consoles";
 
@@ -93,6 +100,7 @@ export function Lecteur({
   manettes: manettesInitiales,
   habillages,
   habillageInitial,
+  invite = false,
 }: {
   jeu: JeuLecteur;
   console: ConsoleLecteur;
@@ -105,7 +113,19 @@ export function Lecteur({
   habillages: Habillage[];
   /** Celui du compte, ou `null` pour aucun. */
   habillageInitial: string | null;
+  /**
+   * Un invité de la vitrine, sans compte : sauvegarde, points de reprise et
+   * réglages restent dans son navigateur (`src/lib/invite/stockage.ts`), et
+   * le lecteur le lui rappelle au moment de partir.
+   */
+  invite?: boolean;
 }) {
+  /**
+   * Par où passent les enregistrements : le réseau, ou pour un invité un
+   * `fetch` qui répond comme les routes du site depuis le navigateur. Tout
+   * le reste du lecteur ignore la différence.
+   */
+  const requete: typeof fetch = invite ? requeteInvite : fetch;
   /**
    * La disposition vit dans l'état du composant : une touche réattribuée doit
    * agir immédiatement, sans recharger la page ni redemander au serveur.
@@ -118,9 +138,10 @@ export function Lecteur({
       setHabillageId(id);
       // Le choix s'applique tout de suite ; l'enregistrement suit sans bloquer.
       // S'il échoue, seule la prochaine partie l'ignore : rien à signaler.
-      void choisirHabillage(jeu.consoleSlug, id);
+      if (invite) choisirHabillageInvite(jeu.consoleSlug, id);
+      else void choisirHabillage(jeu.consoleSlug, id);
     },
-    [jeu.consoleSlug],
+    [jeu.consoleSlug, invite],
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const emulateurRef = useRef<Emulateur | null>(null);
@@ -220,7 +241,7 @@ export function Lecteur({
 
       setSauvegarde({ etat: "envoi" });
       try {
-        const reponse = await fetch(urlSauvegarde, {
+        const reponse = await requete(urlSauvegarde, {
           method: "PUT",
           headers: entetes,
           body: envoi,
@@ -238,7 +259,13 @@ export function Lecteur({
           return;
         }
         if (!reponse.ok) {
-          setSauvegarde({ etat: "echec", message: `Enregistrement refusé (${reponse.status}).` });
+          setSauvegarde({
+            etat: "echec",
+            message: invite
+              ? "Le navigateur a refusé d'enregistrer ta partie (stockage plein, ou désactivé). " +
+                "Télécharge ta sauvegarde ci-dessous pour ne pas la perdre."
+              : `Enregistrement refusé (${reponse.status}).`,
+          });
           return;
         }
 
@@ -253,7 +280,118 @@ export function Lecteur({
         });
       }
     },
-    [urlSauvegarde],
+    [urlSauvegarde, requete, invite],
+  );
+
+  /**
+   * Invité : lui reste-t-il une partie à emporter ?
+   *
+   * Sa sauvegarde ne vit que dans ce navigateur. Dès que le jeu écrit dans sa
+   * mémoire de sauvegarde — une vraie sauvegarde faite *dans* le jeu —, on le
+   * note, dans le navigateur aussi pour que la question survive à un
+   * rechargement ; télécharger ou importer un fichier l'efface. Tant que la
+   * note est là, le lecteur prévient le joueur avant de le laisser partir.
+   *
+   * On ne compare pas les révisions : la sauvegarde d'un jeu à horloge change
+   * à chaque enregistrement, l'heure en fait partie, et un simple changement
+   * d'onglet aurait fait croire à une partie plus récente que le fichier
+   * tout juste téléchargé.
+   */
+  const cleAEmporter = `oe_invite_a_emporter:${jeu.id}`;
+  const aEmporterRef = useRef(false);
+  /** Un départ que le joueur a confirmé, ou un rechargement après import : plus d'alerte. */
+  const departAssumeRef = useRef(false);
+  useEffect(() => {
+    if (!invite) return;
+    try {
+      aEmporterRef.current = localStorage.getItem(cleAEmporter) === "1";
+    } catch {
+      // Stockage illisible : la prochaine sauvegarde en jeu reposera la note.
+    }
+  }, [invite, cleAEmporter]);
+
+  const noterAEmporter = useCallback(
+    (reste: boolean) => {
+      // Le cœur signale chaque écriture du jeu, souvent en rafale : inutile
+      // de reposer une note déjà là. L'effacement, lui, se fait toujours.
+      if (reste && aEmporterRef.current) return;
+      aEmporterRef.current = reste;
+      try {
+        if (reste) localStorage.setItem(cleAEmporter, "1");
+        else localStorage.removeItem(cleAEmporter);
+      } catch {
+        // Sans stockage, la note vaut pour cette visite seulement.
+      }
+    },
+    [cleAEmporter],
+  );
+
+  const resteAEmporter = useCallback(
+    () => invite && !departAssumeRef.current && aEmporterRef.current,
+    [invite],
+  );
+
+  /**
+   * Télécharge la sauvegarde de l'invité et la tient pour emportée.
+   *
+   * La partie est d'abord enregistrée : le fichier vient de la mémoire du
+   * cœur, qui peut avoir un temps d'avance sur le dernier enregistrement, et
+   * le navigateur doit garder la même chose que le fichier emporté.
+   */
+  const emporter = useCallback(async (): Promise<boolean> => {
+    if (minuterieRef.current) clearTimeout(minuterieRef.current);
+    await envoyerSauvegarde();
+    const donnees = emulateurRef.current?.lireSauvegarde() ?? null;
+    if (telechargerSauvegarde(jeu.titre, donnees) === null) return false;
+    noterAEmporter(false);
+    return true;
+  }, [envoyerSauvegarde, jeu.titre, noterAEmporter]);
+
+  /**
+   * Fermer l'onglet ou recharger la page avec une partie pas encore emportée :
+   * le navigateur demande confirmation. Le texte est le sien, on ne peut pas
+   * le choisir, et les navigateurs de téléphone l'ignorent souvent — le vrai
+   * rappel est celui du bouton « Quitter », plus bas.
+   */
+  useEffect(() => {
+    if (!invite) return;
+    const avertir = (evenement: BeforeUnloadEvent) => {
+      if (!resteAEmporter()) return;
+      evenement.preventDefault();
+      // Les anciens navigateurs attendent cette affectation plutôt que l'appel.
+      evenement.returnValue = "";
+    };
+    window.addEventListener("beforeunload", avertir);
+    return () => window.removeEventListener("beforeunload", avertir);
+  }, [invite, resteAEmporter]);
+
+  /** Le rappel affiché quand un invité clique « Quitter » sans avoir emporté sa partie. */
+  const [depart, setDepart] = useState<"non" | "demande" | "emportee">("non");
+  const surQuitter = useCallback(
+    (evenement: React.MouseEvent) => {
+      if (!resteAEmporter()) return;
+      evenement.preventDefault();
+      setDepart("demande");
+    },
+    [resteAEmporter],
+  );
+  const partir = useCallback(() => {
+    departAssumeRef.current = true;
+    // Vraie navigation, comme le lien : voir « Quitter » plus bas.
+    window.location.href = jeu.retour;
+  }, [jeu.retour]);
+
+  const accesEtats = useMemo<AccesEtats | undefined>(
+    () =>
+      invite
+        ? {
+            liste: `/api/state/${jeu.id}`,
+            emplacement: (segment) => `/api/state/${jeu.id}/${segment}`,
+            vignette: (segment) => vignetteInvite(jeu.id, segment),
+            requete: requeteInvite,
+          }
+        : undefined,
+    [invite, jeu.id],
   );
 
   /**
@@ -304,12 +442,13 @@ export function Lecteur({
         // La sauvegarde d'abord : elle doit être en place avant le chargement
         // du jeu, le cœur la lisant à l'ouverture.
         let ancienne: Uint8Array | null = null;
-        const reponseSauvegarde = await fetch(urlSauvegarde, { cache: "no-store" });
+        const reponseSauvegarde = await requete(urlSauvegarde, { cache: "no-store" });
         if (reponseSauvegarde.status === 200) {
           ancienne = new Uint8Array(await reponseSauvegarde.arrayBuffer());
           const entete = reponseSauvegarde.headers.get("X-Revision");
           revisionRef.current = entete ? Number(entete) : null;
         }
+        if (invite) demanderPersistance();
 
         setProgression(`Téléchargement du jeu (${(jeu.taille / 1048576).toFixed(0)} Mio)…`);
         /**
@@ -329,6 +468,7 @@ export function Lecteur({
           rom: { nom: jeu.fichier, donnees: rom },
           sauvegarde: ancienne,
           surSauvegardeModifiee: () => {
+            if (invite) noterAEmporter(true);
             if (minuterieRef.current) clearTimeout(minuterieRef.current);
             minuterieRef.current = setTimeout(() => {
               void envoyerSauvegarde();
@@ -414,7 +554,14 @@ export function Lecteur({
     },
     [accelerer],
   );
-  const manettePhysique = useManette(jeu.consoleSlug, manetteInitiale, manettesInitiales, surToucheManette);
+  const manettePhysique = useManette(
+    jeu.consoleSlug,
+    manetteInitiale,
+    manettesInitiales,
+    surToucheManette,
+    true,
+    invite ? enregistreurInvite : undefined,
+  );
   const manetteBranchee = manettePhysique.branchee;
 
   /**
@@ -580,7 +727,7 @@ export function Lecteur({
     if (etat !== "en-jeu") return;
 
     const signaler = () => {
-      void fetch(`/api/play/${jeu.id}`, { method: "POST" }).catch(() => {
+      void requete(`/api/play/${jeu.id}`, { method: "POST" }).catch(() => {
         // Une partie non comptée n'est pas un problème : on retentera.
       });
     };
@@ -588,7 +735,7 @@ export function Lecteur({
     signaler();
     const battement = setInterval(signaler, 60 * 1000);
     return () => clearInterval(battement);
-  }, [etat, jeu.id]);
+  }, [etat, jeu.id, requete]);
 
   /**
    * Rotation automatique des points de reprise.
@@ -610,7 +757,7 @@ export function Lecteur({
       if (!emulateur) return;
 
       try {
-        const liste = await fetch(`/api/state/${jeu.id}`, { cache: "no-store" });
+        const liste = await requete(`/api/state/${jeu.id}`, { cache: "no-store" });
         if (!liste.ok) return;
         const { etats } = (await liste.json()) as {
           etats: Array<{ emplacement: number; auto: boolean; creeLe: string }>;
@@ -627,7 +774,7 @@ export function Lecteur({
         const donnees = emulateur.ecrireEtat(PASSAGE);
         if (!donnees) return;
 
-        await fetch(`/api/state/${jeu.id}/a${cible}`, {
+        await requete(`/api/state/${jeu.id}/a${cible}`, {
           method: "PUT",
           headers: { "Content-Type": "application/octet-stream" },
           body: new Uint8Array(donnees),
@@ -639,7 +786,7 @@ export function Lecteur({
     }, INTERVALLE_AUTO);
 
     return () => clearInterval(minuterie);
-  }, [etat, jeu.id]);
+  }, [etat, jeu.id, requete]);
 
   const basculerPause = useCallback(() => {
     const emulateur = emulateurRef.current;
@@ -736,7 +883,8 @@ export function Lecteur({
         laissait croire qu'il remplaçait la sauvegarde dans le jeu, et
         promettait donc une reprise qu'il ne tenait pas.
       */}
-      <Commande onClick={() => void envoyerSauvegarde(true)}>Envoyer au serveur</Commande>
+      {/* Un invité n'a pas de serveur où envoyer : sa partie s'enregistre sur place. */}
+      {!invite && <Commande onClick={() => void envoyerSauvegarde(true)}>Envoyer au serveur</Commande>}
       <ChoixVitesse
         valeur={vitesse}
         accelere={accelere}
@@ -752,6 +900,7 @@ export function Lecteur({
       {commandes}
       <EtatDeSauvegarde
         etat={sauvegarde}
+        local={invite}
         surForcer={() => void envoyerSauvegarde(true, true)}
       />
 
@@ -768,6 +917,17 @@ export function Lecteur({
         gameId={jeu.id}
         titre={jeu.titre}
         lireSauvegarde={() => emulateurRef.current?.lireSauvegarde() ?? null}
+        {...(invite && {
+          local: true,
+          requete,
+          surTelecharger: emporter,
+          // Le fichier importé, le joueur l'a déjà : rien de plus à emporter,
+          // et le rechargement qui suit ne doit pas le lui redemander.
+          surImport: () => {
+            noterAEmporter(false);
+            departAssumeRef.current = true;
+          },
+        })}
       />
 
       {/* Au clavier seulement : sur un écran tactile, il n'y a rien à mapper. */}
@@ -777,6 +937,7 @@ export function Lecteur({
           boutons={consoleInfo.gachettes ? BOUTONS_AVEC_GACHETTES : BOUTONS_SIMPLES}
           touches={touches}
           surChangement={setTouches}
+          {...(invite && { enregistreur: enregistreurInvite, local: true })}
         />
       )}
       <ManetteConfig
@@ -796,6 +957,7 @@ export function Lecteur({
       */}
       <Savestates
         gameId={jeu.id}
+        acces={accesEtats}
         surEcrire={() => emulateurRef.current?.ecrireEtat(PASSAGE) ?? null}
         surLire={(donnees) => emulateurRef.current?.lireEtat(PASSAGE, donnees) ?? false}
       />
@@ -816,6 +978,18 @@ export function Lecteur({
         </p>
       )}
     </>
+  );
+
+
+  const rappel = depart !== "non" && (
+    <AvantDePartir
+      emportee={depart === "emportee"}
+      surEmporter={async () => {
+        if (await emporter()) setDepart("emportee");
+      }}
+      surPartir={partir}
+      surRester={() => setDepart("non")}
+    />
   );
 
   /**
@@ -857,6 +1031,7 @@ export function Lecteur({
         </button>
         <a
           href={jeu.retour}
+          onClick={surQuitter}
           className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200"
         >
           Quitter
@@ -1001,6 +1176,7 @@ export function Lecteur({
             </div>
           </div>
         )}
+        {rappel}
       </div>
     );
   }
@@ -1017,6 +1193,7 @@ export function Lecteur({
         */}
         <a
           href={jeu.retour}
+          onClick={surQuitter}
           className="ml-auto text-sm text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
         >
           Quitter
@@ -1082,6 +1259,84 @@ export function Lecteur({
       {messages}
 
       {enPartie && panneau}
+      {rappel}
+    </div>
+  );
+}
+
+/**
+ * Le rappel fait à un invité qui s'en va sans avoir emporté sa partie.
+ *
+ * Une question et non un obstacle : il peut partir sans télécharger, sa
+ * partie reste dans ce navigateur. Mais c'est le seul moment où l'on peut lui
+ * dire, avec nos mots, qu'elle n'existe nulle part ailleurs.
+ */
+function AvantDePartir({
+  emportee,
+  surEmporter,
+  surPartir,
+  surRester,
+}: {
+  emportee: boolean;
+  surEmporter: () => void;
+  surPartir: () => void;
+  surRester: () => void;
+}) {
+  const bouton = "rounded-lg border px-3 py-2 text-sm transition-colors";
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="avant-de-partir"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-ink-950/85 p-4 backdrop-blur"
+    >
+      <div className="flex w-full max-w-md flex-col gap-4 rounded-panel border border-ink-700 bg-ink-900 p-5">
+        <h2 id="avant-de-partir" className="text-base font-semibold text-ink-50">
+          {emportee ? "Sauvegarde téléchargée" : "Avant de partir"}
+        </h2>
+        {emportee ? (
+          <p className="text-sm text-ink-200">
+            Garde ce fichier : c&apos;est ta partie. Pour la reprendre ici ou dans un autre navigateur,
+            lance le jeu puis choisis « Remplacer par un fichier ».
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-ink-200">
+              Tu joues sans compte : ta partie n&apos;est enregistrée que <strong>dans ce navigateur</strong>,
+              sur aucun serveur. Elle disparaît si tu vides ses données, et ne te suit pas sur un autre
+              appareil.
+            </p>
+            <p className="text-sm text-ink-200">
+              Télécharge ta sauvegarde pour en garder une copie, ou pour continuer ailleurs.
+            </p>
+          </>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {!emportee && (
+            <button
+              type="button"
+              onClick={surEmporter}
+              className={`${bouton} border-accent-600 bg-accent-600/15 text-accent-400 hover:bg-accent-600/25`}
+            >
+              Télécharger ma sauvegarde
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={surPartir}
+            className={`${bouton} border-ink-700 text-ink-200 hover:border-ink-400 hover:text-ink-50`}
+          >
+            {emportee ? "Quitter" : "Quitter sans télécharger"}
+          </button>
+          <button
+            type="button"
+            onClick={surRester}
+            className={`${bouton} border-transparent text-ink-400 hover:text-ink-50`}
+          >
+            Rester
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1096,11 +1351,24 @@ export function Lecteur({
  */
 function EtatDeSauvegarde({
   etat,
+  local = false,
   surForcer,
 }: {
   etat: EtatSauvegarde;
+  /** Invité : la partie reste dans le navigateur, et le texte le dit. */
+  local?: boolean;
   surForcer: () => void;
 }) {
+  if (etat.etat === "inconnu" && local) {
+    return (
+      <p className="mx-auto max-w-prose text-center text-xs text-ink-700">
+        La sauvegarde du jeu — celle que tu fais <em>dans</em> le jeu — est gardée dans ce
+        navigateur, sur aucun serveur. Pour en avoir une copie ou continuer ailleurs, télécharge-la
+        ci-dessous.
+      </p>
+    );
+  }
+
   if (etat.etat === "inconnu") {
     return (
       <p className="mx-auto max-w-prose text-center text-xs text-ink-700">
@@ -1120,7 +1388,11 @@ function EtatDeSauvegarde({
       hour: "2-digit",
       minute: "2-digit",
     });
-    return <p className="text-center text-xs text-accent-400">Partie enregistrée à {heure}</p>;
+    return (
+      <p className="text-center text-xs text-accent-400">
+        {local ? `Partie enregistrée dans ce navigateur à ${heure}` : `Partie enregistrée à ${heure}`}
+      </p>
+    );
   }
 
   return (
