@@ -348,9 +348,24 @@ systemctl reload apache2
 echo "$VHOST"
 
 etape "Certificat Let's Encrypt"
-if [ -d "/etc/letsencrypt/live/$DOMAINE" ]; then
+# Le vhost ecrit plus haut ne couvre que le port 80. Celui du port 443 est
+# l'oeuvre de certbot, qui le recopie du premier au moment ou il installe le
+# certificat — et ne le suit plus ensuite. Regarder seulement si le certificat
+# existe ne suffit donc pas : sur un nom d'hote qui en avait deja un, le vhost
+# HTTPS pouvait manquer, ou relayer encore vers l'ancien port, et
+# l'installation se terminait en annoncant une reussite.
+VHOST_TLS="/etc/apache2/sites-available/$DOMAINE-le-ssl.conf"
+if [ -f "$VHOST_TLS" ] && ! grep -q "http://127.0.0.1:$PORT/" "$VHOST_TLS"; then
+    echo "$VHOST_TLS relaie vers un autre port : il est refait."
+    a2dissite -q "$DOMAINE-le-ssl.conf" >/dev/null || true
+    rm -f "$VHOST_TLS"
+fi
+if [ -d "/etc/letsencrypt/live/$DOMAINE" ] && [ -f "$VHOST_TLS" ]; then
     echo "Deja present : laisse tel quel."
 else
+    # --keep-until-expiring : un certificat encore valable est garde et
+    # simplement reinstalle, ce qui reecrit le vhost HTTPS sans en redemander
+    # un a Let's Encrypt, dont les quotas sont comptes par nom d'hote.
     certbot --apache --non-interactive --agree-tos --redirect \
         --domains "$DOMAINE" --email "$MAIL_ADMIN" --keep-until-expiring
 fi

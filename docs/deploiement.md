@@ -358,7 +358,10 @@ sudo ./deploiement/scripts/installation.sh \
 `--instance` prend un nom court, en minuscules, chiffres et tirets. Il rend
 `--port` obligatoire : il n'y a pas de port par défaut qui ne soit déjà celui
 d'une autre instance, et le script refuse un port qu'une autre occupe. Il
-refuse aussi un `--domaine` déjà servi par un autre site. `--bibliotheque`
+refuse aussi un `--domaine` déjà servi par un autre site : pour reprendre un
+nom d'hôte qui relayait vers la première instance, retirer d'abord son vhost
+(`a2dissite`, puis supprimer le fichier de `sites-available`) ; son certificat,
+lui, est gardé et réinstallé. `--bibliotheque`
 reste disponible pour ranger les jeux de cette instance ailleurs que dans
 `/var/lib/online-emulators-vitrine/library`.
 

@@ -13,6 +13,22 @@ ou deux jeux, à côté d'une bibliothèque privée — voir
 La vitrine marche aussi sur une instance unique : le reste du catalogue y
 demande alors toujours un compte.
 
+## Une seule application, plusieurs usages
+
+Le même code sert tous les cas ; ce sont les réglages de l'administration qui
+décident.
+
+| Ce qu'on veut | Réglages |
+| --- | --- |
+| Une bibliothèque privée | Vitrine éteinte (le défaut) |
+| Des invités et des comptes | Vitrine allumée : sans compte on voit les boutons, connecté on retrouve son catalogue |
+| Des invités seulement | Vitrine allumée, inscriptions fermées, et le seul compte de l'administrateur |
+| Un jeu dans Discord | Une application déclarée dans Administration → Discord, en plus du reste — voir [discord](discord/README.md) |
+
+Pour séparer complètement un site public d'une bibliothèque privée — comptes,
+base et jeux distincts —, on installe deux instances plutôt que de tout mettre
+dans une seule.
+
 ## L'allumer
 
 Administration → Réglages → **Vitrine : jouer sans compte**.
@@ -25,6 +41,17 @@ Administration → Réglages → **Vitrine : jouer sans compte**.
 
 Le réglage prend effet en quelques secondes, sans redémarrage. Décocher la
 case referme tout.
+
+Le titre et la phrase affichés au-dessus des boutons sont le nom du site et sa
+phrase d'accueil, réglés juste au-dessus, dans « Identité du site ».
+
+### Sur une instance neuve
+
+Dans l'ordre : déposer les jeux dans la bibliothèque de l'instance, lancer le
+scan (Administration → Bibliothèque, ou la commande de
+[deploiement.md](deploiement.md#publier-les-jeux-déposés)) pour qu'ils soient
+publiés, puis allumer la vitrine. Le formulaire refuse un jeu qui n'est pas
+publié, et une vitrine sans jeu.
 
 ## Ce qui change pour un visiteur
 
@@ -50,6 +77,10 @@ la vitrine et une Activité ne partagent pas le même hôte.
 | La sauvegarde du jeu | IndexedDB, base `oe_invite` |
 | Dix points de reprise (cinq manuels, cinq automatiques) | IndexedDB, base `oe_invite` |
 | Touches, manette, habillage, volume | `localStorage` |
+| Les fichiers de travail du cœur d'émulation | IndexedDB, bases `/data` et `/autosave` (comme pour un compte) |
+
+Pour tout effacer, il suffit de supprimer les données du site dans le
+navigateur.
 
 Le lecteur est le même que celui des comptes. Pour un invité, ses requêtes
 d'enregistrement (`/api/save`, `/api/state`, `/api/play`) ne partent pas sur
@@ -88,7 +119,9 @@ voyage.
 - Pas de passage automatique d'invité à compte : pour garder sa partie en
   créant un compte, on télécharge sa sauvegarde puis on l'importe une fois
   connecté.
-- L'interface n'existe qu'en français, quel que soit le libellé du bouton.
+- L'interface n'existe qu'en français, quel que soit le libellé du bouton :
+  la phrase sous les boutons, le lecteur et ses rappels. Seuls le nom du site,
+  sa phrase d'accueil et les libellés se choisissent.
 - Les pages restent marquées `noindex` : la vitrine est ouverte, pas
   référencée.
 
