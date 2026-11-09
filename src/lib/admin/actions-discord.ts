@@ -16,7 +16,12 @@ import {
   supprimerAstuce,
 } from "@/lib/discord/applications";
 import { essayerApplication, type EssaiApplication } from "@/lib/discord/essai";
-import { LONGUEUR_MAX_ACCUEIL, LONGUEUR_MAX_ASTUCE } from "@/lib/discord/limites";
+import {
+  LONGUEUR_MAX_ACCUEIL,
+  LONGUEUR_MAX_ASTUCE,
+  LONGUEUR_MAX_CONTACT,
+  LONGUEUR_MAX_EDITEUR,
+} from "@/lib/discord/limites";
 import { env } from "@/lib/env";
 import type { Resultat } from "./actions";
 
@@ -42,10 +47,19 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
   const botToken = String(donnees.get("botToken") ?? "").trim();
   const gameId = String(donnees.get("gameId") ?? "").trim();
   const welcome = String(donnees.get("welcome") ?? "").trim();
+  // Une ligne chacun : ils s'affichent dans une phrase des pages légales.
+  const publisher = String(donnees.get("publisher") ?? "").trim().replace(/\s+/g, " ");
+  const contact = String(donnees.get("contact") ?? "").trim().replace(/\s+/g, " ");
 
   if (name.length < 1 || name.length > 60) return { ok: false, message: "Le nom fait entre 1 et 60 caractères." };
   if (welcome.length > LONGUEUR_MAX_ACCUEIL) {
     return { ok: false, message: `Le mot d'accueil fait au plus ${LONGUEUR_MAX_ACCUEIL} caractères.` };
+  }
+  if (publisher.length > LONGUEUR_MAX_EDITEUR) {
+    return { ok: false, message: `« Proposée par » fait au plus ${LONGUEUR_MAX_EDITEUR} caractères.` };
+  }
+  if (contact.length > LONGUEUR_MAX_CONTACT) {
+    return { ok: false, message: `Le contact fait au plus ${LONGUEUR_MAX_CONTACT} caractères.` };
   }
   if (!FORME_HOTE.test(host)) {
     return { ok: false, message: "Le nom d'hôte est invalide : lettres, chiffres, tirets et points, sans schéma ni port." };
@@ -75,7 +89,7 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
     if (guildId && !botToken) {
       return { ok: false, message: "Le verrou sur un serveur demande le jeton de bot (onglet Bot du portail)." };
     }
-    creerApplication({ name, host, clientId, clientSecret, guildId, botToken, gameId, welcome });
+    creerApplication({ name, host, clientId, clientSecret, guildId, botToken, gameId, welcome, publisher, contact });
   } else {
     const existante = configParId(id);
     if (!existante) return { ok: false, message: "Cette application n'existe plus." };
@@ -92,6 +106,8 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
       ...(botToken ? { botToken } : guildId ? {} : { botToken: "" }),
       gameId,
       welcome,
+      publisher,
+      contact,
     });
   }
   revalidatePath("/admin/discord");

@@ -53,6 +53,36 @@ function depuisEnvironnement(): ConfigActivite | null {
   };
 }
 
+/**
+ * Ce que les pages de confidentialité et de conditions d'utilisation disent
+ * d'une Activité : son jeu, qui la propose, comment le joindre. Rien de
+ * secret, et rien qui nomme le site qui l'héberge.
+ */
+export type MentionsActivite = {
+  gameId: string;
+  /** Vides tant que l'administrateur ne les a pas saisis. L'environnement n'en a pas. */
+  editeur: string;
+  contact: string;
+  /** Avec le verrou, le site interroge Discord sur le lieu de l'Activité : la page le dit. */
+  verrou: boolean;
+};
+
+export function mentionsPourHote(hote: string): MentionsActivite | null {
+  const ligne = db
+    .select({
+      gameId: discordApps.gameId,
+      editeur: discordApps.publisher,
+      contact: discordApps.contact,
+      guildId: discordApps.guildId,
+    })
+    .from(discordApps)
+    .where(eq(discordApps.host, hoteNormalise(hote)))
+    .get();
+  if (ligne) return { gameId: ligne.gameId, editeur: ligne.editeur, contact: ligne.contact, verrou: ligne.guildId !== "" };
+  const repli = depuisEnvironnement();
+  return repli ? { gameId: repli.gameId, editeur: "", contact: "", verrou: repli.guildId !== "" } : null;
+}
+
 /** La configuration qui répond sur cet hôte, ou `null` : pas d'Activité ici. */
 export function configPourHote(hote: string): ConfigActivite | null {
   const ligne = db
@@ -97,6 +127,9 @@ export type ApplicationDiscord = {
   botTokenDefini: boolean;
   gameId: string;
   welcome: string;
+  /** Qui propose l'Activité et comment le joindre, pour ses pages légales. */
+  publisher: string;
+  contact: string;
   /** Les astuces, dans l'ordre d'ajout. */
   astuces: Astuce[];
   jeu: { titre: string; console: string } | null;
@@ -113,6 +146,8 @@ export function listerApplications(): ApplicationDiscord[] {
       botToken: discordApps.botToken,
       gameId: discordApps.gameId,
       welcome: discordApps.welcome,
+      publisher: discordApps.publisher,
+      contact: discordApps.contact,
       titre: games.title,
       console: games.consoleSlug,
     })
@@ -139,6 +174,8 @@ export type ChampsApplication = {
   botToken?: string;
   gameId: string;
   welcome: string;
+  publisher: string;
+  contact: string;
 };
 
 export function hoteDejaPris(host: string, saufId?: string): boolean {
@@ -163,6 +200,8 @@ export function creerApplication(champs: ChampsApplication & { clientSecret: str
       botToken: champs.botToken ?? "",
       gameId: champs.gameId,
       welcome: champs.welcome.trim(),
+      publisher: champs.publisher.trim(),
+      contact: champs.contact.trim(),
     })
     .run();
   return id;
@@ -179,6 +218,8 @@ export function modifierApplication(id: string, champs: ChampsApplication): void
       ...(champs.botToken !== undefined ? { botToken: champs.botToken } : {}),
       gameId: champs.gameId,
       welcome: champs.welcome.trim(),
+      publisher: champs.publisher.trim(),
+      contact: champs.contact.trim(),
       updatedAt: new Date(),
     })
     .where(eq(discordApps.id, id))

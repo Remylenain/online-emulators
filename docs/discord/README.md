@@ -147,6 +147,10 @@ de l'application des **astuces** à ajouter une par une : mot du jour,
 conseil, rappel. L'accueil en montre une au hasard, et le menu de pause les
 fait toutes défiler.
 
+Enfin **Proposée par** et **Contact** : un nom ou un pseudonyme, et un moyen
+de te joindre. Ils s'affichent sur les pages légales de l'Activité (voir
+« Les pages légales ») et ne sont écrits nulle part dans le dépôt.
+
 Le **nom d'hôte** est un hôte à part, réservé à cette Activité : ni la page
 de connexion, ni le catalogue n'y sont servis, et sa racine renvoie vers
 l'Activité. L'hôte du site lui-même est refusé — le réserver fermerait le
@@ -221,12 +225,58 @@ Tant qu'aucune Activité n'est configurée pour un hôte, `/discord` et
 - Les joueurs ne se voient pas à deux : ils doivent être dans le **même salon
   vocal**, c'est lui qui fait le salon de jeu.
 
-### 10. Au-delà de 25 membres
+### 10. Au-delà de 25 membres : la vérification
 
-Discord demande la **vérification de l'application** (onglet App
-Verification), donc celle de l'identité de son propriétaire, et l'engagement
-sur ses conditions développeur — dont le respect des droits des tiers. C'est
-une décision à prendre avant d'ouvrir l'Activité à un grand serveur.
+Discord demande la **vérification de l'application**, donc celle de
+l'identité de son propriétaire, et l'engagement sur ses conditions
+développeur — dont le respect des droits des tiers. C'est une décision à
+prendre avant d'ouvrir l'Activité à un grand serveur : elle attache une
+identité à l'application.
+
+D'après les pages d'aide de Discord (novembre 2026) :
+
+1. L'application doit appartenir à une **équipe** (portail → Teams, puis
+   General Information → transférer l'application à l'équipe). C'est
+   l'identité du propriétaire de l'équipe que Discord fait contrôler, par
+   Stripe.
+2. Les **pages légales** : coller dans General Information les deux adresses
+   que donne la « Marche à suivre » de l'application —
+   `https://<hôte>/discord/confidentialite` (Privacy Policy URL) et
+   `https://<hôte>/discord/conditions` (Terms of Service URL).
+3. L'onglet **App Verification** liste les conditions ; quand toutes sont
+   remplies, le bouton « Verify App ».
+
+Une fois vérifiée, l'application reste **publique** : Discord ne laisse plus
+désactiver le réglage « Public Bot », et n'importe qui peut l'ajouter à son
+serveur. Le verrou par serveur est alors ce qui réserve le jeu au tien. La
+découverte (annuaire, lanceur des autres serveurs) reste un réglage à part,
+désactivé tant qu'on ne l'active pas.
+
+Non vérifié : la liste exacte de l'onglet App Verification, que seul le
+propriétaire de l'application voit.
+
+## Les pages légales
+
+Chaque Activité sert, sur son nom d'hôte, une **politique de
+confidentialité** (`/discord/confidentialite`) et des **conditions
+d'utilisation** (`/discord/conditions`). Discord en demande les adresses dans
+le portail, et ses conditions développeur exigent la première.
+
+- Elles nomment le jeu, et ce que l'administrateur a saisi dans « Proposée
+  par » et « Contact ». Sans ces deux champs, elles renvoient aux
+  responsables du serveur Discord où l'Activité est lancée. Rien n'y nomme
+  le site qui héberge l'Activité.
+- La politique de confidentialité **décrit ce que le code fait** : ce qu'il
+  reçoit de Discord, ce qu'il enregistre, ce qu'il journalise. Qui change
+  l'un relit l'autre, et met à jour `MISE_A_JOUR` dans
+  `src/lib/discord/mentions.ts`.
+- Elle promet la suppression d'un compte sur demande : c'est le bouton
+  « Supprimer » de l'onglet Comptes, qui retire le compte, sa partie, ses
+  reprises et ses réglages.
+- Elle ne dit pas combien de temps le serveur web garde son journal : cela
+  dépend de l'hébergement, pas du site.
+- Les textes sont en français, et valent pour n'importe quel jeu : ils ne
+  disent rien des droits sur celui que l'Activité sert.
 
 ## Jouer à deux
 
@@ -395,6 +445,7 @@ utilisateurs par une autre voie que le portail.
 | Vitesse et son, partagés avec le lecteur du site | `src/components/player/commandes.tsx` |
 | Mot d'accueil et astuces | `src/lib/discord/applications.ts` (`discord_tips`), `src/lib/admin/actions-discord.ts` |
 | OAuth, jeton, compte, jeu, verrou, applications par hôte | `src/lib/discord/` |
+| Pages légales (confidentialité, conditions) | `src/app/discord/confidentialite/`, `src/app/discord/conditions/`, `src/components/discord/mentions.tsx`, `src/lib/discord/mentions.ts` |
 | L'onglet Discord de l'administration | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost et certificat d'un hôte d'Activité | `deploiement/scripts/hote-activite.sh` |
 | Le cœur et sa recette de compilation | `coeurs/mgba-splitscreen/` |

@@ -225,13 +225,35 @@ export function Tutoriel({ ouvertAuDepart }: { ouvertAuDepart: boolean }) {
           </section>
 
           <section>
-            <h4>9. Au-delà de 25 membres</h4>
+            <h4>9. Au-delà de 25 membres : la vérification</h4>
             <p>
-              Discord demande la <strong className="text-ink-100">vérification de l&apos;application</strong> (onglet
-              App Verification), donc celle de l&apos;identité de son propriétaire, et s&apos;engage sur ses
-              conditions développeur — dont le respect des droits des tiers. C&apos;est une décision à prendre
-              avant d&apos;ouvrir l&apos;Activité à un grand serveur.
+              Discord demande la <strong className="text-ink-100">vérification de l&apos;application</strong>,
+              donc celle de l&apos;identité de son propriétaire, et l&apos;engagement sur ses conditions
+              développeur — dont le respect des droits des tiers. C&apos;est une décision à prendre avant
+              d&apos;ouvrir l&apos;Activité à un grand serveur : elle attache une identité à l&apos;application.
             </p>
+            <ol>
+              <li>
+                L&apos;application doit appartenir à une <strong className="text-ink-100">équipe</strong> (portail
+                → Teams, puis General Information → transférer l&apos;application à l&apos;équipe). C&apos;est
+                l&apos;identité du propriétaire de l&apos;équipe que Discord fait contrôler, par Stripe.
+              </li>
+              <li>
+                Remplir <strong className="text-ink-100">Proposée par</strong> et{" "}
+                <strong className="text-ink-100">Contact</strong> dans le formulaire de l&apos;application, puis
+                coller dans General Information les deux adresses de sa « Marche à suivre » : la politique de
+                confidentialité et les conditions d&apos;utilisation, que le site sert sur l&apos;hôte de
+                l&apos;Activité.
+              </li>
+              <li>
+                Onglet <strong className="text-ink-100">App Verification</strong> : la liste des conditions, puis
+                le bouton « Verify App » quand toutes sont remplies.
+              </li>
+              <li>
+                Une fois vérifiée, l&apos;application reste publique : n&apos;importe qui peut l&apos;ajouter à
+                son serveur. Le verrou par serveur est alors ce qui réserve le jeu au tien.
+              </li>
+            </ol>
           </section>
         </div>
       )}

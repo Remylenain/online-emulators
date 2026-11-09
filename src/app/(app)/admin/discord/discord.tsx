@@ -11,7 +11,12 @@ import {
 } from "@/lib/admin/actions-discord";
 import type { Resultat } from "@/lib/admin/actions";
 import type { ApplicationDiscord } from "@/lib/discord/applications";
-import { LONGUEUR_MAX_ACCUEIL, LONGUEUR_MAX_ASTUCE } from "@/lib/discord/limites";
+import {
+  LONGUEUR_MAX_ACCUEIL,
+  LONGUEUR_MAX_ASTUCE,
+  LONGUEUR_MAX_CONTACT,
+  LONGUEUR_MAX_EDITEUR,
+} from "@/lib/discord/limites";
 import type { EssaiApplication, Verdict } from "@/lib/discord/essai";
 import { Tutoriel } from "./tutoriel";
 
@@ -295,6 +300,26 @@ function MarcheASuivre({ application }: { application: ApplicationDiscord }) {
         </ul>
       </li>
       <li>
+        <strong className="text-ink-100">Les pages légales</strong>, que Discord demande pour vérifier
+        l&apos;application (General Information du portail) :
+        <ul className="mt-1 list-disc pl-5">
+          <li>
+            Privacy Policy URL :{" "}
+            <code className="text-ink-50">https://{application.host}/discord/confidentialite</code>
+          </li>
+          <li>
+            Terms of Service URL :{" "}
+            <code className="text-ink-50">https://{application.host}/discord/conditions</code>
+          </li>
+        </ul>
+        {(!application.publisher || !application.contact) && (
+          <span className="mt-1 block text-amber-300">
+            « Proposée par » ou « Contact » est vide : ces pages renvoient pour l&apos;instant aux
+            responsables du serveur Discord. « Modifier » pour les remplir.
+          </span>
+        )}
+      </li>
+      <li>
         <strong className="text-ink-100">Essayer.</strong> Dans Discord, mode développeur activé :
         entrer dans un salon vocal, ouvrir le lanceur d&apos;activités. Une application non vérifiée
         ne se lance que dans un serveur de moins de 25 membres, et seulement pour son propriétaire,
@@ -404,6 +429,35 @@ function Formulaire({
             className="w-full rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-ink-50 placeholder:text-ink-700 focus:border-accent-500 focus:ring-2 focus:ring-accent-600/30 focus:outline-none"
           />
         </Field>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Proposée par"
+            htmlFor="publisher"
+            hint="Un nom ou un pseudonyme, affiché sur les pages de confidentialité et de conditions de l'Activité."
+          >
+            <Input
+              id="publisher"
+              name="publisher"
+              defaultValue={application?.publisher ?? ""}
+              maxLength={LONGUEUR_MAX_EDITEUR}
+              autoComplete="off"
+            />
+          </Field>
+          <Field
+            label="Contact"
+            htmlFor="contact"
+            hint="Affiché sur ces mêmes pages : une adresse e-mail, ou comment te joindre sur Discord. C'est par là qu'un joueur demande la suppression de ses données."
+          >
+            <Input
+              id="contact"
+              name="contact"
+              defaultValue={application?.contact ?? ""}
+              maxLength={LONGUEUR_MAX_CONTACT}
+              autoComplete="off"
+            />
+          </Field>
+        </div>
 
         <label className="flex items-center gap-2 text-sm text-ink-200">
           <input type="checkbox" checked={verrou} onChange={(e) => setVerrou(e.target.checked)} className="size-4 accent-accent-500" />

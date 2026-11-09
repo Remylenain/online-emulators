@@ -541,6 +541,15 @@ export const discordApps = sqliteTable(
       .references(() => games.id, { onDelete: "cascade" }),
     /** Mot d'accueil, le même à chaque lancement ; vide : rien d'affiché. */
     welcome: text("welcome").notNull().default(""),
+    /**
+     * Qui propose l'Activité et comment le joindre : affichés sur ses pages
+     * de confidentialité et de conditions d'utilisation (`/discord/…`), que
+     * Discord demande de lier dans le portail. Saisis par l'administrateur,
+     * jamais écrits dans le dépôt ; vides : les pages renvoient au serveur
+     * Discord où l'Activité est installée.
+     */
+    publisher: text("publisher").notNull().default(""),
+    contact: text("contact").notNull().default(""),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
