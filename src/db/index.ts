@@ -43,7 +43,22 @@ function connect(): Database.Database {
     { journal_mode: string },
   ];
   if (journalMode.toLowerCase() !== "wal") {
-    sqlite.pragma("journal_mode = WAL");
+    try {
+      sqlite.pragma("journal_mode = WAL");
+    } catch (erreur) {
+      /*
+       * Une base toute neuve, lue par un compte qui n'a pas le droit d'y
+       * écrire : c'est `next build` à la première installation d'une
+       * instance. Les migrations viennent de créer le fichier, le service n'a
+       * encore jamais tourné, et le compte qui construit ne fait que lire le
+       * nom du site pour quelques pages figées. Changer de mode est une
+       * écriture, qu'on laisse au service : il la fera à son premier
+       * démarrage. Sur une base déjà en WAL, ce cas ne se présente pas —
+       * d'où une première installation qui échouait là où les mises à jour
+       * passaient.
+       */
+      if ((erreur as { code?: string }).code !== "SQLITE_READONLY") throw erreur;
+    }
   }
 
   // SQLite ignore les clés étrangères par défaut, donc aussi les ON DELETE CASCADE.
