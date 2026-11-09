@@ -50,9 +50,9 @@ export function Discord({
           <h2 className="text-lg font-semibold text-ink-50">Activités Discord</h2>
           <p className="mt-1 max-w-2xl text-sm text-ink-400">
             Un jeu du site, jouable dans Discord. Une Activité est une application Discord et ne
-            sert qu&apos;un jeu ; chacune répond sur son propre nom d&apos;hôte, où rien d&apos;autre du
-            site n&apos;est servi. Le joueur n&apos;a besoin ni de compte ni de mot de passe : sa partie
-            suit son compte Discord.
+            sert qu&apos;un jeu. Elle répond sur son propre nom d&apos;hôte, où rien d&apos;autre du site
+            n&apos;est servi — ou sur celui du site, à côté de lui. Le joueur n&apos;a besoin ni de compte
+            ni de mot de passe : sa partie suit son compte Discord.
           </p>
         </div>
         <Button type="button" onClick={() => setEnEdition("nouvelle")} disabled={enEdition === "nouvelle"}>
@@ -89,14 +89,27 @@ export function Discord({
             fermer={() => setEnEdition(null)}
           />
         ) : (
-          <Carte key={application.id} application={application} modifier={() => setEnEdition(application)} />
+          <Carte
+            key={application.id}
+            application={application}
+            hoteDuSite={hoteDuSite}
+            modifier={() => setEnEdition(application)}
+          />
         ),
       )}
     </section>
   );
 }
 
-function Carte({ application, modifier }: { application: ApplicationDiscord; modifier: () => void }) {
+function Carte({
+  application,
+  hoteDuSite,
+  modifier,
+}: {
+  application: ApplicationDiscord;
+  hoteDuSite: string;
+  modifier: () => void;
+}) {
   const [essai, setEssai] = useState<EssaiApplication | null | "aucune">(null);
   const [retour, setRetour] = useState<Resultat | null>(null);
   const [enCours, demarrer] = useTransition();
@@ -109,6 +122,7 @@ function Carte({ application, modifier }: { application: ApplicationDiscord; mod
           <h3 className="text-base font-semibold text-ink-50">{application.name}</h3>
           <p className="text-sm text-ink-300">
             <code className="text-ink-50">{application.host}</code>
+            {application.host === hoteDuSite && <span className="text-ink-400"> (l&apos;hôte du site)</span>}
             {" · "}
             {application.jeu ? (
               <>
@@ -171,7 +185,7 @@ function Carte({ application, modifier }: { application: ApplicationDiscord; mod
         </ul>
       )}
 
-      {marche && <MarcheASuivre application={application} />}
+      {marche && <MarcheASuivre application={application} surLeSite={application.host === hoteDuSite} />}
 
       <Astuces application={application} />
     </Panel>
@@ -267,16 +281,31 @@ function Ligne({ titre, verdict }: { titre: string; verdict: Verdict }) {
  * Le portail Discord n'a pas d'API pour créer une application : c'est à la
  * main. Le DNS et le vhost relèvent de qui tient le serveur.
  */
-function MarcheASuivre({ application }: { application: ApplicationDiscord }) {
+function MarcheASuivre({
+  application,
+  surLeSite,
+}: {
+  application: ApplicationDiscord;
+  /** L'Activité est déclarée sur l'hôte du site : rien à préparer côté serveur. */
+  surLeSite: boolean;
+}) {
   return (
     <ol className="flex list-decimal flex-col gap-2 border-t border-ink-800 pt-3 pl-5 text-sm text-ink-300">
-      <li>
-        <strong className="text-ink-100">Le nom d&apos;hôte.</strong> Faire pointer{" "}
-        <code className="text-ink-50">{application.host}</code> vers ce serveur (DNS), puis lui
-        donner un certificat et un vhost qui relaie vers le site, comme l&apos;hôte principal — voir{" "}
-        <code>docs/discord/README.md</code>. Tant que ce n&apos;est pas fait, Discord n&apos;atteint
-        pas l&apos;Activité.
-      </li>
+      {surLeSite ? (
+        <li>
+          <strong className="text-ink-100">Le nom d&apos;hôte.</strong> Rien à faire :{" "}
+          <code className="text-ink-50">{application.host}</code> est l&apos;hôte du site, déjà en
+          place. Le site continue d&apos;y répondre ; Discord, lui, y trouve l&apos;Activité.
+        </li>
+      ) : (
+        <li>
+          <strong className="text-ink-100">Le nom d&apos;hôte.</strong> Faire pointer{" "}
+          <code className="text-ink-50">{application.host}</code> vers ce serveur (DNS), puis lui
+          donner un certificat et un vhost qui relaie vers le site, comme l&apos;hôte principal — voir{" "}
+          <code>docs/discord/README.md</code>. Tant que ce n&apos;est pas fait, Discord n&apos;atteint
+          pas l&apos;Activité.
+        </li>
+      )}
       <li>
         <strong className="text-ink-100">Le portail Discord</strong> (discord.com/developers,
         application {application.clientId}) :
@@ -373,7 +402,7 @@ function Formulaire({
           <Field
             label="Nom d'hôte"
             htmlFor="host"
-            hint={`Sans https:// ni chemin. Un hôte à elle, différent de ${hoteDuSite} : rien d'autre du site n'y sera servi.`}
+            hint={`Sans https:// ni chemin. Un hôte à elle : rien d'autre du site n'y sera servi. Ou ${hoteDuSite}, celui du site : l'Activité s'y ajoute, et le site continue d'y répondre.`}
           >
             <Input id="host" name="host" defaultValue={application?.host ?? ""} required placeholder="prism.exemple.com" autoComplete="off" />
           </Field>

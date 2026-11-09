@@ -10,6 +10,7 @@ import {
   configParId,
   creerApplication,
   hoteDejaPris,
+  hoteDuSite,
   hoteNormalise,
   modifierApplication,
   supprimerApplication,
@@ -22,7 +23,6 @@ import {
   LONGUEUR_MAX_CONTACT,
   LONGUEUR_MAX_EDITEUR,
 } from "@/lib/discord/limites";
-import { env } from "@/lib/env";
 import type { Resultat } from "./actions";
 
 /**
@@ -64,11 +64,8 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
   if (!FORME_HOTE.test(host)) {
     return { ok: false, message: "Le nom d'hôte est invalide : lettres, chiffres, tirets et points, sans schéma ni port." };
   }
-  // Réserver l'hôte du site à une Activité fermerait le site entier : plus
-  // de connexion, plus de catalogue, plus d'administration pour y revenir.
-  if (host === hoteNormalise(new URL(env.PUBLIC_URL).host)) {
-    return { ok: false, message: "C'est le nom d'hôte du site lui-même : une Activité demande un hôte à elle." };
-  }
+  // L'hôte du site lui-même est accepté : l'Activité s'y ajoute sans le
+  // réserver (voir `hotesDesActivites`), le site continue d'y répondre.
   if (!FORME_IDENTIFIANT.test(clientId)) {
     return { ok: false, message: "L'identifiant d'application est un nombre de 17 à 20 chiffres (Application ID)." };
   }
@@ -111,7 +108,14 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
     });
   }
   revalidatePath("/admin/discord");
-  return { ok: true, message: id ? "Application modifiée." : "Application enregistrée. Reste à régler le portail Discord et le nom d'hôte." };
+  if (id) return { ok: true, message: "Application modifiée." };
+  return {
+    ok: true,
+    message:
+      host === hoteDuSite()
+        ? "Application enregistrée sur l'hôte du site. Reste à régler le portail Discord."
+        : "Application enregistrée. Reste à régler le portail Discord et le nom d'hôte.",
+  };
 }
 
 export async function supprimerApplicationDiscord(id: string): Promise<Resultat> {

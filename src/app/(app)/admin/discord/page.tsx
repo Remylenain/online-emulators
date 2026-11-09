@@ -3,7 +3,7 @@ import { asc } from "drizzle-orm";
 import { db } from "@/db";
 import { games } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/guard";
-import { hoteNormalise, listerApplications } from "@/lib/discord/applications";
+import { hoteDuSite, listerApplications } from "@/lib/discord/applications";
 import { jeuDeLActivite } from "@/lib/discord/jeu";
 import { env } from "@/lib/env";
 import { Discord } from "./discord";
@@ -36,7 +36,7 @@ export default async function DiscordPage() {
     <Discord
       applications={listerApplications()}
       jeux={jeux}
-      hoteDuSite={hoteNormalise(new URL(env.PUBLIC_URL).host)}
+      hoteDuSite={hoteDuSite()}
       repli={jeuEnvironnement ? { jeu: jeuEnvironnement, verrou: env.DISCORD_SERVEUR.length > 0 } : null}
     />
   );

@@ -101,16 +101,30 @@ export function configPourHote(hote: string): ConfigActivite | null {
   return ligne ?? depuisEnvironnement();
 }
 
+/** L'hôte du site lui-même, tel que l'installation le déclare (`PUBLIC_URL`). */
+export function hoteDuSite(): string {
+  return hoteNormalise(new URL(env.PUBLIC_URL).host);
+}
+
 /**
  * Les hôtes réservés à une Activité. Sur l'un d'eux, le site ne sert que
  * l'Activité : ni connexion, ni catalogue (voir `src/proxy.ts`).
+ *
+ * L'hôte du site n'en fait jamais partie, même quand une Activité y est
+ * déclarée : elle s'y **ajoute**. Le site continue d'y répondre, et c'est
+ * Discord, en ouvrant la racine avec `frame_id`, qui tombe sur l'Activité.
+ * C'est le cas d'un site public consacré au jeu que l'Activité sert — une
+ * seule adresse pour les deux. Le réserver fermerait le site entier, avec
+ * l'administration qui permettrait d'y revenir.
  */
 export function hotesDesActivites(): string[] {
+  const site = hoteDuSite();
   return db
     .select({ host: discordApps.host })
     .from(discordApps)
     .all()
-    .map((ligne) => ligne.host);
+    .map((ligne) => ligne.host)
+    .filter((hote) => hote !== site);
 }
 
 // ---------------------------------------------------------------------------

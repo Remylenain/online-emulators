@@ -151,10 +151,21 @@ Enfin **Proposée par** et **Contact** : un nom ou un pseudonyme, et un moyen
 de te joindre. Ils s'affichent sur les pages légales de l'Activité (voir
 « Les pages légales ») et ne sont écrits nulle part dans le dépôt.
 
-Le **nom d'hôte** est un hôte à part, réservé à cette Activité : ni la page
-de connexion, ni le catalogue n'y sont servis, et sa racine renvoie vers
-l'Activité. L'hôte du site lui-même est refusé — le réserver fermerait le
-site. Secret et jeton de bot sont rangés comme les autres secrets des
+Le **nom d'hôte** est, au choix :
+
+- **un hôte à part, réservé à cette Activité** : ni la page de connexion, ni
+  le catalogue n'y sont servis, et sa racine renvoie vers l'Activité. C'est
+  ce qu'il faut quand l'Activité ne doit rien dire du site qui l'héberge —
+  une bibliothèque privée, par exemple ;
+- **l'hôte du site lui-même** : l'Activité s'y ajoute sans rien réserver. Le
+  site continue d'y répondre, et Discord, qui ouvre la racine avec
+  `frame_id`, y trouve l'Activité. C'est ce qu'il faut pour un site public
+  consacré au jeu que l'Activité sert (une [vitrine](../vitrine.md)) : une
+  seule adresse, ni DNS ni vhost de plus. En contrepartie, tout le site
+  devient joignable à travers le proxy de Discord — il refuse toujours de
+  s'afficher dans un cadre, l'Activité exceptée.
+
+Secret et jeton de bot sont rangés comme les autres secrets des
 réglages : lisibles par le seul compte du service, jamais renvoyés au
 navigateur, jamais dans le dépôt — les conditions de Discord interdisent de
 publier ces identifiants dans un projet ouvert, identifiant d'application
@@ -395,8 +406,8 @@ jeu ni sauvegarde.
   masquer l'adresse IP des joueurs et celle du serveur de l'application.
 - **La page ne nomme pas le site** : pas de nom, de description ni de manifeste
   dans son en-tête, aucune adresse absolue.
-- **Un hôte d'Activité ne sert que l'Activité.** Déclarée dans
-  l'administration avec son nom d'hôte, rien d'autre du site n'y répond — la
+- **Un hôte réservé à l'Activité ne sert que l'Activité.** Déclarée dans
+  l'administration avec un nom d'hôte à elle, rien d'autre du site n'y répond — la
   page de connexion, par exemple, serait sinon lisible à la même adresse
   `discordsays.com`, et dirait ce qu'est le site. C'est le cas de l'Activité
   de repli (`.env`), qui répond sur l'hôte du site.

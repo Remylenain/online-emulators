@@ -67,8 +67,10 @@ Un compte connecté ne voit pas de différence : la racine reste son catalogue,
 et `/partie/…` le renvoie vers `/jouer/…`, où sa partie est sur le serveur.
 La page de connexion gagne un lien « Jouer sans compte ».
 
-Un nom d'hôte réservé à une Activité Discord ne sert toujours que l'Activité :
-la vitrine et une Activité ne partagent pas le même hôte.
+Une Activité Discord peut partager l'adresse de la vitrine : déclarée sur
+l'hôte du site, elle s'y ajoute et le site continue d'y répondre. Déclarée sur
+un hôte à elle, cet hôte ne sert que l'Activité. Voir
+[discord](discord/README.md).
 
 ## Ce que garde le navigateur d'un invité
 
