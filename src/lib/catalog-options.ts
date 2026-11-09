@@ -1,3 +1,6 @@
+import { dictionnaire } from "@/lib/i18n/dictionnaires";
+import { LANGUE_DE_REFERENCE, type Langue } from "@/lib/i18n/langues";
+
 /**
  * Options d'affichage du catalogue : tris et modes de vue.
  *
@@ -5,21 +8,24 @@
  * de recherche et de tri sont un composant client, et importer le module de
  * requêtes y entraînerait `better-sqlite3` — un binaire natif — dans le
  * paquet envoyé au navigateur. La construction échoue alors, à juste titre.
+ *
+ * Ce module ne porte que des clés — celles qu'on lit dans l'adresse. Leurs
+ * libellés sont dans le dictionnaire, sous `catalogue.filtres` : `tris`,
+ * `types` et `vues` y ont une entrée par clé d'ici.
  */
 
-/** Le premier est le tri par défaut du catalogue. */
-export const SORTS = {
-  note: "Mieux notés",
-  titre: "Alphabétique",
-  parties: "Plus joués",
-} as const;
+/**
+ * Le premier est le tri par défaut du catalogue : par note, puis par titre,
+ * puis par nombre de parties jouées.
+ */
+export const SORTS = ["note", "titre", "parties"] as const;
 
 export const TRI_PAR_DEFAUT: SortKey = "note";
 
-export type SortKey = keyof typeof SORTS;
+export type SortKey = (typeof SORTS)[number];
 
 export function isSortKey(value: string | undefined): value is SortKey {
-  return value !== undefined && value in SORTS;
+  return value !== undefined && (SORTS as readonly string[]).includes(value);
 }
 
 /**
@@ -30,18 +36,14 @@ export function isSortKey(value: string | undefined): value is SortKey {
  * s'ouvre. Quelques centaines de jeux du commerce les noieraient, alors
  * qu'ils restent à un clic dans le filtre.
  */
-export const TYPES = {
-  hacks: "Rom hacks et traductions",
-  officiels: "Jeux officiels",
-  tous: "Tous les jeux",
-} as const;
+export const TYPES = ["hacks", "officiels", "tous"] as const;
 
-export type TypeKey = keyof typeof TYPES;
+export type TypeKey = (typeof TYPES)[number];
 
 export const TYPE_PAR_DEFAUT: TypeKey = "hacks";
 
 export function isTypeKey(value: string | undefined): value is TypeKey {
-  return value !== undefined && value in TYPES;
+  return value !== undefined && (TYPES as readonly string[]).includes(value);
 }
 
 export const VIEWS = ["grille", "liste"] as const;
@@ -53,35 +55,29 @@ export function isViewMode(value: string | undefined): value is ViewMode {
 }
 
 /**
- * Langues, telles qu'affichées dans le filtre.
+ * Le nom d'une langue de jeu, tel qu'affiché dans le filtre.
  *
  * Les codes viennent des manifestes de la bibliothèque, qui suivent l'usage
- * courant (« fr », « en »…). Une langue absente de cette table s'affiche par
- * son code plutôt que de disparaître.
+ * courant (« fr », « en »…). Les noms sont dans le dictionnaire
+ * (`catalogue.langues`) ; une langue absente de cette table s'affiche par son
+ * code plutôt que de disparaître.
+ *
+ * `langue` est la langue de l'interface, celle dans laquelle le nom est
+ * écrit : « Anglais » ou « English ». Sans elle, c'est le français.
  */
-const NOMS_DE_LANGUE: Record<string, string> = {
-  fr: "Français",
-  en: "Anglais",
-  es: "Espagnol",
-  de: "Allemand",
-  it: "Italien",
-  ja: "Japonais",
-  pt: "Portugais",
-};
-
-export function nomDeLangue(code: string): string {
+export function nomDeLangue(code: string, langue: Langue = LANGUE_DE_REFERENCE): string {
   const court = code.toLowerCase().split("-")[0] ?? code;
-  return NOMS_DE_LANGUE[court] ?? code;
+  const noms: Record<string, string | undefined> = dictionnaire(langue).catalogue.langues;
+  return noms[court] ?? code;
 }
 
-/**
- * Langue retenue par défaut.
- *
- * Le site est fait pour des francophones : montrer d'abord ce qu'ils peuvent
- * lire évite de faire défiler des jeux qu'ils écarteraient de toute façon. Le
- * filtre reste à un clic pour voir le reste.
+/*
+ * Pas de langue de jeu par défaut ici : l'accueil et les pages des consoles
+ * montrent d'abord les jeux dans la langue du visiteur (celle de l'interface,
+ * `src/lib/i18n/serveur.ts`). Montrer d'abord ce qu'il peut lire lui évite de
+ * faire défiler des jeux qu'il écarterait de toute façon ; le filtre reste à
+ * un clic pour voir le reste.
  */
-export const LANGUE_PAR_DEFAUT = "fr";
 
 /** Valeur du filtre signifiant « ne pas filtrer ». */
 export const TOUTES_LANGUES = "toutes";

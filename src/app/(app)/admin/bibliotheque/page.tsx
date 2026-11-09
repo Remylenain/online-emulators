@@ -13,11 +13,15 @@ import {
   type FiltresBibliotheque,
 } from "@/lib/admin/filtres-bibliotheque";
 import { CONSOLE_SLUGS } from "@/lib/consoles";
+import { textes } from "@/lib/i18n/serveur";
 import { lireRetouche, listerRetouches, retouchesPossibles } from "@/lib/library/retouches";
 import { normalizeForSearch } from "@/lib/validation";
 import { Bibliotheque } from "./bibliotheque";
 
-export const metadata: Metadata = { title: "Bibliothèque" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await textes();
+  return { title: t.adminBibliotheque.titreOnglet };
+}
 
 /**
  * La bibliothèque vue par l'administration : recherche, filtres, cinquante
@@ -124,7 +128,7 @@ export default async function BibliothequePage({
       officiels: horsType.filter((jeu) => jeu.isOfficial).length,
     },
     etats: Object.fromEntries(
-      (Object.keys(ETATS) as EtatKey[]).map((nom) => [nom, horsEtat.filter(dansEtat[nom]).length]),
+      ETATS.map((nom) => [nom, horsEtat.filter(dansEtat[nom]).length]),
     ) as Record<EtatKey, number>,
   };
 

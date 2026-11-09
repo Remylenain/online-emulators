@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { marquerPartie } from "@/lib/play";
 
 /**
@@ -13,11 +14,13 @@ import { marquerPartie } from "@/lib/play";
  */
 export async function POST(_request: Request, context: { params: Promise<{ gameId: string }> }) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const { gameId } = await context.params;
 
-  if (!(await jeuAccessible(viewer, gameId))) return new NextResponse("Introuvable", { status: 404 });
+  if (!(await jeuAccessible(viewer, gameId))) {
+    return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
+  }
 
   return NextResponse.json(await marquerPartie(viewer.id, gameId), {
     headers: { "Cache-Control": "no-store" },

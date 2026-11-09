@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AvecCode } from "@/components/link/code-salon";
+import { useT } from "@/components/langue";
 import { Alert, Button } from "@/components/ui";
 import { usePleinEcranAuto } from "@/components/player/plein-ecran";
 import { Manette } from "@/components/player/manette";
@@ -18,6 +20,7 @@ import {
   type MessageServeur,
   type Participant,
 } from "@/lib/link/protocole";
+import { texteErreurLink, texteFinLink } from "@/lib/link/textes";
 
 /**
  * Le client léger d'un salon : un écran, des boutons, du son.
@@ -66,6 +69,7 @@ export function SalonLink({
   /** Où enregistrer la manette ; les actions du site par défaut. */
   enregistreur?: Pick<Enregistreur, "manette" | "retablirManette">;
 }) {
+  const t = useT();
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([null, null]);
   const priseRef = useRef<WebSocket | null>(null);
   const masqueRef = useRef(0);
@@ -74,8 +78,11 @@ export function SalonLink({
   const muetRef = useRef(false);
 
   const [etat, setEtat] = useState<MessageServeur & { t: "etat" }>();
-  const [fin, setFin] = useState<{ enregistre: boolean; raison: string } | null>(null);
-  const [erreur, setErreur] = useState<string | null>(null);
+  // Les messages du serveur sont gardés tels qu'ils arrivent, avec leur code :
+  // c'est à l'affichage qu'ils prennent la langue du joueur.
+  const [fin, setFin] = useState<(MessageServeur & { t: "termine" }) | null>(null);
+  /** `"connexion"` : la WebSocket elle-même a échoué, le serveur n'a rien dit. */
+  const [erreur, setErreur] = useState<(MessageServeur & { t: "erreur" }) | "connexion" | null>(null);
   const [connecte, setConnecte] = useState(false);
   const [muet, setMuet] = useState(false);
   const [tactile, setTactile] = useState(false);
@@ -219,7 +226,7 @@ export function SalonLink({
     const courante = () => priseRef.current === prise;
     prise.onopen = () => courante() && setConnecte(true);
     prise.onclose = () => courante() && setConnecte(false);
-    prise.onerror = () => courante() && setErreur("La connexion au salon a échoué.");
+    prise.onerror = () => courante() && setErreur("connexion");
     prise.onmessage = (evenement) => {
       if (!courante()) return;
       if (evenement.data instanceof ArrayBuffer) {
@@ -230,8 +237,8 @@ export function SalonLink({
       }
       const message = JSON.parse(String(evenement.data)) as MessageServeur;
       if (message.t === "etat") setEtat(message);
-      else if (message.t === "termine") setFin({ enregistre: message.enregistre, raison: message.raison });
-      else if (message.t === "erreur") setErreur(message.message);
+      else if (message.t === "termine") setFin(message);
+      else if (message.t === "erreur") setErreur(message);
     };
 
     // Le son ne peut démarrer qu'après un geste : on l'arme au premier.
@@ -316,17 +323,17 @@ export function SalonLink({
   if (fin) {
     return (
       <div className="flex flex-col items-center gap-4 py-12 text-center">
-        <p className="text-lg font-semibold text-ink-50">Session terminée</p>
+        <p className="text-lg font-semibold text-ink-50">{t.link.salon.fin.titre}</p>
         <p className="text-sm text-ink-400">
           {spectateur
-            ? "La partie est finie."
+            ? t.link.salon.fin.spectateur
             : fin.enregistre
-              ? "Les deux parties sont enregistrées sur vos comptes."
-              : "Les parties n'ont pas été enregistrées : vos sauvegardes d'avant la session sont intactes."}
+              ? t.link.salon.fin.enregistree
+              : t.link.salon.fin.nonEnregistree}
           <br />
-          <span className="text-ink-700">({fin.raison})</span>
+          <span className="text-ink-700">({texteFinLink(t, fin, fin.raison)})</span>
         </p>
-        {quitter(discord ? "Retour" : "Retour à la fiche du jeu", "text-sm text-accent-400 hover:underline")}
+        {quitter(discord ? t.link.salon.retour : t.link.retourFiche, "text-sm text-accent-400 hover:underline")}
       </div>
     );
   }
@@ -354,7 +361,7 @@ export function SalonLink({
         <figure key={index} className="flex flex-col gap-1">
           {canvas(index, true)}
           <figcaption className="text-center text-xs text-ink-400">
-            {etat?.joueurs[index]?.pseudo ?? `Joueur ${index + 1}`}
+            {etat?.joueurs[index]?.pseudo ?? t.link.salon.joueur(index + 1)}
           </figcaption>
         </figure>
       ))}
@@ -366,17 +373,17 @@ export function SalonLink({
   const spectateurs = etat?.spectateurs;
   const bandeau = (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-      <span className="font-semibold text-ink-50">{jeu?.titre ?? "Salon"}</span>
+      <span className="font-semibold text-ink-50">{jeu?.titre ?? t.link.salon.sansTitre}</span>
       {!discord && (
         <span className="text-ink-400">
-          salon <span className="font-mono text-ink-200">{salonId}</span>
+          <AvecCode texte={t.link.salon.code(salonId)} classes="font-mono text-ink-200" />
         </span>
       )}
       {spectateur ? (
         <>
           <Presence participant={etat?.joueurs[0] ?? null} />
           <Presence participant={etat?.joueurs[1] ?? null} />
-          <span className="text-ink-400">tu regardes</span>
+          <span className="text-ink-400">{t.link.salon.tuRegardes}</span>
         </>
       ) : (
         <>
@@ -385,14 +392,9 @@ export function SalonLink({
         </>
       )}
       {spectateurs && spectateurs.ouverts && (
-        <span className="text-xs text-ink-700">
-          {spectateurs.nombre === 0
-            ? "aucun spectateur"
-            : `${spectateurs.nombre} spectateur${spectateurs.nombre > 1 ? "s" : ""}`}{" "}
-          (sur {spectateurs.max})
-        </span>
+        <span className="text-xs text-ink-700">{t.link.salon.spectateurs(spectateurs.nombre, spectateurs.max)}</span>
       )}
-      {!connecte && <span className="text-red-300">déconnecté</span>}
+      {!connecte && <span className="text-red-300">{t.link.salon.deconnecte}</span>}
     </div>
   );
 
@@ -405,39 +407,44 @@ export function SalonLink({
           setMuet(!muet);
         }}
       >
-        {muet ? "Son coupé" : "Son"}
+        {muet ? t.partie.son.coupe : t.partie.son.actif}
       </Button>
       {!spectateur && (
         <Button
           onClick={() => {
-            if (confirm("Terminer la session ? Les deux parties seront enregistrées sur vos comptes.")) {
+            if (confirm(t.link.salon.confirmerFin)) {
               envoyer({ t: "terminer" });
             }
           }}
           disabled={etat?.etat !== "en-jeu"}
         >
-          Terminer et enregistrer
+          {t.link.salon.terminer}
         </Button>
       )}
-      {quitter(spectateur ? "Arrêter de regarder" : "Quitter sans terminer", "text-xs text-ink-400 hover:text-ink-200")}
+      {quitter(
+        spectateur ? t.link.salon.arreterDeRegarder : t.link.salon.quitterSansTerminer,
+        "text-xs text-ink-400 hover:text-ink-200",
+      )}
     </div>
   );
 
   return (
     <div className="flex flex-col gap-4">
       {bandeau}
-      {erreur && <Alert tone="error">{erreur}</Alert>}
+      {erreur && (
+        <Alert tone="error">
+          {erreur === "connexion" ? t.link.salon.connexionEchouee : texteErreurLink(t, erreur, erreur.message)}
+        </Alert>
+      )}
       {etat?.etat === "attente" && !spectateur && (
         <Alert tone="info">
-          {discord
-            ? "En attente du second joueur : il doit ouvrir l'Activité dans ce salon vocal et choisir « Jouer à deux »."
-            : etat.prive
-            ? "Salon privé : il n'apparaît pas sur la fiche du jeu. Donne ce code à ton partenaire, il le saisira dans « Rejoindre avec un code » : "
-            : "En attente d'un second joueur. Dis-lui d'ouvrir la fiche du jeu et de rejoindre le salon "}
-          {!discord && (
-            <>
-              <strong className="font-mono">{salonId}</strong>.
-            </>
+          {discord ? (
+            t.link.salon.attente.discord(t.activite.accueil.jouerADeux)
+          ) : (
+            <AvecCode
+              balise="strong"
+              texte={etat.prive ? t.link.salon.attente.prive(salonId) : t.link.salon.attente.publique(salonId)}
+            />
           )}
         </Alert>
       )}
@@ -447,29 +454,24 @@ export function SalonLink({
       )}
       {actions}
       {!tactile && !spectateur && (
-        <p className="text-xs text-ink-700">
-          Les touches sont celles de ton compte. Le jeu tourne sur le serveur :
-          tu peux changer d&apos;onglet, la partie continue.
-        </p>
+        <p className="text-xs text-ink-700">{t.link.salon.aide}</p>
       )}
       {spectateur && (
-        <p className="text-xs text-ink-700">
-          Tu entends la console de {etat?.joueurs[0]?.pseudo ?? "gauche"}. Le son démarre au premier clic.
-        </p>
+        <p className="text-xs text-ink-700">{t.link.salon.sonSpectateur(etat?.joueurs[0]?.pseudo ?? null)}</p>
       )}
     </div>
   );
 }
 
 function Presence({ participant, moi = false }: { participant: Participant | null; moi?: boolean }) {
-  if (!participant) return <span className="text-ink-700">— en attente —</span>;
+  const t = useT();
+  if (!participant) return <span className="text-ink-700">{t.link.salon.enAttente}</span>;
   return (
     <span className={participant.present ? "text-ink-200" : "text-ink-700"}>
       <span
         className={`mr-1 inline-block size-2 rounded-full ${participant.present ? "bg-green-400" : "bg-ink-700"}`}
       />
-      {participant.pseudo}
-      {moi && " (toi)"}
+      {moi ? t.link.salon.toi(participant.pseudo) : participant.pseudo}
     </span>
   );
 }

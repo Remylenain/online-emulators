@@ -127,4 +127,11 @@ export const commandes: Dictionnaire["commandes"] = {
   tactile: {
     directions: (noms: string[]) => noms.join(" and "),
   },
+
+  refus: {
+    invalide: "Invalid layout.",
+    doublonTouche: "Two buttons cannot share the same key.",
+    doublonEntree: "Two buttons cannot share the same input.",
+    console: "Unknown console.",
+  },
 };

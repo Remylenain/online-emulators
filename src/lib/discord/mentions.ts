@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { estLangue, REGION, type Langue } from "@/lib/i18n/langues";
+import { langueDeLaRequete } from "@/lib/i18n/serveur";
 import { hoteDeLaRequete, mentionsPourHote } from "./applications";
 import { jeuDeLActivite } from "./jeu";
 
@@ -21,8 +23,27 @@ export type Mentions = {
   verrou: boolean;
 };
 
-/** La date de la dernière retouche des textes, la même pour les deux pages. */
-export const MISE_A_JOUR = "9 novembre 2026";
+/**
+ * La date de la dernière retouche des textes, la même pour les deux pages et
+ * pour toutes les langues : une traduction ne change pas ce que le texte dit.
+ */
+const MISE_A_JOUR = new Date(Date.UTC(2026, 10, 9));
+
+export function miseAJour(langue: Langue): string {
+  return new Intl.DateTimeFormat(REGION[langue], { dateStyle: "long", timeZone: "UTC" }).format(MISE_A_JOUR);
+}
+
+/**
+ * La langue d'une page légale : `?lang=fr` ou `?lang=en` dans l'adresse, sinon
+ * celle de la requête. Le paramètre donne à chaque langue une adresse fixe —
+ * c'est celle qu'on colle dans le portail de Discord, où le relecteur n'a ni
+ * le navigateur ni les préférences du joueur.
+ */
+export async function langueDesMentions(recherche: Promise<{ lang?: string | string[] }>): Promise<Langue> {
+  const demandee = (await recherche).lang;
+  const code = Array.isArray(demandee) ? demandee[0] : demandee;
+  return estLangue(code) ? code : langueDeLaRequete();
+}
 
 export async function mentionsDeLaRequete(): Promise<Mentions> {
   // Lu à la requête : l'Activité dépend de l'hôte, pas de la construction du site.

@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { games } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CONSOLES, findConsole } from "@/lib/consoles";
+import { textes } from "@/lib/i18n/serveur";
 import { ecrireGamelist, type FicheGamelist } from "@/lib/library/gamelist";
 import { paths } from "@/lib/paths";
 import { fluxZip, type EntreeZip } from "@/lib/zip";
@@ -26,34 +27,20 @@ import { fluxZip, type EntreeZip } from "@/lib/zip";
  * Sans `tout`, seuls les rom hacks et traductions partent : les jeux
  * officiels se retrouvent dans n'importe quel scraper, pas eux. Aucune ROM
  * n'est jamais mise dans l'archive.
+ *
+ * Le mode d'emploi glissé à la racine de l'archive suit la langue de la
+ * requête (`adminBibliotheque.export.lisezMoi`).
  */
 export const dynamic = "force-dynamic";
 
-const LISEZ_MOI = `Fiches de jeux au format EmulationStation
-(Recalbox, Batocera, RetroPie, ES-DE).
-
-Un dossier par console. Chacun contient :
-  gamelist.xml   titre, description, année, auteur et langue de chaque jeu
-  images/        les jaquettes, au nom du fichier ROM
-
-Recalbox, Batocera, RetroPie : copier le contenu du dossier dans le dossier
-des ROMs de la console (roms/gb, roms/gbc, roms/gba), à côté des ROMs. Si un
-gamelist.xml existe déjà, fusionner les blocs <game> plutôt que l'écraser.
-
-ES-DE : copier gamelist.xml dans ES-DE/gamelists/<console>/ et les images
-dans ES-DE/downloaded_media/<console>/covers/.
-
-Les fiches sont rattachées aux ROMs par leur nom de fichier : une ROM
-renommée ne retrouvera pas la sienne.
-`;
-
 export async function GET(requete: NextRequest) {
+  const t = (await textes()).adminBibliotheque;
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
-  if (viewer.role !== "ADMIN") return new NextResponse("Interdit", { status: 403 });
+  if (!viewer) return new NextResponse(t.api.nonAutorise, { status: 401 });
+  if (viewer.role !== "ADMIN") return new NextResponse(t.api.interdit, { status: 403 });
 
   const demandee = requete.nextUrl.searchParams.get("console");
-  if (demandee && !findConsole(demandee)) return new NextResponse("Console inconnue", { status: 400 });
+  if (demandee && !findConsole(demandee)) return new NextResponse(t.api.consoleInconnue, { status: 400 });
   const tout = requete.nextUrl.searchParams.get("tout") === "1";
 
   const lignes = db
@@ -77,7 +64,7 @@ export async function GET(requete: NextRequest) {
 
   const modifie = new Date();
   async function* entrees(): AsyncGenerator<EntreeZip> {
-    yield { nom: "LISEZ-MOI.txt", donnees: Buffer.from(LISEZ_MOI, "utf8"), modifie };
+    yield { nom: t.export.nomDuLisezMoi, donnees: Buffer.from(t.export.lisezMoi, "utf8"), modifie };
 
     for (const { slug: consoleSlug } of CONSOLES) {
       const jeux = lignes.filter((jeu) => jeu.consoleSlug === consoleSlug);

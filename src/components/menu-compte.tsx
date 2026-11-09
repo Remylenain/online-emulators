@@ -6,19 +6,21 @@ import { useEffect, useRef, useState } from "react";
 import { logout } from "@/lib/auth/actions";
 import type { SessionUser } from "@/lib/auth/session";
 import { Avatar } from "./avatar";
+import { ChoixLangue, useT } from "./langue";
 
 /**
  * Le menu de la personne connectée, derrière son avatar.
  *
  * Tout ce qui la concerne est rangé là — ses jeux, son compte,
- * l'administration si elle y a droit, la déconnexion — pour que l'en-tête ne
- * s'étale pas, surtout sur un téléphone où ces liens se repliaient sur deux
- * lignes.
+ * l'administration si elle y a droit, la langue de l'interface, la
+ * déconnexion — pour que l'en-tête ne s'étale pas, surtout sur un téléphone
+ * où ces liens se repliaient sur deux lignes.
  */
 export function MenuCompte({ user }: { user: SessionUser }) {
   const [ouvert, setOuvert] = useState(false);
   const conteneur = useRef<HTMLDivElement>(null);
   const chemin = usePathname();
+  const t = useT();
 
   // Fermé dès qu'on navigue, et dès qu'on clique ailleurs.
   useEffect(() => setOuvert(false), [chemin]);
@@ -64,21 +66,27 @@ export function MenuCompte({ user }: { user: SessionUser }) {
         >
           <span className="truncate px-3 py-1.5 text-xs text-ink-700">{user.pseudo}</span>
           <Link href="/mes-jeux" role="menuitem" className={entree}>
-            Mes jeux
+            {t.site.navigation.mesJeux}
           </Link>
           <Link href="/compte" role="menuitem" className={entree}>
-            Mon compte
+            {t.site.menu.monCompte}
           </Link>
           {/* Visible aux seuls administrateurs — la page vérifie de son côté,
               l'affichage n'est pas un contrôle d'accès. */}
           {user.role === "ADMIN" && (
             <Link href="/admin" role="menuitem" className={entree}>
-              Administration
+              {t.site.menu.administration}
             </Link>
           )}
+          {/* La langue de l'interface : une ligne discrète, sous les liens. Le
+              sélecteur porte lui-même son nom pour les lecteurs d'écran. */}
+          <div className="flex items-center justify-between gap-3 border-t border-ink-800 py-1.5 pr-1.5 pl-3 text-xs text-ink-400">
+            <span aria-hidden>{t.commun.langue}</span>
+            <ChoixLangue />
+          </div>
           <form action={logout} className="border-t border-ink-800 pt-1">
             <button type="submit" role="menuitem" className={`w-full text-left ${entree} text-ink-400`}>
-              Déconnexion
+              {t.site.menu.deconnexion}
             </button>
           </form>
         </div>

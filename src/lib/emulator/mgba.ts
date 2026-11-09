@@ -89,7 +89,22 @@ function menageAncienneConvention(
   }
 }
 
+/**
+ * Les messages d'erreur de ce cœur que le lecteur montre au joueur. Le
+ * dictionnaire en donne la traduction (`t.link.coeur`) ; sans rien passer,
+ * c'est le français.
+ */
+export type LibellesMgba = {
+  /** Le cœur n'a pas voulu de la ROM. Il ne dit pas pourquoi : pas de code, `null`. */
+  romRefusee: (code: number | null) => string;
+};
+
+const LIBELLES_FR: LibellesMgba = {
+  romRefusee: () => "Le cœur a refusé cette ROM.",
+};
+
 export class EmulateurMgba implements Emulateur {
+  private readonly libelles: LibellesMgba;
   private module: ModuleMgba | null = null;
   private cheminSauvegarde = "";
   /** Nom de la ROM sans extension : le cœur nomme ses fichiers d'après lui. */
@@ -103,6 +118,10 @@ export class EmulateurMgba implements Emulateur {
     // même page. Relier deux joueurs distants reste à écrire.
     cableLink: false,
   };
+
+  constructor(libelles: LibellesMgba = LIBELLES_FR) {
+    this.libelles = libelles;
+  }
 
   async demarrer(options: OptionsDemarrage): Promise<void> {
     // Chemin passé par une variable, et non en littéral : il désigne une URL
@@ -170,7 +189,7 @@ export class EmulateurMgba implements Emulateur {
     });
 
     if (!module.loadGame(cheminRom, this.cheminSauvegarde)) {
-      throw new Error("Le cœur a refusé cette ROM.");
+      throw new Error(this.libelles.romRefusee(null));
     }
 
     /**

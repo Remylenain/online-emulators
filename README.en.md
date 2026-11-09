@@ -28,9 +28,10 @@ only what you have the right to share.
 - **Discord Activity** (optional, experimental): a game from the site
   playable inside Discord, emulated in the player's browser, with its save
   kept per Discord user. See [docs/discord](docs/discord/README.en.md).
-- **French and English**: the showcase (*vitrine*) and the player follow the
-  visitor's language, or that of the game being launched. The rest of the
-  site is in French for now. See [docs/langues.en.md](docs/langues.en.md).
+- **French and English**: the whole site, administration included. Each
+  visitor sees it in their browser's language or in the one they choose; the
+  administrator sets the default language. See
+  [docs/langues.en.md](docs/langues.en.md).
 - **Showcase** (optional): a few games opened to visitors without an
   account, who play as guests — their progress stays in their browser, and
   the server keeps nothing of it. See [docs/vitrine.en.md](docs/vitrine.en.md).

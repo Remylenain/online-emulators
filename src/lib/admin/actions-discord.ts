@@ -23,6 +23,7 @@ import {
   LONGUEUR_MAX_CONTACT,
   LONGUEUR_MAX_EDITEUR,
 } from "@/lib/discord/limites";
+import { textes } from "@/lib/i18n/serveur";
 import type { Resultat } from "./actions";
 
 /**
@@ -38,6 +39,7 @@ const FORME_IDENTIFIANT = /^\d{17,20}$/;
 
 export async function enregistrerApplication(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
   const id = String(donnees.get("id") ?? "").trim();
   const name = String(donnees.get("name") ?? "").trim();
   const host = hoteNormalise(String(donnees.get("host") ?? ""));
@@ -51,47 +53,47 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
   const publisher = String(donnees.get("publisher") ?? "").trim().replace(/\s+/g, " ");
   const contact = String(donnees.get("contact") ?? "").trim().replace(/\s+/g, " ");
 
-  if (name.length < 1 || name.length > 60) return { ok: false, message: "Le nom fait entre 1 et 60 caractères." };
+  if (name.length < 1 || name.length > 60) return { ok: false, message: t.nomInvalide };
   if (welcome.length > LONGUEUR_MAX_ACCUEIL) {
-    return { ok: false, message: `Le mot d'accueil fait au plus ${LONGUEUR_MAX_ACCUEIL} caractères.` };
+    return { ok: false, message: t.accueilTropLong(LONGUEUR_MAX_ACCUEIL) };
   }
   if (publisher.length > LONGUEUR_MAX_EDITEUR) {
-    return { ok: false, message: `« Proposée par » fait au plus ${LONGUEUR_MAX_EDITEUR} caractères.` };
+    return { ok: false, message: t.editeurTropLong(LONGUEUR_MAX_EDITEUR) };
   }
   if (contact.length > LONGUEUR_MAX_CONTACT) {
-    return { ok: false, message: `Le contact fait au plus ${LONGUEUR_MAX_CONTACT} caractères.` };
+    return { ok: false, message: t.contactTropLong(LONGUEUR_MAX_CONTACT) };
   }
   if (!FORME_HOTE.test(host)) {
-    return { ok: false, message: "Le nom d'hôte est invalide : lettres, chiffres, tirets et points, sans schéma ni port." };
+    return { ok: false, message: t.hoteInvalide };
   }
   // L'hôte du site lui-même est accepté : l'Activité s'y ajoute sans le
   // réserver (voir `hotesDesActivites`), le site continue d'y répondre.
   if (!FORME_IDENTIFIANT.test(clientId)) {
-    return { ok: false, message: "L'identifiant d'application est un nombre de 17 à 20 chiffres (Application ID)." };
+    return { ok: false, message: t.identifiantInvalide };
   }
   if (guildId && !FORME_IDENTIFIANT.test(guildId)) {
-    return { ok: false, message: "L'identifiant du serveur est un nombre de 17 à 20 chiffres." };
+    return { ok: false, message: t.serveurInvalide };
   }
   if ([clientSecret, botToken].some((valeur) => valeur.length > 200)) {
-    return { ok: false, message: "Une des valeurs est trop longue." };
+    return { ok: false, message: t.valeurTropLongue };
   }
   const jeu = db.select({ id: games.id }).from(games).where(eq(games.id, gameId)).get();
-  if (!jeu) return { ok: false, message: "Choisis le jeu que cette Activité sert." };
+  if (!jeu) return { ok: false, message: t.jeuManquant };
   if (hoteDejaPris(host, id || undefined)) {
-    return { ok: false, message: "Une autre application a déjà ce nom d'hôte." };
+    return { ok: false, message: t.hoteDejaPris };
   }
 
   if (!id) {
-    if (!clientSecret) return { ok: false, message: "Le Client Secret est obligatoire (onglet OAuth2 du portail)." };
+    if (!clientSecret) return { ok: false, message: t.secretObligatoire };
     if (guildId && !botToken) {
-      return { ok: false, message: "Le verrou sur un serveur demande le jeton de bot (onglet Bot du portail)." };
+      return { ok: false, message: t.jetonObligatoire };
     }
     creerApplication({ name, host, clientId, clientSecret, guildId, botToken, gameId, welcome, publisher, contact });
   } else {
     const existante = configParId(id);
-    if (!existante) return { ok: false, message: "Cette application n'existe plus." };
+    if (!existante) return { ok: false, message: t.applicationDisparue };
     if (guildId && !botToken && !existante.botToken) {
-      return { ok: false, message: "Le verrou sur un serveur demande le jeton de bot (onglet Bot du portail)." };
+      return { ok: false, message: t.jetonObligatoire };
     }
     modifierApplication(id, {
       name,
@@ -108,48 +110,54 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
     });
   }
   revalidatePath("/admin/discord");
-  if (id) return { ok: true, message: "Application modifiée." };
+  if (id) return { ok: true, message: t.modifiee };
   return {
     ok: true,
-    message:
-      host === hoteDuSite()
-        ? "Application enregistrée sur l'hôte du site. Reste à régler le portail Discord."
-        : "Application enregistrée. Reste à régler le portail Discord et le nom d'hôte.",
+    message: host === hoteDuSite() ? t.enregistreeSurLeSite : t.enregistree,
   };
 }
 
 export async function supprimerApplicationDiscord(id: string): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
   supprimerApplication(id);
   revalidatePath("/admin/discord");
-  return { ok: true, message: "Application supprimée. Les comptes nés de cette Activité restent." };
+  return { ok: true, message: t.supprimee };
 }
 
 /** Une astuce de plus : mot du jour, conseil, rappel. L'accueil en tire une au hasard. */
 export async function ajouterAstuceDiscord(appId: string, texte: string): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
   const propre = texte.trim().replace(/\s+/g, " ");
-  if (!propre) return { ok: false, message: "L'astuce est vide." };
+  if (!propre) return { ok: false, message: t.astuceVide };
   if (propre.length > LONGUEUR_MAX_ASTUCE) {
-    return { ok: false, message: `Une astuce fait au plus ${LONGUEUR_MAX_ASTUCE} caractères.` };
+    return { ok: false, message: t.astuceTropLongue(LONGUEUR_MAX_ASTUCE) };
   }
-  if (!configParId(appId)) return { ok: false, message: "Cette application n'existe plus." };
+  if (!configParId(appId)) return { ok: false, message: t.applicationDisparue };
   ajouterAstuce(appId, propre);
   revalidatePath("/admin/discord");
-  return { ok: true, message: "Astuce ajoutée." };
+  return { ok: true, message: t.astuceAjoutee };
 }
 
 export async function supprimerAstuceDiscord(id: string): Promise<Resultat> {
   await requireAdmin();
-  if (!supprimerAstuce(id)) return { ok: false, message: "Cette astuce n'existe plus." };
+  const t = (await textes()).adminDiscord.actions;
+  if (!supprimerAstuce(id)) return { ok: false, message: t.astuceDisparue };
   revalidatePath("/admin/discord");
-  return { ok: true, message: "Astuce supprimée." };
+  return { ok: true, message: t.astuceSupprimee };
 }
 
-/** Les réglages enregistrés, confrontés à Discord. */
+/**
+ * Les réglages enregistrés, confrontés à Discord.
+ *
+ * Le détail de chaque verdict est écrit par `src/lib/discord/essai.ts`, avec
+ * les textes de `adminDiscord.essai.verdicts` : ceux de la langue de
+ * l'administrateur qui lance l'essai.
+ */
 export async function essayerApplicationDiscord(id: string): Promise<EssaiApplication | null> {
   await requireAdmin();
   const application = configParId(id);
   if (!application) return null;
-  return essayerApplication(application);
+  return essayerApplication(application, (await textes()).adminDiscord.essai.verdicts);
 }

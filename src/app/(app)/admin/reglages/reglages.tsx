@@ -14,8 +14,9 @@ import {
   type Resultat,
 } from "@/lib/admin/actions";
 import { definirLaVitrine } from "@/lib/admin/actions-vitrine";
+import { Accentue, useLangue, useT } from "@/components/langue";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
-import { LANGUES, NOM_DES_LANGUES, type Langue } from "@/lib/i18n/langues";
+import { LANGUES, NOM_DES_LANGUES, REGION, type Langue } from "@/lib/i18n/langues";
 import type { EtatCapacite } from "@/lib/link/capacite";
 import { ENTREES_MAX, LIBELLE_MAX, type Vitrine as ReglageVitrine } from "@/lib/vitrine-limites";
 
@@ -47,6 +48,7 @@ export function Reglages({
   adresseAdmin: string;
   scraper: ReglageScraper;
 }) {
+  const t = useT().adminReglages;
   const [retour, action, enCours] = useActionState<Resultat | null, FormData>(
     definirNomDuSite,
     null,
@@ -54,29 +56,21 @@ export function Reglages({
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold text-ink-50">Réglages</h2>
+      <h2 className="text-lg font-semibold text-ink-50">{t.titre}</h2>
       <Panel className="max-w-xl">
         <form action={action} className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold text-ink-200">Identité du site</h3>
+          <h3 className="text-sm font-semibold text-ink-200">{t.identite.titre}</h3>
           {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
-          <Field label="Nom du site" htmlFor="nom" hint="Affiché dans l'en-tête, les onglets et sur la page de connexion.">
+          <Field label={t.identite.nom} htmlFor="nom" hint={t.identite.aideNom}>
             <Input id="nom" name="nom" defaultValue={nom} required maxLength={40} />
           </Field>
-          <Field label="Phrase d'accueil" htmlFor="description" hint="Sous le nom, sur la page de connexion.">
+          <Field label={t.identite.phraseDAccueil} htmlFor="description" hint={t.identite.aidePhraseDAccueil}>
             <Input id="description" name="description" defaultValue={description} maxLength={120} />
           </Field>
-          <Field
-            label="Nom de l'application installée"
-            htmlFor="application"
-            hint="Sous l'icône, quand le site est ajouté à l'écran d'accueil d'un téléphone. Vide : le nom du site. Un téléphone n'affiche qu'une douzaine de caractères."
-          >
+          <Field label={t.identite.application} htmlFor="application" hint={t.identite.aideApplication}>
             <Input id="application" name="application" defaultValue={application} maxLength={40} placeholder={nom} />
           </Field>
-          <Field
-            label="Langue par défaut"
-            htmlFor="langue"
-            hint="Chaque visiteur voit le site dans la langue de son navigateur, ou dans celle qu'il choisit. Celle-ci sert pour les autres. L'administration reste en français."
-          >
+          <Field label={t.identite.langue} htmlFor="langue" hint={t.identite.aideLangue}>
             <select
               id="langue"
               name="langue"
@@ -91,7 +85,7 @@ export function Reglages({
             </select>
           </Field>
           <Button type="submit" disabled={enCours} className="self-start">
-            {enCours ? "Enregistrement…" : "Enregistrer"}
+            {enCours ? t.enregistrement : t.identite.enregistrer}
           </Button>
         </form>
       </Panel>
@@ -112,56 +106,56 @@ export type JeuDeVitrine = { id: string; titre: string; console: string; publie:
  * partie reste dans leur navigateur, le serveur n'en garde rien.
  */
 function Vitrine({ vitrine, jeux }: { vitrine: ReglageVitrine; jeux: JeuDeVitrine[] }) {
+  const { enregistrement, vitrine: t } = useT().adminReglages;
   const [retour, action, enCours] = useActionState<Resultat | null, FormData>(definirLaVitrine, null);
   const lignes = Array.from({ length: ENTREES_MAX }, (_, i) => vitrine.entrees[i] ?? { libelle: "", jeu: "" });
 
   return (
     <Panel className="max-w-xl">
       <form action={action} className="flex flex-col gap-4">
-        <h3 className="text-sm font-semibold text-ink-200">Vitrine : jouer sans compte</h3>
+        <h3 className="text-sm font-semibold text-ink-200">{t.titre}</h3>
         {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
-        <p className="text-sm text-ink-400">
-          Ouverte, l&apos;accueil du site montre à un visiteur sans compte un bouton par jeu choisi
-          ci-dessous, et rien d&apos;autre. Il joue en invité : sa sauvegarde, ses points de reprise et ses
-          réglages restent dans son navigateur. Le reste du site demande toujours un compte.
-        </p>
+        <p className="text-sm text-ink-400">{t.explication}</p>
         <label className="flex items-center gap-2 text-sm text-ink-200">
           <input type="checkbox" name="active" defaultChecked={vitrine.active} className="size-4 accent-accent-500" />
-          Ouvrir ces jeux aux visiteurs sans compte
+          {t.ouvrir}
         </label>
 
         {lignes.map((ligne, i) => (
           <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Field label={`Bouton ${i + 1}`} htmlFor={`libelle-${i}`} hint={i === 0 ? "Vide : le titre du jeu." : undefined}>
+            <Field label={t.bouton(i + 1)} htmlFor={`libelle-${i}`} hint={i === 0 ? t.aideBouton : undefined}>
               <Input
                 id={`libelle-${i}`}
                 name={`libelle-${i}`}
                 defaultValue={ligne.libelle}
                 maxLength={LIBELLE_MAX}
+                // Des exemples de ce que l'administrateur écrira, un par langue : ils ne se traduisent pas.
                 placeholder={i === 0 ? "Jouer en français" : i === 1 ? "Play in English" : ""}
               />
             </Field>
-            <Field label="Jeu lancé" htmlFor={`jeu-${i}`}>
+            <Field label={t.jeuLance} htmlFor={`jeu-${i}`}>
               <select
                 id={`jeu-${i}`}
                 name={`jeu-${i}`}
                 defaultValue={ligne.jeu}
                 className="w-full rounded-lg border border-ink-700 bg-ink-950 px-3 py-2 text-sm text-ink-50"
               >
-                <option value="">Aucun</option>
-                {jeux.map((jeu) => (
-                  <option key={jeu.id} value={jeu.id}>
-                    {jeu.console.toUpperCase()} — {jeu.titre}
-                    {jeu.publie ? "" : " (dépublié)"}
-                  </option>
-                ))}
+                <option value="">{t.aucun}</option>
+                {jeux.map((jeu) => {
+                  const nom = `${jeu.console.toUpperCase()} — ${jeu.titre}`;
+                  return (
+                    <option key={jeu.id} value={jeu.id}>
+                      {jeu.publie ? nom : t.depublie(nom)}
+                    </option>
+                  );
+                })}
               </select>
             </Field>
           </div>
         ))}
 
         <Button type="submit" disabled={enCours} className="self-start">
-          {enCours ? "Enregistrement…" : "Enregistrer la vitrine"}
+          {enCours ? enregistrement : t.enregistrer}
         </Button>
       </form>
     </Panel>
@@ -185,46 +179,42 @@ function Scraper({ scraper }: { scraper: ReglageScraper }) {
   const [oubli, setOubli] = useState<Resultat | null>(null);
   const [oubliEnCours, demarrer] = useTransition();
   const renseigne = Boolean(scraper.devId || scraper.ssId);
+  const { enregistrement, scraper: t } = useT().adminReglages;
 
   return (
     <Panel className="max-w-xl">
       <form action={action} className="flex flex-col gap-4">
-        <h3 className="text-sm font-semibold text-ink-200">Scraper (ScreenScraper)</h3>
-        <p className="text-xs text-ink-400">
-          Pour remplir les fiches des jeux officiels depuis screenscraper.fr : description en
-          français, année, jaquette. Le bouton est dans Bibliothèque. L&apos;API demande deux paires
-          d&apos;identifiants : celle du <strong className="text-ink-200">membre</strong> (ton compte),
-          et celle du <strong className="text-ink-200">logiciel</strong>, dite « développeur », que
-          ScreenScraper délivre sur demande depuis son forum. Sans la seconde, seules les jaquettes
-          de libretro sont cherchées — elles couvrent déjà la plupart des jeux.
+        <h3 className="text-sm font-semibold text-ink-200">{t.titre}</h3>
+        <p className="text-xs text-ink-400 [&_strong]:text-ink-200">
+          <Accentue texte={t.explication} />
         </p>
         {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
         {oubli && <Alert tone={oubli.ok ? "success" : "error"}>{oubli.message}</Alert>}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Identifiant du compte" htmlFor="ssId">
+          <Field label={t.identifiantDuCompte} htmlFor="ssId">
             <Input id="ssId" name="ssId" defaultValue={scraper.ssId} autoComplete="off" />
           </Field>
           <Field
-            label="Mot de passe du compte"
+            label={t.motDePasseDuCompte}
             htmlFor="ssPassword"
-            hint={scraper.ssPasswordDefini ? "Enregistré. Vide : inchangé." : "Aucun enregistré."}
+            hint={scraper.ssPasswordDefini ? t.motDePasseEnregistre : t.aucunMotDePasse}
           >
             <Input id="ssPassword" name="ssPassword" type="password" autoComplete="new-password" placeholder={scraper.ssPasswordDefini ? "••••••••" : ""} />
           </Field>
-          <Field label="Identifiant développeur" htmlFor="devId">
+          <Field label={t.identifiantDeveloppeur} htmlFor="devId">
             <Input id="devId" name="devId" defaultValue={scraper.devId} autoComplete="off" />
           </Field>
           <Field
-            label="Mot de passe développeur"
+            label={t.motDePasseDeveloppeur}
             htmlFor="devPassword"
-            hint={scraper.devPasswordDefini ? "Enregistré. Vide : inchangé." : "Aucun enregistré."}
+            hint={scraper.devPasswordDefini ? t.motDePasseEnregistre : t.aucunMotDePasse}
           >
             <Input id="devPassword" name="devPassword" type="password" autoComplete="new-password" placeholder={scraper.devPasswordDefini ? "••••••••" : ""} />
           </Field>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" disabled={enCours}>
-            {enCours ? "Enregistrement…" : "Enregistrer le compte"}
+            {enCours ? enregistrement : t.enregistrer}
           </Button>
           {renseigne && (
             <button
@@ -233,7 +223,7 @@ function Scraper({ scraper }: { scraper: ReglageScraper }) {
               onClick={() => demarrer(async () => setOubli(await oublierScraper()))}
               className="text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
             >
-              Effacer le compte
+              {t.effacer}
             </button>
           )}
         </div>
@@ -255,16 +245,10 @@ export type ReglageMail = {
 
 export type ReglageCaptcha = { siteKey: string; secretDefini: boolean; source: Source };
 
-function Provenance({ source, quoi }: { source: Source; quoi: string }) {
-  return (
-    <p className="text-xs text-ink-400">
-      {source === "reglages"
-        ? `${quoi} réglé ici. Il l'emporte sur la configuration du serveur.`
-        : source === "serveur"
-          ? `${quoi} vient de la configuration du serveur. Enregistrer ce formulaire le remplace, sans redémarrage.`
-          : `${quoi} n'est pas configuré.`}
-    </p>
-  );
+/** D'où vient le réglage en vigueur : d'ici, de la configuration du serveur, ou de nulle part. */
+function Provenance({ source, quoi }: { source: Source; quoi: "mail" | "captcha" }) {
+  const t = useT().adminReglages;
+  return <p className="text-xs text-ink-400">{t[quoi].provenance[source]}</p>;
 }
 
 /**
@@ -277,39 +261,40 @@ function Mail({ mail, adresseAdmin }: { mail: ReglageMail; adresseAdmin: string 
   const [essai, actionEssai, essaiEnCours] = useActionState<Resultat | null, FormData>(envoyerMailDeTest, null);
   const [oubli, setOubli] = useState<Resultat | null>(null);
   const [oubliEnCours, demarrer] = useTransition();
+  const { enregistrement, revenirAuServeur, mail: t } = useT().adminReglages;
 
   return (
     <Panel className="max-w-xl">
       <div className="flex flex-col gap-4">
         <form action={action} className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold text-ink-200">Envoi d&apos;e-mails</h3>
-          <Provenance source={mail.source} quoi="Le relais" />
+          <h3 className="text-sm font-semibold text-ink-200">{t.titre}</h3>
+          <Provenance source={mail.source} quoi="mail" />
           {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
           {oubli && <Alert tone={oubli.ok ? "success" : "error"}>{oubli.message}</Alert>}
           <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
-            <Field label="Hôte SMTP" htmlFor="host">
-              <Input id="host" name="host" defaultValue={mail.host} required placeholder="smtp-relay.exemple.com" autoComplete="off" />
+            <Field label={t.hote} htmlFor="host">
+              <Input id="host" name="host" defaultValue={mail.host} required placeholder={t.exempleHote} autoComplete="off" />
             </Field>
-            <Field label="Port" htmlFor="port">
+            <Field label={t.port} htmlFor="port">
               <Input id="port" name="port" type="number" min={1} max={65535} defaultValue={mail.port} required />
             </Field>
           </div>
-          <Field label="Identifiant" htmlFor="user" hint="Celui que donne le relais, pas forcément l'adresse du compte.">
+          <Field label={t.identifiant} htmlFor="user" hint={t.aideIdentifiant}>
             <Input id="user" name="user" defaultValue={mail.user} autoComplete="off" />
           </Field>
           <Field
-            label="Mot de passe ou clé SMTP"
+            label={t.motDePasse}
             htmlFor="password"
-            hint={mail.motDePasseDefini ? "Un mot de passe est enregistré. Laisse vide pour le garder." : "Aucun mot de passe enregistré."}
+            hint={mail.motDePasseDefini ? t.motDePasseEnregistre : t.aucunMotDePasse}
           >
             <Input id="password" name="password" type="password" autoComplete="new-password" placeholder={mail.motDePasseDefini ? "••••••••" : ""} />
           </Field>
-          <Field label="Expéditeur" htmlFor="from" hint="Tel qu'il apparaît dans les messages. L'adresse doit être sur un domaine que le relais accepte.">
-            <Input id="from" name="from" defaultValue={mail.from} placeholder="Mon site <jeux@exemple.com>" autoComplete="off" />
+          <Field label={t.expediteur} htmlFor="from" hint={t.aideExpediteur}>
+            <Input id="from" name="from" defaultValue={mail.from} placeholder={t.exempleExpediteur} autoComplete="off" />
           </Field>
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit" disabled={enCours}>
-              {enCours ? "Enregistrement…" : "Enregistrer le relais"}
+              {enCours ? enregistrement : t.enregistrer}
             </Button>
             {mail.source === "reglages" && (
               <button
@@ -318,7 +303,7 @@ function Mail({ mail, adresseAdmin }: { mail: ReglageMail; adresseAdmin: string 
                 onClick={() => demarrer(async () => setOubli(await oublierMail()))}
                 className="text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
               >
-                Revenir à la configuration du serveur
+                {revenirAuServeur}
               </button>
             )}
           </div>
@@ -326,11 +311,11 @@ function Mail({ mail, adresseAdmin }: { mail: ReglageMail; adresseAdmin: string 
 
         <form action={actionEssai} className="flex flex-col gap-3 border-t border-ink-800 pt-4">
           {essai && <Alert tone={essai.ok ? "success" : "error"}>{essai.message}</Alert>}
-          <Field label="Envoyer un e-mail de test à" htmlFor="destinataire">
+          <Field label={t.destinataireDuTest} htmlFor="destinataire">
             <Input id="destinataire" name="destinataire" type="email" defaultValue={adresseAdmin} required />
           </Field>
           <Button type="submit" variant="ghost" disabled={essaiEnCours || mail.source === "aucune"} className="self-start">
-            {essaiEnCours ? "Envoi…" : "Envoyer le test"}
+            {essaiEnCours ? t.envoi : t.envoyerLeTest}
           </Button>
         </form>
       </div>
@@ -343,31 +328,29 @@ function Captcha({ captcha }: { captcha: ReglageCaptcha }) {
   const [retour, action, enCours] = useActionState<Resultat | null, FormData>(definirCaptcha, null);
   const [oubli, setOubli] = useState<Resultat | null>(null);
   const [oubliEnCours, demarrer] = useTransition();
+  const { enregistrement, revenirAuServeur, captcha: t } = useT().adminReglages;
 
   return (
     <Panel className="max-w-xl">
       <form action={action} className="flex flex-col gap-4">
-        <h3 className="text-sm font-semibold text-ink-200">Captcha (Cloudflare Turnstile)</h3>
-        <Provenance source={captcha.source} quoi="Le captcha" />
-        <p className="text-xs text-ink-400">
-          Il protège « Mot de passe oublié » et l&apos;inscription ouverte. Les deux clés se créent
-          gratuitement dans le tableau de bord Cloudflare, rubrique Turnstile.
-        </p>
+        <h3 className="text-sm font-semibold text-ink-200">{t.titre}</h3>
+        <Provenance source={captcha.source} quoi="captcha" />
+        <p className="text-xs text-ink-400">{t.explication}</p>
         {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
         {oubli && <Alert tone={oubli.ok ? "success" : "error"}>{oubli.message}</Alert>}
-        <Field label="Clé du site" htmlFor="siteKey" hint="Publique : elle part dans la page.">
+        <Field label={t.cleDuSite} htmlFor="siteKey" hint={t.aideCleDuSite}>
           <Input id="siteKey" name="siteKey" defaultValue={captcha.siteKey} required autoComplete="off" />
         </Field>
         <Field
-          label="Clé secrète"
+          label={t.cleSecrete}
           htmlFor="secretKey"
-          hint={captcha.secretDefini ? "Une clé secrète est enregistrée. Laisse vide pour la garder." : "Aucune clé secrète enregistrée."}
+          hint={captcha.secretDefini ? t.cleSecreteEnregistree : t.aucuneCleSecrete}
         >
           <Input id="secretKey" name="secretKey" type="password" autoComplete="new-password" placeholder={captcha.secretDefini ? "••••••••" : ""} />
         </Field>
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" disabled={enCours}>
-            {enCours ? "Enregistrement…" : "Enregistrer les clés"}
+            {enCours ? enregistrement : t.enregistrer}
           </Button>
           {captcha.source === "reglages" && (
             <button
@@ -376,7 +359,7 @@ function Captcha({ captcha }: { captcha: ReglageCaptcha }) {
               onClick={() => demarrer(async () => setOubli(await oublierCaptcha()))}
               className="text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
             >
-              Revenir à la configuration du serveur
+              {revenirAuServeur}
             </button>
           )}
         </div>
@@ -395,59 +378,62 @@ function CableLink({ capacite }: { capacite: EtatCapacite }) {
     null,
   );
   const mesure = capacite.charges.gb !== null || capacite.charges.gba !== null;
+  const { enregistrement, cableLink: t } = useT().adminReglages;
+  const langue = useLangue();
+  /** Un nombre de cœurs, écrit dans la langue : « 0,25 » en français, « 0.25 » en anglais. */
+  const decimales = (nombre: number, chiffres: number) =>
+    nombre.toLocaleString(REGION[langue], { minimumFractionDigits: chiffres, maximumFractionDigits: chiffres });
 
   return (
     <Panel className="max-w-xl">
       <form action={action} className="flex flex-col gap-4">
-        <h3 className="text-sm font-semibold text-ink-200">Câble link</h3>
+        <h3 className="text-sm font-semibold text-ink-200">{t.titre}</h3>
         {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
 
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-ink-400">Processeur</dt>
+          <dt className="text-ink-400">{t.processeur}</dt>
+          <dd className="text-ink-50">{t.coeurs(capacite.coeurs, decimales(capacite.budget, 1), capacite.marge)}</dd>
+          <dt className="text-ink-400">{t.salonGb}</dt>
           <dd className="text-ink-50">
-            {capacite.coeurs} cœur{capacite.coeurs > 1 ? "s" : ""}, dont {capacite.budget.toFixed(1)} pour le câble link
-            à {capacite.marge} %
+            {capacite.charges.gb === null ? t.pasMesure : t.cout(decimales(capacite.charges.gb, 2))}
           </dd>
-          <dt className="text-ink-400">Un salon GB / GBC</dt>
+          <dt className="text-ink-400">{t.salonGba}</dt>
           <dd className="text-ink-50">
-            {capacite.charges.gb === null ? "pas mesuré" : `${capacite.charges.gb.toFixed(2)} cœur`}
+            {capacite.charges.gba === null ? t.pasMesure : t.cout(decimales(capacite.charges.gba, 2))}
           </dd>
-          <dt className="text-ink-400">Un salon GBA</dt>
-          <dd className="text-ink-50">
-            {capacite.charges.gba === null ? "pas mesuré" : `${capacite.charges.gba.toFixed(2)} cœur`}
-          </dd>
-          <dt className="text-ink-400">En ce moment</dt>
+          <dt className="text-ink-400">{t.enCeMoment}</dt>
           <dd className="text-ink-50">
             {capacite.salonsOuverts === 0
-              ? "aucun salon ouvert"
-              : `${capacite.salonsOuverts} salon${capacite.salonsOuverts > 1 ? "s" : ""} ouvert${capacite.salonsOuverts > 1 ? "s" : ""}, ${capacite.enCours.toFixed(2)} cœur pris`}
-            {mesure && (
-              <>
-                {" "}
-                — encore {capacite.libres.gb ?? "∞"} salon{(capacite.libres.gb ?? 2) > 1 ? "s" : ""} GB / GBC ou{" "}
-                {capacite.libres.gba ?? "∞"} GBA
-              </>
-            )}
+              ? t.aucunSalon
+              : t.salonsOuverts(capacite.salonsOuverts, decimales(capacite.enCours, 2))}
+            {mesure && ` — ${t.encore(capacite.libres.gb, capacite.libres.gba)}`}
           </dd>
         </dl>
 
         {!mesure && (
           <Alert tone="info">
-            Aucune limite pour l&apos;instant. Pour en poser une, lance sur le serveur{" "}
-            <code className="font-mono text-xs">npm run link:capacite -- --appliquer</code> : il mesure ce
-            que coûte un salon de chaque console et l&apos;enregistre ici.
+            {/* La commande, entre accents graves dans le dictionnaire, s'affiche comme du code. */}
+            {t.sansLimite.split("`").map((morceau, rang) =>
+              rang % 2 === 1 ? (
+                <code key={rang} className="font-mono text-xs">
+                  {morceau}
+                </code>
+              ) : (
+                <span key={rang}>{morceau}</span>
+              ),
+            )}
           </Alert>
         )}
 
         <Field
-          label="Part du processeur réservée au câble link"
+          label={t.part}
           htmlFor="marge"
-          hint="En pour cent. Le reste sert au site lui-même. 60 à 70 % laisse de quoi voir venir."
+          hint={t.aidePart}
         >
           <Input id="marge" name="marge" type="number" min={10} max={100} step={1} defaultValue={capacite.marge} className="w-28" />
         </Field>
         <Button type="submit" disabled={enCours} className="self-start">
-          {enCours ? "Enregistrement…" : "Enregistrer la marge"}
+          {enCours ? enregistrement : t.enregistrer}
         </Button>
       </form>
     </Panel>

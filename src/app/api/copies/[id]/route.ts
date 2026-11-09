@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { games } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { nomDeFichier } from "@/lib/format";
 import { lireCopie } from "@/lib/saves";
 
@@ -14,11 +15,11 @@ import { lireCopie } from "@/lib/saves";
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const { id } = await context.params;
   const copie = await lireCopie(viewer.id, id);
-  if (!copie) return new NextResponse("Introuvable", { status: 404 });
+  if (!copie) return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
 
   const jeu = await db
     .select({ title: games.title })

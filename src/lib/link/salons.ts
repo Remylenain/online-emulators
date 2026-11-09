@@ -11,10 +11,21 @@ import { paths } from "@/lib/paths";
 import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
 import { findConsole } from "@/lib/consoles";
 import type { Compte } from "./auth";
-import { refusCapacite } from "./capacite";
+import { motifRefusCapacite } from "./capacite";
 import { peutOuvrir, quitterLaFile } from "./file";
 import type { DescriptionCoeur } from "./moteurs";
-import { ENTETE_AUDIO, ENTETE_IMAGE, TRAME, type MessageServeur } from "./protocole";
+import {
+  ENTETE_AUDIO,
+  ENTETE_IMAGE,
+  TRAME,
+  type CodeErreur,
+  type CodeFin,
+  type ErreurLink,
+  type Fin,
+  type MessageServeur,
+  type Refus,
+  type Valeurs,
+} from "./protocole";
 import { salonDInstance, salonDuCompte, salons, type Salon } from "./registre";
 
 /**
@@ -130,7 +141,30 @@ function nouveauCode(): string {
   return salons().has(code) ? nouveauCode() : code;
 }
 
-export type Refus = { erreur: string };
+/**
+ * Un refus : le texte français, comme avant, et le code que le navigateur
+ * traduira dans la langue du joueur (voir `protocole.ts`).
+ */
+export type { Refus };
+
+function refus(code: CodeErreur, erreur: string, valeurs?: Valeurs): Refus {
+  return valeurs ? { erreur, code, valeurs } : { erreur, code };
+}
+
+/** Le même refus, tel qu'il se dit sur la WebSocket. */
+function erreurDe(motif: Refus): MessageServeur {
+  return {
+    t: "erreur",
+    message: motif.erreur,
+    ...(motif.code ? { code: motif.code } : {}),
+    ...(motif.valeurs ? { valeurs: motif.valeurs } : {}),
+  };
+}
+
+/** Pourquoi une session se termine : le texte français, pour le journal et en repli, et son code. */
+function fin(code: CodeFin, raison: string, valeurs?: Valeurs): Fin {
+  return valeurs ? { raison, code, valeurs } : { raison, code };
+}
 
 export async function creerSalon(
   jeuId: string,
@@ -146,7 +180,7 @@ export async function creerSalon(
     if (ouvert) return ouvert;
   }
   const deja = salonDuCompte(compte.id);
-  if (deja) return { erreur: `Tu es déjà dans le salon ${deja.id}.` };
+  if (deja) return refus("deja-dans-le-salon", `Tu es déjà dans le salon ${deja.id}.`, { salon: deja.id });
 
   const jeu = await db
     .select({
@@ -159,16 +193,18 @@ export async function creerSalon(
     .from(games)
     .where(and(eq(games.id, jeuId), conditionAcces(compte)))
     .get();
-  if (!jeu) return { erreur: "Jeu introuvable." };
-  if (!COEURS[jeu.consoleSlug]) return { erreur: "Le câble link n'est pas encore disponible pour cette console." };
-  const complet = refusCapacite(jeu.consoleSlug);
+  if (!jeu) return refus("jeu-introuvable", "Jeu introuvable.");
+  if (!COEURS[jeu.consoleSlug]) {
+    return refus("console-sans-link", "Le câble link n'est pas encore disponible pour cette console.");
+  }
+  const complet = motifRefusCapacite(jeu.consoleSlug);
   if (complet) {
     console.log(`[link] salon refusé à ${compte.pseudo} sur ${jeu.titre} : serveur au complet`);
-    return { erreur: complet };
+    return complet;
   }
   // Dans Discord, les instances qui attendent passent avant.
   if (instance && !peutOuvrir(instance, jeu.consoleSlug)) {
-    return { erreur: "D'autres salons attendent avant le tien." };
+    return refus("file-d-attente", "D'autres salons attendent avant le tien.");
   }
 
   const salon: Salon = {
@@ -195,11 +231,11 @@ export async function creerSalon(
 async function placer(salon: Salon, compte: Compte): Promise<0 | 1 | Refus> {
   const index = salon.places.findIndex((place) => place?.userId === compte.id);
   if (index !== -1) return index as 0 | 1;
-  if (salon.etat !== "attente") return { erreur: "Ce salon est déjà complet." };
+  if (salon.etat !== "attente") return refus("salon-complet", "Ce salon est déjà complet.");
   // L'invité doit lui aussi avoir accès au jeu : un compte restreint n'entre
   // pas dans un salon sur un jeu qu'il ne voit pas.
-  if (!(await jeuAccessible(compte, salon.jeu.id))) return { erreur: "Jeu introuvable." };
-  if (salonDuCompte(compte.id)) return { erreur: "Tu es déjà dans un autre salon." };
+  if (!(await jeuAccessible(compte, salon.jeu.id))) return refus("jeu-introuvable", "Jeu introuvable.");
+  if (salonDuCompte(compte.id)) return refus("deja-dans-un-autre-salon", "Tu es déjà dans un autre salon.");
   salon.places[1] = { userId: compte.id, pseudo: compte.pseudo, connexions: 0, absentDepuis: Date.now() };
   return 1;
 }
@@ -214,7 +250,7 @@ async function placer(salon: Salon, compte: Compte): Promise<0 | 1 | Refus> {
 export async function attacher(salon: Salon, compte: Compte, prise: WebSocket): Promise<void> {
   const place = await placer(salon, compte);
   if (typeof place !== "number") {
-    envoyer(prise, { t: "erreur", message: place.erreur });
+    envoyer(prise, erreurDe(place));
     prise.close();
     return;
   }
@@ -238,7 +274,7 @@ export async function attacher(salon: Salon, compte: Compte, prise: WebSocket): 
       salon.derniereActivite = Date.now();
       etat.ouvrier?.postMessage({ t: "boutons", joueur: place, masque: m.masque & 0xfff });
     } else if (m.t === "terminer") {
-      void terminer(salon, `à la demande de ${compte.pseudo}`);
+      void terminer(salon, fin("demande", `à la demande de ${compte.pseudo}`, { pseudo: compte.pseudo }));
     }
   });
 
@@ -276,14 +312,22 @@ export async function attacher(salon: Salon, compte: Compte, prise: WebSocket): 
  */
 export async function regarder(salon: Salon, compte: Compte, prise: WebSocket): Promise<void> {
   const etat = interne(salon);
-  let refus: string | null = null;
-  if (salon.places.some((place) => place?.userId === compte.id)) refus = "Tu es joueur dans ce salon.";
-  else if (!salon.spectateurs) refus = "L'hôte n'a pas ouvert ce salon aux spectateurs.";
-  else if (salon.etat !== "en-jeu") refus = "La partie n'a pas commencé.";
-  else if (etat.spectateurs.size >= MAX_SPECTATEURS) refus = `Déjà ${MAX_SPECTATEURS} spectateurs : c'est le maximum.`;
-  else if (!(await jeuAccessible(compte, salon.jeu.id))) refus = "Jeu introuvable.";
-  if (refus) {
-    envoyer(prise, { t: "erreur", message: refus });
+  let motif: Refus | null = null;
+  if (salon.places.some((place) => place?.userId === compte.id)) {
+    motif = refus("joueur-du-salon", "Tu es joueur dans ce salon.");
+  } else if (!salon.spectateurs) {
+    motif = refus("spectateurs-fermes", "L'hôte n'a pas ouvert ce salon aux spectateurs.");
+  } else if (salon.etat !== "en-jeu") {
+    motif = refus("partie-pas-commencee", "La partie n'a pas commencé.");
+  } else if (etat.spectateurs.size >= MAX_SPECTATEURS) {
+    motif = refus("spectateurs-au-complet", `Déjà ${MAX_SPECTATEURS} spectateurs : c'est le maximum.`, {
+      max: MAX_SPECTATEURS,
+    });
+  } else if (!(await jeuAccessible(compte, salon.jeu.id))) {
+    motif = refus("jeu-introuvable", "Jeu introuvable.");
+  }
+  if (motif) {
+    envoyer(prise, erreurDe(motif));
     prise.close();
     return;
   }
@@ -362,15 +406,20 @@ async function demarrer(salon: Salon): Promise<void> {
         if (joueur === null || joueur === 0) for (const prise of etat.spectateurs) envoyerBinaire(prise, trame);
         break;
       }
-      case "erreur":
-        diffuser(salon, { t: "erreur", message: message.message as string });
-        void terminer(salon, "le cœur a échoué", false);
+      case "erreur": {
+        // L'ouvrier joint un code aux erreurs qu'il connaît ; les autres n'ont que leur texte.
+        const erreur: ErreurLink = { message: message.message as string };
+        if (typeof message.code === "string") erreur.code = message.code as CodeErreur;
+        if (message.valeurs) erreur.valeurs = message.valeurs as Valeurs;
+        diffuser(salon, { t: "erreur", ...erreur });
+        void terminer(salon, fin("coeur-echoue", "le cœur a échoué"), false);
         break;
+      }
     }
   });
   ouvrier.on("error", (erreur: Error) => {
     diffuser(salon, { t: "erreur", message: erreur.message });
-    void terminer(salon, "le fil de travail a planté", false);
+    void terminer(salon, fin("fil-plante", "le fil de travail a planté"), false);
   });
 
   const sauvegardes: [ArrayBuffer | null, ArrayBuffer | null] = [
@@ -434,10 +483,14 @@ function copie(donnees: Uint8Array): ArrayBuffer {
  *
  * `enregistrer` à faux quand le cœur a échoué : on ne sait pas dans quel état
  * sont ses mémoires, et les sauvegardes d'avant valent mieux qu'un doute.
+ *
+ * `motif` dit pourquoi, aux joueurs comme au journal : un texte français
+ * seul, ou ce texte avec le code qui le fera traduire à l'écran (voir `fin`).
  */
-export function terminer(salon: Salon, raison: string, enregistrer = true): Promise<void> {
+export function terminer(salon: Salon, motif: string | Fin, enregistrer = true): Promise<void> {
   const etat = interne(salon);
   if (etat.cloture) return etat.cloture;
+  const { raison, code, valeurs }: Fin = typeof motif === "string" ? { raison: motif } : motif;
 
   etat.cloture = (async () => {
     salon.etat = "termine";
@@ -476,7 +529,7 @@ export function terminer(salon: Salon, raison: string, enregistrer = true): Prom
     etat.ouvrier = null;
 
     console.log(`[link] ${salon.id} : fin (${raison}), sauvegardes ${ecrit ? "enregistrées" : "laissées telles quelles"}`);
-    diffuser(salon, { t: "termine", enregistre: ecrit, raison });
+    diffuser(salon, { t: "termine", enregistre: ecrit, raison, ...(code ? { code } : {}), ...(valeurs ? { valeurs } : {}) });
     for (const groupe of etat.prises) for (const prise of groupe) prise.close();
     for (const prise of etat.spectateurs) prise.close();
     salons().delete(salon.id);
@@ -493,12 +546,15 @@ export function surveillerAbandons(): void {
       const sansHote = hote.absentDepuis !== null && maintenant - hote.absentDepuis > HOTE_ABSENT_MS;
       const personne = salon.places.every((place) => !place || place.connexions === 0);
       if (sansHote && salon.etat === "en-jeu") {
-        void terminer(salon, `${hote.pseudo} a quitté le salon depuis cinq minutes`);
+        void terminer(
+          salon,
+          fin("hote-absent", `${hote.pseudo} a quitté le salon depuis cinq minutes`, { pseudo: hote.pseudo }),
+        );
       } else if (sansHote && salon.etat === "attente") {
         console.log(`[link] ${salon.id} : fermé, ${hote.pseudo} parti depuis cinq minutes`);
         salons().delete(salon.id);
       } else if (salon.etat === "en-jeu" && personne && maintenant - salon.derniereActivite > ABANDON_MS) {
-        void terminer(salon, "salon abandonné");
+        void terminer(salon, fin("abandon", "salon abandonné"));
       } else if (salon.etat === "attente" && maintenant - salon.creeLe > ATTENTE_MAX_MS) {
         salons().delete(salon.id);
       }

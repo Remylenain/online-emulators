@@ -10,6 +10,7 @@ import {
   type Enregistreur,
   type ResultatTouches,
 } from "./ecriture";
+import { dansLaLangue } from "./langue";
 
 /**
  * Touches et manette du compte connecté : les actions du site, par cookie de
@@ -19,12 +20,12 @@ import {
 
 export async function enregistrerTouches(console_: string, mapping: Record<string, string>): Promise<ResultatTouches> {
   const user = await requireUser();
-  return enregistrerTouchesDe(user.id, console_, mapping);
+  return dansLaLangue(enregistrerTouchesDe(user.id, console_, mapping));
 }
 
 export async function retablirTouches(console_: string): Promise<ResultatTouches> {
   const user = await requireUser();
-  return retablirTouchesDe(user.id, console_);
+  return dansLaLangue(retablirTouchesDe(user.id, console_));
 }
 
 export async function enregistrerManette(
@@ -33,12 +34,12 @@ export async function enregistrerManette(
   cle?: string,
 ): Promise<ResultatTouches> {
   const user = await requireUser();
-  return enregistrerManetteDe(user.id, console_, mapping, cle);
+  return dansLaLangue(enregistrerManetteDe(user.id, console_, mapping, cle));
 }
 
 export async function retablirManette(console_: string, cle?: string): Promise<ResultatTouches> {
   const user = await requireUser();
-  return retablirManetteDe(user.id, console_, cle);
+  return dansLaLangue(retablirManetteDe(user.id, console_, cle));
 }
 
 export type { ButtonName, Enregistreur, ResultatTouches };

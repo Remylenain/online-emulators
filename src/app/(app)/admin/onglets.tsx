@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "@/components/langue";
 
+/** `onglet` : le nom du libellé dans `t.adminGeneral.onglets`. */
 const ONGLETS = [
-  { href: "/admin/tableau", libelle: "Tableau de bord" },
-  { href: "/admin/comptes", libelle: "Comptes" },
-  { href: "/admin/bibliotheque", libelle: "Bibliothèque" },
-  { href: "/admin/temps", libelle: "Temps de jeu" },
-  { href: "/admin/reglages", libelle: "Réglages" },
-  { href: "/admin/discord", libelle: "Discord" },
+  { href: "/admin/tableau", onglet: "tableau" },
+  { href: "/admin/comptes", onglet: "comptes" },
+  { href: "/admin/bibliotheque", onglet: "bibliotheque" },
+  { href: "/admin/temps", onglet: "temps" },
+  { href: "/admin/reglages", onglet: "reglages" },
+  { href: "/admin/discord", onglet: "discord" },
 ] as const;
 
 /**
@@ -26,11 +28,12 @@ const ONGLETS = [
  */
 export function OngletsAdmin() {
   const chemin = usePathname();
+  const t = useT().adminGeneral;
 
   return (
     <nav
       className="flex gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--color-ink-800)] [scrollbar-width:none]"
-      aria-label="Administration"
+      aria-label={t.coquille.titre}
     >
       {ONGLETS.map((onglet) => {
         const actif = chemin.startsWith(onglet.href);
@@ -45,7 +48,7 @@ export function OngletsAdmin() {
                 : "border-transparent text-ink-400 hover:text-ink-200"
             }`}
           >
-            {onglet.libelle}
+            {t.onglets[onglet.onglet]}
           </Link>
         );
       })}

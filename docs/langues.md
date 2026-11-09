@@ -8,30 +8,27 @@ forme aux autres.
 
 ## Ce qui est traduit
 
-| Écran | État |
-| --- | --- |
-| La vitrine : accueil, en-tête, pied de page | traduit |
-| Le lecteur et ses panneaux (sauvegarde, points de reprise, touches, manette), le rappel au moment de quitter | traduit |
-| Le lien « Jouer sans compte » de la page de connexion | traduit |
-| Les pages de connexion et d'inscription, les e-mails | en français |
-| L'Activité Discord et ses pages légales | en français |
-| Le catalogue, les fiches, « Mes jeux », le compte, le câble link | en français |
-| L'administration | en français, et le restera |
+Tout ce qu'un visiteur, un joueur ou un administrateur lit à l'écran : la
+vitrine, la connexion et l'inscription, le catalogue, les fiches, « Mes
+jeux », le compte, le lecteur, le câble link, l'Activité Discord et ses pages
+légales, l'administration, et les e-mails que le site envoie.
 
-Un écran qui n'est pas traduit s'affiche en français, quelle que soit la
-langue du visiteur. Le lecteur étant le même pour les comptes et pour les
-invités, un compte dont le navigateur est en anglais joue dans un lecteur en
-anglais, au milieu d'un site en français.
+Ne sont jamais traduits :
 
-Ne sont jamais traduits : le nom du site, sa phrase d'accueil et les libellés
-des boutons de la vitrine, que l'administrateur écrit lui-même, et les fiches
-des jeux.
+- ce que l'administrateur ou un joueur a écrit : le nom du site, sa phrase
+  d'accueil, les libellés des boutons de la vitrine, les fiches des jeux, le
+  mot d'accueil et les astuces d'une Activité, les pseudos ;
+- la sortie des scripts en ligne de commande, donc le journal du scan affiché
+  dans l'administration, et les journaux du serveur ;
+- les libellés du portail développeur de Discord, cités tels qu'il les
+  affiche.
 
 ## Comment la langue est choisie
 
 Dans l'ordre, pour chaque visiteur :
 
-1. **son choix explicite** — le sélecteur FR / EN de l'en-tête de la vitrine ;
+1. **son choix explicite** — le sélecteur FR / EN : dans l'en-tête de la
+   vitrine, sous le formulaire de connexion, et dans le menu du compte ;
 2. **la langue de son navigateur** (`Accept-Language`) ;
 3. **la langue par défaut du site**, réglée dans Administration → Réglages →
    Identité du site.
@@ -46,8 +43,23 @@ in English » mène donc à un lecteur en anglais, quel que soit le navigateur.
 Seul le lecteur est concerné ; l'en-tête de la page garde la langue du
 visiteur.
 
-L'Activité Discord est tenue en français tant que ses écrans ne sont pas
-traduits, pour ne pas mêler deux langues.
+**L'Activité Discord** n'a ni cookie ni sélecteur — c'est une iframe tierce :
+elle prend la langue du navigateur du joueur, sinon celle par défaut du site.
+Ses requêtes portent le même en-tête, donc les refus du serveur arrivent dans
+la même langue que l'écran.
+
+**Les pages légales d'une Activité** ont une adresse par langue,
+`/discord/confidentialite?lang=en` et `?lang=fr` (de même pour
+`/discord/conditions`) : c'est l'anglaise qu'on donne à Discord. Sans le
+paramètre, elles suivent la langue du visiteur.
+
+**Les e-mails** partent dans la langue de celui qui les demande (confirmation
+d'inscription, mot de passe oublié). Une invitation envoyée par
+l'administrateur part dans la langue par défaut du site : celle de l'invité
+n'est pas connue.
+
+**Le catalogue** montre d'abord les jeux dans la langue du visiteur ; le
+filtre de langue reste à un clic.
 
 ## Où sont les textes
 
@@ -73,7 +85,7 @@ const t = useT();
 <button>{t.lecteur.quitter}</button>
 ```
 
-Trois conventions :
+Quatre conventions :
 
 - **Un texte qui dépend d'une valeur est une fonction** —
   `t.lecteur.chargement.jeu("2")` — parce que l'ordre des mots et les accords
@@ -84,6 +96,22 @@ Trois conventions :
 - **Un dictionnaire ne voyage pas du serveur au navigateur** : il contient des
   fonctions. Chacun importe le module, et seule la langue descend, par le
   fournisseur posé dans `src/app/layout.tsx`.
+- **Un module que Node charge seul n'importe pas les dictionnaires.** Les
+  scripts de `scripts/` et `serveur.ts` chargent certains fichiers de
+  `src/lib/` sans l'alias `@/`. Ceux-là reçoivent leurs libellés en dernier
+  paramètre facultatif, dont le défaut est le français : `keyLabel` dans
+  `src/lib/consoles.ts`, `schemasDeValidation` dans `src/lib/validation.ts`,
+  `modesAcces` dans `src/lib/modes-acces.ts`.
+
+Deux cas où le serveur ne peut pas choisir les mots lui-même :
+
+- **Le câble link.** Le serveur WebSocket ne sait pas dans quelle langue lit
+  le joueur. Il envoie un **code** stable, avec les valeurs utiles et le texte
+  français en repli ; c'est le navigateur qui rédige
+  (`src/lib/link/textes.ts`, codes dans `src/lib/link/protocole.ts`).
+- **Les textes légaux.** Longs et structurés, ils sont écrits en entier dans
+  chaque langue, à côté de leur page (`texte-fr.tsx`, `texte-en.tsx`) : un
+  texte légal se relit d'un bloc. Le français fait référence.
 
 ## Ajouter un texte
 
@@ -98,9 +126,8 @@ C'est voulu — un texte oublié ne finit pas en chaîne vide à l'écran.
    `index.ts`.
 2. Remplacer les textes en dur du composant par `t.<écran>.…`. Les dates
    passent par `REGION[langue]`.
-3. Si l'écran affiche un message venu du serveur, il est en français : lui
-   préférer un texte du dictionnaire, choisi d'après le code de la réponse.
-4. Mettre à jour le tableau en tête de cette page.
+3. Une action serveur ou une route lit `await textes()` : ses messages
+   partent dans la langue de la requête.
 
 ## La documentation
 

@@ -1,5 +1,6 @@
 import { revenirAMonCompte } from "@/lib/auth/actions";
 import type { SessionUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 
 /**
  * Bandeau de « voir comme » : l'administrateur regarde le site avec les yeux
@@ -7,20 +8,27 @@ import type { SessionUser } from "@/lib/auth/session";
  * qu'on n'oublie pas sous quel nom on joue — une partie lancée ici est
  * enregistrée sur ce compte-là.
  */
-export function BandeauVoirComme({ user }: { user: SessionUser }) {
+export async function BandeauVoirComme({ user }: { user: SessionUser }) {
+  const t = (await textes()).site.voirComme;
+  // La phrase du dictionnaire porte un repère à la place du pseudo : il est
+  // posé ici, en gras, sans jamais être relu comme du texte à mettre en forme.
+  const [avant, apres = ""] = t.vuComme.split("{compte}");
+
   return (
     <div className="border-b border-amber-700/60 bg-amber-950/60 text-amber-100">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-5 py-2 text-sm">
         <p>
-          Tu vois le site comme <strong>{user.pseudo}</strong>
-          <span className="text-amber-200/70"> (connecté : {user.vuPar?.pseudo}). Ce que tu fais ici compte pour ce compte.</span>
+          {avant}
+          <strong>{user.pseudo}</strong>
+          {apres}
+          <span className="text-amber-200/70">{t.precision(user.vuPar?.pseudo ?? "")}</span>
         </p>
         <form action={revenirAMonCompte} className="ml-auto">
           <button
             type="submit"
             className="rounded border border-amber-500/60 px-2.5 py-1 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-900/60"
           >
-            Revenir à mon compte
+            {t.revenir}
           </button>
         </form>
       </div>

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { paths } from "@/lib/paths";
 
 /**
@@ -14,7 +15,7 @@ import { paths } from "@/lib/paths";
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const { id } = await context.params;
 
@@ -24,7 +25,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     .where(eq(users.id, id))
     .get();
 
-  if (!row?.avatarPath) return new NextResponse("Introuvable", { status: 404 });
+  if (!row?.avatarPath) return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
 
   try {
     const file = await fs.readFile(paths.data(row.avatarPath));
@@ -37,6 +38,6 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     });
   } catch {
     // Enregistré en base mais absent du disque : on ne casse pas la page.
-    return new NextResponse("Introuvable", { status: 404 });
+    return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
   }
 }

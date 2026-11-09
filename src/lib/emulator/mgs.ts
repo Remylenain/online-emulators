@@ -86,11 +86,31 @@ type Fabrique = (options: {
 }) => Promise<ModuleMgs>;
 
 /**
+ * Les messages d'erreur de ce cœur que l'écran montre au joueur. Le
+ * dictionnaire en donne la traduction (`t.link.coeur`) ; sans rien passer,
+ * c'est le français.
+ */
+export type LibellesMgs = {
+  nonDeclare: string;
+  nonTelecharge: string;
+  /** `code` : ce que le cœur a répondu. */
+  jeuRefuse: (code: number | null) => string;
+  sauvegardeRefusee: (code: number) => string;
+};
+
+const LIBELLES_FR: LibellesMgs = {
+  nonDeclare: "Le cœur d'émulation s'est chargé sans se déclarer.",
+  nonTelecharge: "Le cœur d'émulation n'a pas pu être téléchargé.",
+  jeuRefuse: (code) => `Le cœur a refusé ce jeu (${code}).`,
+  sauvegardeRefusee: (code) => `La sauvegarde n'a pas été acceptée (${code}).`,
+};
+
+/**
  * Le cœur est publié en UMD : chargé par une balise `<script>`, il pose sa
  * fabrique dans une variable globale. Un `import()` ne donnerait rien, le
  * fichier n'ayant pas d'export ES.
  */
-function chargerFabrique(url: string): Promise<Fabrique> {
+function chargerFabrique(url: string, libelles: LibellesMgs): Promise<Fabrique> {
   const global = window as unknown as { MgbaUneConsole?: Fabrique };
   if (global.MgbaUneConsole) return Promise.resolve(global.MgbaUneConsole);
   return new Promise((resolve, reject) => {
@@ -99,9 +119,9 @@ function chargerFabrique(url: string): Promise<Fabrique> {
     script.async = true;
     script.onload = () => {
       if (global.MgbaUneConsole) resolve(global.MgbaUneConsole);
-      else reject(new Error("Le cœur d'émulation s'est chargé sans se déclarer."));
+      else reject(new Error(libelles.nonDeclare));
     };
-    script.onerror = () => reject(new Error("Le cœur d'émulation n'a pas pu être téléchargé."));
+    script.onerror = () => reject(new Error(libelles.nonTelecharge));
     document.head.appendChild(script);
   });
 }
@@ -148,6 +168,7 @@ function identiques(a: Uint8Array, b: Uint8Array): boolean {
 
 export class EmulateurMgs implements Emulateur {
   private readonly adresses: { js: string; wasm: string };
+  private readonly libelles: LibellesMgs;
 
   private module: ModuleMgs | null = null;
   private options: OptionsDemarrage | null = null;
@@ -188,8 +209,9 @@ export class EmulateurMgs implements Emulateur {
     cableLink: false,
   };
 
-  constructor(adresses: { js: string; wasm: string }) {
+  constructor(adresses: { js: string; wasm: string }, libelles: LibellesMgs = LIBELLES_FR) {
     this.adresses = adresses;
+    this.libelles = libelles;
   }
 
   /**
@@ -217,7 +239,7 @@ export class EmulateurMgs implements Emulateur {
     this.options = options;
     this.armerSon();
 
-    const fabrique = await chargerFabrique(this.adresses.js);
+    const fabrique = await chargerFabrique(this.adresses.js, this.libelles);
     const urlWasm = this.adresses.wasm;
     const module = await fabrique({
       // Ce build ignore `wasmBinary` et `locateFile` ne connaît pas notre
@@ -273,7 +295,7 @@ export class EmulateurMgs implements Emulateur {
     const pRom = module._malloc(options.rom.donnees.length);
     module.HEAPU8.set(options.rom.donnees, pRom);
     const charge = module._mgs_load_rom(pRom, options.rom.donnees.length);
-    if (charge !== 0) throw new Error(`Le cœur a refusé ce jeu (${charge}).`);
+    if (charge !== 0) throw new Error(this.libelles.jeuRefuse(charge));
 
     let sauvegarde = this.derniereSauvegarde ?? options.sauvegarde ?? null;
     if (
@@ -291,7 +313,7 @@ export class EmulateurMgs implements Emulateur {
       module.HEAPU8.set(sauvegarde, p);
       const accepte = module._mgs_load_save_file(0, p, sauvegarde.length);
       module._free(p);
-      if (accepte !== 0) throw new Error(`La sauvegarde n'a pas été acceptée (${accepte}).`);
+      if (accepte !== 0) throw new Error(this.libelles.sauvegardeRefusee(accepte));
     }
   }
 

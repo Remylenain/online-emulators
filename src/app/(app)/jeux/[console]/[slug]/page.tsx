@@ -12,13 +12,32 @@ import { requireUser } from "@/lib/auth/guard";
 import { getCurrentUser } from "@/lib/auth/session";
 import { gameBySlug, partiesDuGroupe } from "@/lib/catalog";
 import { findConsole, type ConsoleDefinition } from "@/lib/consoles";
-import { formatDate, formatDuree } from "@/lib/format";
+import { formatDate, formatDuree, formatNote } from "@/lib/format";
+import type { Dictionnaire } from "@/lib/i18n/dictionnaires";
+import { REGION, type Langue } from "@/lib/i18n/langues";
+import { langueDeLaRequete, textes } from "@/lib/i18n/serveur";
 import { statsJeu, type StatsJeu } from "@/lib/mes-jeux";
 
 type Params = { console: string; slug: string };
 
 /** Consoles pour lesquelles le serveur sait faire tourner deux consoles reliées. */
 const CONSOLES_LINK = new Set(["gb", "gbc", "gba"]);
+
+/**
+ * La taille d'une ROM, toujours en mébioctets — `formatTaille` passerait aux
+ * kibioctets sous 1 Mio, et la fiche veut la même unité pour tous les jeux.
+ * Le séparateur décimal est celui de la langue, sans séparateur de milliers,
+ * comme dans `src/lib/format.ts`.
+ */
+function tailleEnMio(octets: number, decimales: number, t: Dictionnaire, langue: Langue): string {
+  return t.site.format.taille.mio(
+    (octets / 1048576).toLocaleString(REGION[langue], {
+      minimumFractionDigits: decimales,
+      maximumFractionDigits: decimales,
+      useGrouping: false,
+    }),
+  );
+}
 
 export async function generateMetadata({
   params,
@@ -40,6 +59,7 @@ export async function generateMetadata({
 
 export default async function GamePage({ params }: { params: Promise<Params> }) {
   const user = await requireUser();
+  const [t, langue] = await Promise.all([textes(), langueDeLaRequete()]);
 
   const { console: consoleSlug, slug } = await params;
   const console = findConsole(consoleSlug);
@@ -57,10 +77,10 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
   if (!game) {
     const parties = await partiesDuGroupe(user, consoleSlug, slug);
     if (parties.length === 0) notFound();
-    return <FicheGroupe console={console} parties={parties} />;
+    return <FicheGroupe console={console} parties={parties} t={t} langue={langue} />;
   }
 
-  const taille = `${(game.romSize / 1048576).toFixed(game.romSize > 10485760 ? 0 : 1)} Mio`;
+  const taille = tailleEnMio(game.romSize, game.romSize > 10485760 ? 0 : 1, t, langue);
 
   const [maNote, stats] = await Promise.all([
     db
@@ -94,14 +114,14 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
       */}
       <div className="flex flex-col gap-8 md:grid md:grid-cols-[18rem_minmax(0,1fr)] md:items-start">
         <div className="flex flex-col gap-4 self-center md:self-auto">
-          <Jaquette id={game.id} hasCover={Boolean(game.coverPath)} title={game.title} />
+          <Jaquette id={game.id} hasCover={Boolean(game.coverPath)} title={game.title} t={t} />
           {game.labelPath && (
             // L'étiquette de cartouche : c'est ce qu'on voit quand on tient le
             // jeu en main, et elle distingue une version d'une autre.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={`/api/cover/${game.id}?t=etiquette`}
-              alt={`Étiquette de cartouche de ${game.title}`}
+              alt={t.fiche.jaquette.altEtiquette(game.title)}
               className="w-32 self-center rounded border border-ink-800 md:w-40"
             />
           )}
@@ -109,19 +129,26 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
 
         <aside className="order-last flex flex-col gap-5 md:order-none md:col-start-1 md:row-start-2">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
-            <Detail label="Console" valeur={console.name} />
-            <Detail label="Version" valeur={game.version} />
-            <Detail label="Langue" valeur={game.language ? nomDeLangue(game.language) : null} />
-            <Detail label="Jeu de base" valeur={game.baseGame} />
-            <Detail label="Année" valeur={game.year?.toString()} />
-            <Detail label="Taille" valeur={taille} />
+            <Detail label={t.fiche.details.console} valeur={console.name} />
+            <Detail label={t.fiche.details.version} valeur={game.version} />
             <Detail
-              label="Parties sur le site"
-              valeur={game.playCount === 0 ? "jamais lancé" : String(game.playCount)}
+              label={t.fiche.details.langue}
+              valeur={game.language ? nomDeLangue(game.language, langue) : null}
+            />
+            <Detail label={t.fiche.details.jeuDeBase} valeur={game.baseGame} />
+            <Detail label={t.fiche.details.annee} valeur={game.year?.toString()} />
+            <Detail label={t.fiche.details.taille} valeur={taille} />
+            <Detail
+              label={t.fiche.details.parties}
+              valeur={game.playCount === 0 ? t.fiche.details.jamaisLance : String(game.playCount)}
             />
             <Detail
-              label="Note des joueurs"
-              valeur={game.ratingCount > 0 ? `${game.ratingAvg.toFixed(1)} ★ (${game.ratingCount})` : "aucune"}
+              label={t.fiche.details.noteDesJoueurs}
+              valeur={
+                game.ratingCount > 0
+                  ? t.fiche.details.note(formatNote(game.ratingAvg, langue), game.ratingCount)
+                  : t.fiche.details.aucuneNote
+              }
             />
           </dl>
 
@@ -131,14 +158,16 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
             câble link. Repliée : elle ne sert qu'à qui sait quoi en faire.
           */}
           <details className="text-xs text-ink-700">
-            <summary className="cursor-pointer select-none hover:text-ink-400">Détails techniques</summary>
+            <summary className="cursor-pointer select-none hover:text-ink-400">
+              {t.fiche.details.techniques}
+            </summary>
             <dl className="mt-2 flex flex-col gap-1">
               <div>
                 <dt className="inline">SHA-1 </dt>
                 <dd className="inline font-mono break-all">{game.romSha1}</dd>
               </div>
               <div>
-                <dt className="inline">Identifiant </dt>
+                <dt className="inline">{t.fiche.details.identifiant} </dt>
                 <dd className="inline font-mono">{game.id}</dd>
               </div>
             </dl>
@@ -148,7 +177,7 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
         <div className="flex min-w-0 flex-col gap-6 md:col-start-2 md:row-span-2 md:row-start-1">
           <div className="flex flex-col gap-2">
             <h1 className="text-3xl font-semibold text-ink-50">{game.title}</h1>
-            {game.author && <p className="text-sm text-ink-400">par {game.author}</p>}
+            {game.author && <p className="text-sm text-ink-400">{t.fiche.par(game.author)}</p>}
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
@@ -168,13 +197,15 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
               href={`/jouer/${console.slug}/${game.slug}`}
               className="inline-flex w-fit items-center justify-center rounded-lg bg-accent-600 px-6 py-3 text-base font-semibold text-ink-950 transition-colors hover:bg-accent-500"
             >
-              {stats.sauvegarde ? "Reprendre" : "Jouer"}
+              {stats.sauvegarde ? t.fiche.reprendre : t.fiche.jouer}
             </a>
             <Favori gameId={game.id} initial={favori} />
             {stats.parties > 0 && (
               <span className="text-sm text-ink-400">
-                {formatDuree(stats.secondes)} de jeu
-                {stats.derniere && ` · dernière partie le ${formatDate(stats.derniere, false)}`}
+                {t.fiche.tempsPasse(
+                  formatDuree(stats.secondes, langue),
+                  stats.derniere ? formatDate(stats.derniere, false, langue) : null,
+                )}
               </span>
             )}
           </div>
@@ -185,13 +216,13 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
             </p>
           )}
 
-          <TaPartie stats={stats} />
+          <TaPartie stats={stats} t={t} langue={langue} />
 
           {/* Le câble link, pour les consoles dont le serveur sait relier deux consoles. */}
           {CONSOLES_LINK.has(console.slug) && <SalonsJeu jeuId={game.id} consoleSlug={console.slug} />}
 
           <div className="flex flex-col gap-2">
-            <h2 className="text-sm font-semibold text-ink-200">Ton avis</h2>
+            <h2 className="text-sm font-semibold text-ink-200">{t.fiche.tonAvis}</h2>
             <Notes
               gameId={game.id}
               maNote={maNote?.score ?? null}
@@ -204,11 +235,11 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
 
       {game.hasBackCover && (
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-ink-200">Dos de la boîte</h2>
+          <h2 className="text-sm font-semibold text-ink-200">{t.fiche.jaquette.dos}</h2>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`/api/cover/${game.id}?t=dos`}
-            alt={`Dos de la boîte de ${game.title}`}
+            alt={t.fiche.jaquette.altDos(game.title)}
             loading="lazy"
             className="w-full max-w-2xl rounded-panel border border-ink-800"
           />
@@ -222,30 +253,30 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
  * Ce que le compte a fait sur ce jeu : sa sauvegarde, ses copies, son temps.
  * Le détail et la restauration sont sur « Mes jeux » ; ici, l'essentiel.
  */
-function TaPartie({ stats }: { stats: StatsJeu }) {
+function TaPartie({ stats, t, langue }: { stats: StatsJeu; t: Dictionnaire; langue: Langue }) {
   if (stats.parties === 0 && !stats.sauvegarde) return null;
 
   return (
     <section className="flex flex-col gap-3 rounded-panel border border-ink-800 bg-ink-900/40 p-4">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="text-sm font-semibold text-ink-200">Ta partie</h2>
+        <h2 className="text-sm font-semibold text-ink-200">{t.fiche.taPartie.titre}</h2>
         <Link
           href="/mes-jeux?onglet=sauvegardes"
           className="text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
         >
-          Toutes mes sauvegardes
+          {t.fiche.taPartie.toutes}
         </Link>
       </div>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
-        <Detail label="Temps de jeu" valeur={formatDuree(stats.secondes)} />
-        <Detail label="Parties" valeur={String(stats.parties)} />
+        <Detail label={t.fiche.taPartie.tempsDeJeu} valeur={formatDuree(stats.secondes, langue)} />
+        <Detail label={t.fiche.taPartie.parties} valeur={String(stats.parties)} />
         <Detail
-          label="Sauvegarde"
-          valeur={stats.sauvegarde ? formatDate(stats.sauvegarde) : "aucune encore"}
+          label={t.fiche.taPartie.sauvegarde}
+          valeur={stats.sauvegarde ? formatDate(stats.sauvegarde, true, langue) : t.fiche.taPartie.aucuneSauvegarde}
         />
         <Detail
-          label="Copies de secours"
-          valeur={stats.copies === 0 ? "aucune" : String(stats.copies)}
+          label={t.fiche.taPartie.copies}
+          valeur={stats.copies === 0 ? t.fiche.taPartie.aucuneCopie : String(stats.copies)}
         />
       </dl>
     </section>
@@ -262,7 +293,17 @@ function Detail({ label, valeur }: { label: string; valeur?: string | null }) {
   );
 }
 
-function Jaquette({ id, hasCover, title }: { id: string; hasCover: boolean; title: string }) {
+function Jaquette({
+  id,
+  hasCover,
+  title,
+  t,
+}: {
+  id: string;
+  hasCover: boolean;
+  title: string;
+  t: Dictionnaire;
+}) {
   const classes = "w-56 shrink-0 rounded-panel border border-ink-800 md:w-72";
 
   if (!hasCover) {
@@ -270,14 +311,14 @@ function Jaquette({ id, hasCover, title }: { id: string; hasCover: boolean; titl
       <div
         className={`${classes} flex aspect-square items-center justify-center bg-ink-950/60 p-4 text-center text-xs text-ink-700`}
       >
-        pas de jaquette
+        {t.fiche.jaquette.aucune}
       </div>
     );
   }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={`/api/cover/${id}?t=lg`} alt={`Jaquette de ${title}`} className={classes} />
+    <img src={`/api/cover/${id}?t=lg`} alt={t.fiche.jaquette.alt(title)} className={classes} />
   );
 }
 
@@ -290,9 +331,13 @@ function Jaquette({ id, hasCover, title }: { id: string; hasCover: boolean; titl
 function FicheGroupe({
   console: consoleInfo,
   parties,
+  t,
+  langue,
 }: {
   console: ConsoleDefinition;
   parties: GameRow[];
+  t: Dictionnaire;
+  langue: Langue;
 }) {
   const premiere = parties[0]!;
   const avecJaquette = parties.find((partie) => partie.coverPath);
@@ -311,6 +356,7 @@ function FicheGroupe({
           id={avecJaquette?.id ?? premiere.id}
           hasCover={Boolean(avecJaquette)}
           title={premiere.groupTitle ?? premiere.title}
+          t={t}
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -318,8 +364,11 @@ function FicheGroupe({
             {premiere.groupTitle ?? premiere.title}
           </h1>
           <p className="text-sm text-ink-400">
-            {parties.length} parties · {consoleInfo.name} ·{" "}
-            {(total / 1048576).toFixed(0)} Mio en tout
+            {t.fiche.ensemble.resume(
+              parties.length,
+              consoleInfo.name,
+              tailleEnMio(total, 0, t, langue),
+            )}
           </p>
           {premiere.description && (
             <p className="max-w-prose text-sm leading-relaxed text-ink-200">
@@ -346,7 +395,7 @@ function FicheGroupe({
                 {partie.title}
               </Link>
               <span className="text-xs text-ink-700">
-                {(partie.romSize / 1048576).toFixed(0)} Mio
+                {tailleEnMio(partie.romSize, 0, t, langue)}
               </span>
             </span>
             {/*
@@ -358,7 +407,7 @@ function FicheGroupe({
               href={`/jouer/${consoleInfo.slug}/${partie.slug}`}
               className="shrink-0 rounded-lg bg-accent-600 px-4 py-2 text-sm font-semibold text-ink-950 transition-colors hover:bg-accent-500"
             >
-              Jouer
+              {t.fiche.jouer}
             </a>
           </li>
         ))}

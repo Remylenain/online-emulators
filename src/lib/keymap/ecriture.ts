@@ -50,7 +50,14 @@ const schemaManette = z.object({
   cle: z.string().trim().min(1).max(300).optional(),
 });
 
-export type ResultatTouches = { ok: boolean; message?: string };
+/** Pourquoi une disposition est refusée. Le code est stable ; le message, lui, se traduit. */
+export type RefusTouches = "invalide" | "doublonTouche" | "doublonEntree" | "console";
+
+/**
+ * `message` est le texte français, pour qui n'a que lui ; `code` permet à
+ * l'appelant de le redire dans la langue du joueur (`./langue.ts`).
+ */
+export type ResultatTouches = { ok: boolean; message?: string; code?: RefusTouches };
 
 /**
  * Ce qu'un écran de réglage sait faire : enregistrer et rétablir, clavier et
@@ -120,10 +127,10 @@ export function enregistrerTouchesDe(
 ): ResultatTouches {
   const valide = schema.safeParse({ console: console_, mapping });
   if (!valide.success) {
-    return { ok: false, message: "Disposition invalide." };
+    return { ok: false, message: "Disposition invalide.", code: "invalide" };
   }
   if (enDouble(valide.data.mapping)) {
-    return { ok: false, message: "Deux boutons ne peuvent pas partager la même touche." };
+    return { ok: false, message: "Deux boutons ne peuvent pas partager la même touche.", code: "doublonTouche" };
   }
 
   ecrire(userId, valide.data.console, { mapping: ecrireDisposition(BOUTONS, valide.data.mapping) });
@@ -135,7 +142,7 @@ export function enregistrerTouchesDe(
  * reprend. La manette, si elle a été réglée, reste.
  */
 export function retablirTouchesDe(userId: string, console_: string): ResultatTouches {
-  if (!CONSOLE_SLUGS.includes(console_)) return { ok: false, message: "Console inconnue." };
+  if (!CONSOLE_SLUGS.includes(console_)) return { ok: false, message: "Console inconnue.", code: "console" };
 
   if (ligneDuCompte(userId)) ecrire(userId, console_, { mapping: JSON.stringify(DEFAULT_KEYMAP) });
   return { ok: true };
@@ -156,9 +163,9 @@ export function enregistrerManetteDe(
   cle?: string,
 ): ResultatTouches {
   const valide = schemaManette.safeParse({ console: console_, mapping, cle });
-  if (!valide.success) return { ok: false, message: "Disposition invalide." };
+  if (!valide.success) return { ok: false, message: "Disposition invalide.", code: "invalide" };
   if (enDouble(valide.data.mapping)) {
-    return { ok: false, message: "Deux boutons ne peuvent pas partager la même entrée." };
+    return { ok: false, message: "Deux boutons ne peuvent pas partager la même entrée.", code: "doublonEntree" };
   }
 
   const serialise = ecrireDisposition(BOUTONS, valide.data.mapping);
@@ -177,7 +184,7 @@ export function enregistrerManetteDe(
 }
 
 export function retablirManetteDe(userId: string, console_: string, cle?: string): ResultatTouches {
-  if (!CONSOLE_SLUGS.includes(console_)) return { ok: false, message: "Console inconnue." };
+  if (!CONSOLE_SLUGS.includes(console_)) return { ok: false, message: "Console inconnue.", code: "console" };
   const ligne = ligneDuCompte(userId);
   if (!ligne) return { ok: true };
 

@@ -70,6 +70,30 @@ type ModuleLibretro = {
 
 export type Jeu = { nom: string; donnees: Uint8Array };
 
+/**
+ * Une erreur du cœur que le joueur lira.
+ *
+ * Ce cœur tourne sur le serveur du câble link, qui ne sait pas dans quelle
+ * langue la dire : elle porte un `code` et, à part, les `valeurs` que le texte
+ * cite, pour que le navigateur la rédige lui-même (voir
+ * `src/lib/link/protocole.ts`). Son `message` reste le texte français, en
+ * repli et pour les journaux.
+ *
+ * Des champs déclarés puis affectés, comme dans `CoeurLibretro` : Node
+ * exécute ce fichier en ne faisant que retirer les types.
+ */
+export class ErreurCoeur extends Error {
+  readonly code: string;
+  readonly valeurs: Record<string, string | number>;
+
+  constructor(code: string, message: string, valeurs: Record<string, string | number> = {}) {
+    super(message);
+    this.name = "ErreurCoeur";
+    this.code = code;
+    this.valeurs = valeurs;
+  }
+}
+
 export class CoeurLibretro {
   private module: ModuleLibretro | null = null;
   private formatPixels = FORMAT_XRGB8888;
@@ -153,7 +177,7 @@ export class CoeurLibretro {
         ? module._retro_load_game_special?.(typeSpecial, pInfos, jeux.length)
         : module._retro_load_game(pInfos);
     module._free(pInfos);
-    if (!charge) throw new Error("Le cœur a refusé ce jeu.");
+    if (!charge) throw new ErreurCoeur("coeur-jeu-refuse", "Le cœur a refusé ce jeu.");
 
     this.lireCadence();
   }

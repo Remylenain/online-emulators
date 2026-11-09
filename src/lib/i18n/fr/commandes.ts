@@ -108,4 +108,15 @@ export const commandes = {
     /** Une case de la croix : une direction, ou deux pour une diagonale. `noms` sont ceux de `boutons`. */
     directions: (noms: string[]) => noms.join(" et "),
   },
+
+  /**
+   * Les refus du serveur à l'enregistrement d'une disposition, par code
+   * (`RefusTouches`, dans `src/lib/keymap/ecriture.ts`).
+   */
+  refus: {
+    invalide: "Disposition invalide.",
+    doublonTouche: "Deux boutons ne peuvent pas partager la même touche.",
+    doublonEntree: "Deux boutons ne peuvent pas partager la même entrée.",
+    console: "Console inconnue.",
+  },
 };

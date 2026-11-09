@@ -13,6 +13,7 @@ import {
   type TypeKey,
   type ViewMode,
 } from "@/lib/catalog-options";
+import { useLangue, useT } from "./langue";
 
 /**
  * Recherche, tri et bascule grille/liste.
@@ -49,6 +50,9 @@ export function CatalogControls({
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const langueInterface = useLangue();
+  const catalogue = useT().catalogue;
+  const t = catalogue.filtres;
 
   const [saisie, setSaisie] = useState(search);
   // La valeur de l'URL fait foi quand elle change sous nos pieds : retour
@@ -85,14 +89,14 @@ export function CatalogControls({
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative min-w-0 flex-1 sm:max-w-xs">
         <label htmlFor="recherche" className="sr-only">
-          Rechercher un jeu
+          {t.rechercher}
         </label>
         <input
           id="recherche"
           type="search"
           value={saisie}
           onChange={(evenement) => setSaisie(evenement.target.value)}
-          placeholder="Rechercher…"
+          placeholder={t.indication}
           className="w-full rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-50 placeholder:text-ink-700 focus:border-accent-500 focus:ring-2 focus:ring-accent-600/30 focus:outline-none"
         />
       </div>
@@ -109,7 +113,7 @@ export function CatalogControls({
         {filtrable && (
           <>
             <label htmlFor="langue" className="sr-only">
-              Langue
+              {t.langue}
             </label>
             <select
               id="langue"
@@ -124,10 +128,10 @@ export function CatalogControls({
             >
               {langues.map((code) => (
                 <option key={code} value={code}>
-                  {nomDeLangue(code)}
+                  {nomDeLangue(code, langueInterface)}
                 </option>
               ))}
-              <option value={TOUTES_LANGUES}>Toutes les langues</option>
+              <option value={TOUTES_LANGUES}>{t.toutesLesLangues}</option>
             </select>
           </>
         )}
@@ -135,7 +139,7 @@ export function CatalogControls({
         {type && (
           <>
             <label htmlFor="type" className="sr-only">
-              Type de jeu
+              {t.type}
             </label>
             <select
               id="type"
@@ -145,9 +149,9 @@ export function CatalogControls({
               }
               className="max-w-full min-w-0 rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
             >
-              {Object.entries(TYPES).map(([cle, libelle]) => (
+              {TYPES.map((cle) => (
                 <option key={cle} value={cle}>
-                  {libelle}
+                  {t.types[cle]}
                 </option>
               ))}
             </select>
@@ -155,7 +159,7 @@ export function CatalogControls({
         )}
 
         <label htmlFor="tri" className="sr-only">
-          Trier par
+          {t.trierPar}
         </label>
         <select
           id="tri"
@@ -163,14 +167,14 @@ export function CatalogControls({
           onChange={(evenement) => naviguer({ tri: evenement.target.value })}
           className="max-w-full min-w-0 rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
         >
-          {Object.entries(SORTS).map(([cle, libelle]) => (
+          {SORTS.map((cle) => (
             <option key={cle} value={cle}>
-              {libelle}
+              {t.tris[cle]}
             </option>
           ))}
         </select>
 
-        <div className="flex rounded-lg border border-ink-700 p-0.5" role="group" aria-label="Affichage">
+        <div className="flex rounded-lg border border-ink-700 p-0.5" role="group" aria-label={t.affichage}>
           {VIEWS.map((mode) => (
             <button
               key={mode}
@@ -183,14 +187,14 @@ export function CatalogControls({
                   : "text-ink-400 hover:text-ink-200"
               }`}
             >
-              {mode}
+              {t.vues[mode]}
             </button>
           ))}
         </div>
       </div>
 
       <p className="w-full text-xs text-ink-400 sm:ml-auto sm:w-auto" aria-live="polite">
-        {total === 0 ? "aucun jeu" : total === 1 ? "1 jeu" : `${total} jeux`}
+        {catalogue.nombreDeJeux(total)}
       </p>
     </div>
   );

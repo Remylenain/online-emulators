@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/guard";
+import { textes } from "@/lib/i18n/serveur";
 import { restaurerCopie } from "@/lib/saves";
 
 /**
@@ -11,9 +12,10 @@ import { restaurerCopie } from "@/lib/saves";
  */
 export async function restaurer(copieId: string): Promise<{ ok: boolean; message: string }> {
   const user = await requireUser();
+  const t = await textes();
   const fait = await restaurerCopie(user.id, copieId);
   revalidatePath("/mes-jeux");
   return fait
-    ? { ok: true, message: "Copie restaurée. Elle sera chargée à la prochaine ouverture du jeu." }
-    : { ok: false, message: "Cette copie n'existe plus." };
+    ? { ok: true, message: t.mesJeux.sauvegardes.restauree }
+    : { ok: false, message: t.mesJeux.sauvegardes.copieDisparue };
 }

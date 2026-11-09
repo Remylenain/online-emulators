@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Alert, Panel } from "@/components/ui";
 import { redirectIfAuthenticated } from "@/lib/auth/guard";
+import { textes } from "@/lib/i18n/serveur";
 import { ResetPasswordForm } from "./reset-form";
 
-export const metadata: Metadata = { title: "Mot de passe" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await textes();
+  return { title: t.connexion.reinitialisation.onglet };
+}
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -26,19 +30,17 @@ export default async function ResetPasswordPage({
   // une seule opération qui le consomme. Vérifier d'abord puis consommer
   // ensuite laisserait une fenêtre où deux requêtes passeraient toutes les deux.
   if (!token) {
+    const t = (await textes()).connexion.reinitialisation.lienIncomplet;
     return (
       <Panel>
         <div className="flex flex-col gap-4">
-          <h1 className="text-lg font-semibold text-ink-50">Lien incomplet</h1>
-          <Alert>
-            Ce lien ne contient pas de jeton de réinitialisation. Il a peut-être été
-            tronqué par ton client mail : copie-le en entier, ou demande-en un nouveau.
-          </Alert>
+          <h1 className="text-lg font-semibold text-ink-50">{t.titre}</h1>
+          <Alert>{t.explication}</Alert>
           <Link
             href="/mot-de-passe-oublie"
             className="text-center text-xs text-ink-400 underline-offset-4 hover:text-ink-200 hover:underline"
           >
-            Demander un nouveau lien
+            {t.demander}
           </Link>
         </div>
       </Panel>

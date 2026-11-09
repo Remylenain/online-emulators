@@ -3,10 +3,14 @@ import Link from "next/link";
 import { Alert, Panel } from "@/components/ui";
 import { redirectIfAuthenticated } from "@/lib/auth/guard";
 import { apercuDemande } from "@/lib/auth/inscription-ouverte";
+import { textes } from "@/lib/i18n/serveur";
 import { inscriptionsOuvertes } from "@/lib/parametres";
 import { ConfirmForm } from "./confirm-form";
 
-export const metadata: Metadata = { title: "Confirmation" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await textes();
+  return { title: t.connexion.confirmation.onglet };
+}
 
 /**
  * Dernière étape de l'inscription ouverte.
@@ -26,19 +30,17 @@ export default async function ConfirmPage({
   const demande = token && inscriptionsOuvertes() ? apercuDemande(token) : null;
 
   if (!token || !demande) {
+    const t = (await textes()).connexion.confirmation.lienInvalide;
     return (
       <Panel>
         <div className="flex flex-col gap-4">
-          <h1 className="text-lg font-semibold text-ink-50">Lien invalide</h1>
-          <Alert>
-            Ce lien n&apos;est plus valable : il a expiré, il a déjà servi, ou les inscriptions
-            sont fermées. Tu peux refaire une demande.
-          </Alert>
+          <h1 className="text-lg font-semibold text-ink-50">{t.titre}</h1>
+          <Alert>{t.explication}</Alert>
           <Link
             href="/inscription"
             className="text-center text-xs text-ink-400 underline-offset-4 hover:text-ink-200 hover:underline"
           >
-            Refaire une demande
+            {t.refaire}
           </Link>
         </div>
       </Panel>

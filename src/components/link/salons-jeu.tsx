@@ -2,7 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AvecCode } from "@/components/link/code-salon";
+import { useT } from "@/components/langue";
 import { Alert, Button } from "@/components/ui";
+import type { Refus } from "@/lib/link/protocole";
+import { texteErreurLink } from "@/lib/link/textes";
 
 /**
  * Le câble link depuis la fiche d'un jeu : créer un salon, ou rejoindre celui
@@ -23,6 +27,7 @@ type Reponse = {
 
 export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: string }) {
   const router = useRouter();
+  const t = useT();
   const [salons, setSalons] = useState<Reponse | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
@@ -59,11 +64,18 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jeu: jeuId, prive, spectateurs }),
       });
-      const corps = (await reponse.json()) as { id?: string; erreur?: string };
-      if (!reponse.ok || !corps.id) throw new Error(corps.erreur ?? "Impossible de créer le salon.");
+      const corps = (await reponse.json()) as { id?: string } & Partial<Refus>;
+      if (!reponse.ok || !corps.id) {
+        // Le refus arrive avec son code : c'est lui qui donne le texte dans la
+        // langue du joueur, le texte français du serveur ne servant que de repli.
+        setErreur(texteErreurLink(t, corps, corps.erreur ?? t.link.fiche.creationImpossible));
+        setOccupe(false);
+        return;
+      }
       router.push(`/link/${corps.id}`);
-    } catch (e) {
-      setErreur(e instanceof Error ? e.message : "Impossible de créer le salon.");
+    } catch {
+      // Pas de réponse, ou une réponse qui n'est pas du JSON.
+      setErreur(t.link.fiche.creationImpossible);
       setOccupe(false);
     }
   }
@@ -88,30 +100,20 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
   return (
     <section className="flex flex-col gap-3 rounded-panel border border-ink-800 bg-ink-900/40 p-4">
       <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-semibold text-ink-200">Câble link</h2>
-        <p className="text-xs text-ink-400">
-          Deux joueurs, deux navigateurs : le jeu tourne sur le serveur, chacun voit sa console.
-          Échanges et combats comme avec un vrai câble.
-        </p>
+        <h2 className="text-sm font-semibold text-ink-200">{t.link.titre}</h2>
+        <p className="text-xs text-ink-400">{t.link.fiche.explication}</p>
       </div>
 
       {erreur && <Alert tone="error">{erreur}</Alert>}
 
       {mienIci ? (
-        <Button onClick={() => router.push(`/link/${mienIci.id}`)}>
-          Reprendre mon salon {mienIci.id}
-        </Button>
+        <Button onClick={() => router.push(`/link/${mienIci.id}`)}>{t.link.fiche.reprendre(mienIci.id)}</Button>
       ) : (
         <div className="flex flex-col gap-3">
-          {complet && (
-            <Alert tone="info">
-              Le serveur est au complet pour le moment : tous les salons sont pris. Réessaie dans
-              quelques minutes, ou rejoins un salon déjà ouvert.
-            </Alert>
-          )}
+          {complet && <Alert tone="info">{t.link.fiche.complet}</Alert>}
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={() => void creer()} disabled={occupe || complet || Boolean(salons.mien)}>
-              Ouvrir un salon
+              {t.link.fiche.ouvrir}
             </Button>
             <label className="flex items-center gap-2 text-xs text-ink-200">
               <input
@@ -121,7 +123,7 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
                 onChange={(e) => setPrive(e.target.checked)}
                 disabled={occupe || Boolean(salons.mien)}
               />
-              Privé : invisible ici, on y entre avec le code
+              {t.link.fiche.prive}
             </label>
             <label className="flex items-center gap-2 text-xs text-ink-200">
               <input
@@ -131,24 +133,19 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
                 onChange={(e) => setSpectateurs(e.target.checked)}
                 disabled={occupe || Boolean(salons.mien)}
               />
-              Visible par les spectateurs (cinq au plus)
+              {t.link.fiche.spectateurs}
             </label>
             {salons.mien && (
-              <span className="text-xs text-ink-400">
-                Tu es déjà dans un salon sur un autre jeu ({salons.mien.id}).
-              </span>
+              <span className="text-xs text-ink-400">{t.link.fiche.dejaAilleurs(salons.mien.id)}</span>
             )}
             {!salons.mien && salons.libres !== null && salons.libres > 0 && (
-              <span className="text-xs text-ink-400">
-                {salons.libres === 1 ? "Dernier salon disponible" : `${salons.libres} salons disponibles`} sur le
-                serveur
-              </span>
+              <span className="text-xs text-ink-400">{t.link.fiche.disponibles(salons.libres)}</span>
             )}
           </div>
 
           <form onSubmit={rejoindreParCode} className="flex flex-wrap items-center gap-2">
             <label htmlFor="code-salon" className="text-xs text-ink-400">
-              Rejoindre avec un code
+              {t.link.fiche.rejoindreAvecUnCode}
             </label>
             <input
               id="code-salon"
@@ -162,7 +159,7 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
               className="w-28 rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-1.5 font-mono text-sm uppercase text-ink-50 placeholder:text-ink-700 focus:border-accent-500 focus:outline-none"
             />
             <Button type="submit" variant="ghost" disabled={code.trim().length < 4 || Boolean(salons.mien)}>
-              Rejoindre
+              {t.link.fiche.rejoindre}
             </Button>
           </form>
         </div>
@@ -173,17 +170,15 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
           {salons.regardables.map((salon) => (
             <li key={salon.id} className="flex items-center gap-3 text-sm">
               <span className="text-ink-200">
-                {salon.joueurs[0]} et {salon.joueurs[1]} jouent
-                <span className="ml-2 text-xs text-ink-400">
-                  {salon.spectateurs}/{salon.max} spectateur{salon.max > 1 ? "s" : ""}
-                </span>
+                {t.link.fiche.enCours(salon.joueurs[0], salon.joueurs[1])}
+                <span className="ml-2 text-xs text-ink-400">{t.link.fiche.places(salon.spectateurs, salon.max)}</span>
               </span>
               <Button
                 variant="ghost"
                 onClick={() => router.push(`/link/${salon.id}`)}
                 disabled={salon.spectateurs >= salon.max}
               >
-                Regarder
+                {t.link.fiche.regarder}
               </Button>
             </li>
           ))}
@@ -195,15 +190,14 @@ export function SalonsJeu({ jeuId, consoleSlug }: { jeuId: string; consoleSlug: 
           {autres.map((salon) => (
             <li key={salon.id} className="flex items-center gap-3 text-sm">
               <span className="text-ink-200">
-                {salon.hote} attend dans le salon{" "}
-                <span className="font-mono">{salon.id}</span>
+                <AvecCode texte={t.link.fiche.attend(salon.hote, salon.id)} />
               </span>
               <Button
                 variant="ghost"
                 onClick={() => router.push(`/link/${salon.id}`)}
                 disabled={Boolean(salons.mien)}
               >
-                Rejoindre
+                {t.link.fiche.rejoindre}
               </Button>
             </li>
           ))}

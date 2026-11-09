@@ -11,16 +11,19 @@ import type { FormState } from "@/lib/auth/actions";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { destroyAllSessions } from "@/lib/auth/session";
 import { requireUser } from "@/lib/auth/guard";
+import { textes } from "@/lib/i18n/serveur";
 import { paths } from "@/lib/paths";
-import { changePasswordSchema, fieldErrors, updateProfileSchema } from "@/lib/validation";
+import { fieldErrors, schemasDeValidation } from "@/lib/validation";
 
 export async function updateProfile(
   _previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
   const user = await requireUser();
+  const t = await textes();
 
-  const parsed = updateProfileSchema.safeParse({
+  // Les schémas avec les messages de la langue de la requête.
+  const parsed = schemasDeValidation(t.validation).updateProfileSchema.safeParse({
     pseudo: formData.get("pseudo"),
     email: formData.get("email"),
   });
@@ -40,8 +43,8 @@ export async function updateProfile(
 
   if (clash) {
     return parsed.data.email !== null && clash.email === parsed.data.email
-      ? { errors: { email: "Cette adresse est déjà utilisée par un autre compte." } }
-      : { errors: { pseudo: "Ce pseudo est déjà pris." } };
+      ? { errors: { email: t.compte.profil.erreurs.emailPris } }
+      : { errors: { pseudo: t.compte.profil.erreurs.pseudoPris } };
   }
 
   await db
@@ -50,7 +53,7 @@ export async function updateProfile(
     .where(eq(users.id, user.id));
 
   revalidatePath("/compte");
-  return { done: true, message: "Profil mis à jour." };
+  return { done: true, message: t.compte.profil.misAJour };
 }
 
 export async function changePassword(
@@ -58,8 +61,9 @@ export async function changePassword(
   formData: FormData,
 ): Promise<FormState> {
   const user = await requireUser();
+  const t = await textes();
 
-  const parsed = changePasswordSchema.safeParse({
+  const parsed = schemasDeValidation(t.validation).changePasswordSchema.safeParse({
     currentPassword: formData.get("currentPassword"),
     password: formData.get("password"),
     passwordConfirm: formData.get("passwordConfirm"),
@@ -74,7 +78,7 @@ export async function changePassword(
     .get();
 
   if (!row || !(await verifyPassword(row.passwordHash, parsed.data.currentPassword))) {
-    return { errors: { currentPassword: "Mot de passe actuel incorrect." } };
+    return { errors: { currentPassword: t.compte.motDePasse.erreurs.actuelIncorrect } };
   }
 
   await db
@@ -86,10 +90,7 @@ export async function changePassword(
   // l'écran suivant sera celui de la connexion.
   await destroyAllSessions(user.id);
 
-  return {
-    done: true,
-    message: "Mot de passe modifié. Toutes les sessions ont été fermées : reconnecte-toi.",
-  };
+  return { done: true, message: t.compte.motDePasse.modifie };
 }
 
 const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
@@ -97,13 +98,14 @@ const AVATAR_SIZE = 256;
 
 export async function uploadAvatar(_previous: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
+  const t = await textes();
   const file = formData.get("avatar");
 
   if (!(file instanceof File) || file.size === 0) {
-    return { errors: { avatar: "Choisis une image." } };
+    return { errors: { avatar: t.compte.avatar.erreurs.manquante } };
   }
   if (file.size > AVATAR_MAX_BYTES) {
-    return { errors: { avatar: "L'image ne doit pas dépasser 5 Mo." } };
+    return { errors: { avatar: t.compte.avatar.erreurs.tropLourde } };
   }
 
   const relative = paths.avatar(user.id);
@@ -122,7 +124,7 @@ export async function uploadAvatar(_previous: FormState, formData: FormData): Pr
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, resized);
   } catch {
-    return { errors: { avatar: "Ce fichier n'est pas une image lisible." } };
+    return { errors: { avatar: t.compte.avatar.erreurs.illisible } };
   }
 
   await db
@@ -132,7 +134,7 @@ export async function uploadAvatar(_previous: FormState, formData: FormData): Pr
 
   revalidatePath("/compte");
   revalidatePath("/");
-  return { done: true, message: "Avatar mis à jour." };
+  return { done: true, message: t.compte.avatar.misAJour };
 }
 
 export async function removeAvatar(): Promise<void> {

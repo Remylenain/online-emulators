@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { nomDeFichier } from "@/lib/format";
 import { mesSauvegardes, titreComplet } from "@/lib/mes-jeux";
 import { lireCopie, lireSauvegarde } from "@/lib/saves";
@@ -21,13 +22,15 @@ import { fluxZip, type EntreeZip } from "@/lib/zip";
  */
 export async function GET() {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const sauvegardes = await mesSauvegardes(viewer.id);
   const userId = viewer.id;
 
   async function* entrees(): AsyncGenerator<EntreeZip> {
     for (const s of sauvegardes) {
+      // Les noms de l'archive ne suivent pas la langue du visiteur : `titreComplet`
+      // sans second paramètre, donc « partie 3 », comme « copies » et « etat- ».
       const dossier = `${s.jeu.consoleSlug}/${nomDeFichier(titreComplet(s.jeu))}`;
 
       const courante = await lireSauvegarde(userId, s.jeu.id);

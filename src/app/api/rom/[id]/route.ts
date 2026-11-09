@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { games } from "@/db/schema";
 import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { paths } from "@/lib/paths";
 import { jeuInvite } from "@/lib/vitrine";
 
@@ -28,9 +29,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
 
   if (!viewer) {
-    if (!(await jeuInvite(id))) return new NextResponse("Non autorisé", { status: 401 });
+    if (!(await jeuInvite(id))) {
+      return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
+    }
   } else if (!(await jeuAccessible(viewer, id)) && !(await jeuInvite(id))) {
-    return new NextResponse("Introuvable", { status: 404 });
+    return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
   }
 
   const game = await db
@@ -38,13 +41,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     .from(games)
     .where(eq(games.id, id))
     .get();
-  if (!game) return new NextResponse("Introuvable", { status: 404 });
+  if (!game) return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
 
   let fichier: Buffer;
   try {
     fichier = await fs.readFile(paths.library(game.romPath));
   } catch {
-    return new NextResponse("ROM absente du disque", { status: 404 });
+    return new NextResponse((await textes()).mesJeux.reponses.romAbsente, { status: 404 });
   }
 
   return new NextResponse(new Uint8Array(fichier), {

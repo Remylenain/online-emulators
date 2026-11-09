@@ -3,6 +3,7 @@ import { asc } from "drizzle-orm";
 import { db } from "@/db";
 import { games } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/guard";
+import { textes } from "@/lib/i18n/serveur";
 import { etatCapacite } from "@/lib/link/capacite";
 import {
   configCaptcha,
@@ -16,7 +17,10 @@ import {
 import { vitrine } from "@/lib/vitrine";
 import { Reglages } from "./reglages";
 
-export const metadata: Metadata = { title: "Réglages" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await textes();
+  return { title: t.adminReglages.titreOnglet };
+}
 // La capacité du câble link dépend des salons ouverts à l'instant.
 export const dynamic = "force-dynamic";
 

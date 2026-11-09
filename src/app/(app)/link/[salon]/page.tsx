@@ -2,10 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SalonLink } from "@/components/link/salon-link";
 import { requireUser } from "@/lib/auth/guard";
+import { textes } from "@/lib/i18n/serveur";
 import { dispositionsDuCompte } from "@/lib/keymap/lecture";
 import { salons } from "@/lib/link/registre";
 
-export const metadata: Metadata = { title: "Câble link" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await textes();
+  return { title: t.link.titre };
+}
 
 /**
  * La page d'un salon.
@@ -18,17 +22,15 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
   const user = await requireUser();
   const { salon: id } = await params;
   const salon = salons().get(id.toUpperCase());
+  const t = await textes();
 
   if (!salon) {
     return (
       <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <p className="text-lg font-semibold text-ink-50">Ce salon n&apos;existe plus</p>
-        <p className="text-sm text-ink-400">
-          Il a été fermé, ou le serveur a redémarré depuis. Les sauvegardes des joueurs n&apos;ont
-          pas bougé.
-        </p>
+        <p className="text-lg font-semibold text-ink-50">{t.link.page.introuvable.titre}</p>
+        <p className="text-sm text-ink-400">{t.link.page.introuvable.explication}</p>
         <Link href="/" className="text-sm text-accent-400 hover:underline">
-          Retour à l&apos;accueil
+          {t.link.page.introuvable.retour}
         </Link>
       </div>
     );
@@ -41,13 +43,13 @@ export default async function SalonPage({ params }: { params: Promise<{ salon: s
   if (spectateur && !salon.spectateurs) {
     return (
       <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <p className="text-lg font-semibold text-ink-50">Ce salon est complet</p>
+        <p className="text-lg font-semibold text-ink-50">{t.link.page.complet.titre}</p>
         <p className="text-sm text-ink-400">
-          {salon.places[0].pseudo} et {salon.places[1]?.pseudo} jouent, et l&apos;hôte n&apos;a pas ouvert la
-          partie aux spectateurs.
+          {/* Une partie en jeu a ses deux joueurs ; le « ? » n'est là que pour le type. */}
+          {t.link.page.complet.explication(salon.places[0].pseudo, salon.places[1]?.pseudo ?? "?")}
         </p>
         <Link href={`/jeux/${salon.jeu.consoleSlug}/${salon.jeu.slug}`} className="text-sm text-accent-400 hover:underline">
-          Retour à la fiche du jeu
+          {t.link.retourFiche}
         </Link>
       </div>
     );

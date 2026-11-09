@@ -8,33 +8,29 @@ shape.
 
 ## What is translated
 
-| Screen | Status |
-| --- | --- |
-| The showcase (*vitrine*): home page, header, footer | translated |
-| The player and its panels (save, save states, keys, controller), the reminder when quitting | translated |
-| The “Play without an account” link on the sign-in page | translated |
-| The sign-in and sign-up pages, the e-mails | in French |
-| The Discord Activity and its legal pages | in French |
-| The catalog, the game pages, “Mes jeux” (My games), the account, the link cable | in French |
-| The administration | in French, and will stay that way |
+Everything a visitor, a player or an administrator reads on screen: the
+showcase (*vitrine*), sign-in and sign-up, the catalog, the game pages, “My
+games”, the account, the player, the link cable, the Discord Activity and
+its legal pages, the administration, and the e-mails the site sends.
 
-A screen that is not translated is displayed in French, whatever the
-visitor's language. Since the player is the same for accounts and for
-guests, an account whose browser is set to English plays in an English
-player, in the middle of a French site.
+Never translated:
 
-Never translated: the site's name, its welcome line and the labels of the
-showcase buttons, which the administrator writes themselves, and the game
-entries.
+- what the administrator or a player wrote: the site's name, its tagline, the
+  labels of the showcase buttons, the game entries, an Activity's welcome
+  message and tips, usernames;
+- the output of command-line scripts, hence the scan log shown in the
+  administration, and the server logs;
+- the labels of Discord's developer portal, quoted as it displays them.
 
 ## How the language is chosen
 
 In order, for each visitor:
 
-1. **their explicit choice** — the FR / EN switcher in the showcase header;
+1. **their explicit choice** — the FR / EN switcher: in the showcase header,
+   under the sign-in form, and in the account menu;
 2. **their browser's language** (`Accept-Language`);
-3. **the site's default language**, set in Administration → Réglages
-   (Settings) → Identité du site (Site identity).
+3. **the site's default language**, set in Administration → Settings → Site
+   identity.
 
 The explicit choice is remembered in a cookie, `oe_langue`, for one year.
 This is the only case where the site sets one for a visitor without an
@@ -46,8 +42,22 @@ the language of the game being launched (the `langue` field of its
 player, whatever the browser. Only the player is affected; the page header
 keeps the visitor's language.
 
-The Discord Activity is kept in French as long as its screens are not
-translated, so as not to mix two languages.
+**The Discord Activity** has neither a cookie nor a switcher — it is a
+third-party iframe: it takes the language of the player's browser, otherwise
+the site's default. Its requests carry the same header, so the server's
+refusals arrive in the same language as the screen.
+
+**An Activity's legal pages** have one address per language,
+`/discord/confidentialite?lang=en` and `?lang=fr` (likewise for
+`/discord/conditions`): the English one is the one to give Discord. Without
+the parameter, they follow the visitor's language.
+
+**E-mails** go out in the language of whoever asks for them (sign-up
+confirmation, forgotten password). An invitation sent by the administrator
+goes out in the site's default language: the guest's is not known.
+
+**The catalog** shows games in the visitor's language first; the language
+filter is one click away.
 
 ## Where the texts live
 
@@ -73,7 +83,7 @@ const t = useT();
 <button>{t.lecteur.quitter}</button>
 ```
 
-Three conventions:
+Four conventions:
 
 - **A text that depends on a value is a function** —
   `t.lecteur.chargement.jeu("2")` — because word order and agreement do not
@@ -84,6 +94,22 @@ Three conventions:
 - **A dictionary does not travel from the server to the browser**: it
   contains functions. Each side imports the module, and only the language is
   passed down, through the provider set up in `src/app/layout.tsx`.
+- **A module that Node loads on its own does not import the dictionaries.**
+  The scripts in `scripts/` and `serveur.ts` load some files of `src/lib/`
+  without the `@/` alias. Those receive their labels as a last optional
+  parameter, whose default is French: `keyLabel` in `src/lib/consoles.ts`,
+  `schemasDeValidation` in `src/lib/validation.ts`, `modesAcces` in
+  `src/lib/modes-acces.ts`.
+
+Two cases where the server cannot choose the words itself:
+
+- **The link cable.** The WebSocket server does not know which language the
+  player reads. It sends a stable **code**, with the useful values and the
+  French text as a fallback; the browser writes the sentence
+  (`src/lib/link/textes.ts`, codes in `src/lib/link/protocole.ts`).
+- **The legal texts.** Long and structured, they are written in full in each
+  language, next to their page (`texte-fr.tsx`, `texte-en.tsx`): a legal text
+  is proofread as a whole. French is the reference.
 
 ## Adding a text
 
@@ -99,10 +125,8 @@ screen.
    `index.ts` files.
 2. Replace the component's hard-coded texts with `t.<screen>.…`. Dates go
    through `REGION[langue]`.
-3. If the screen displays a message that came from the server, it is in
-   French: prefer a text from the dictionary instead, chosen according to
-   the response code.
-4. Update the table at the top of this page.
+3. A server action or a route reads `await textes()`: its messages go out
+   in the language of the request.
 
 ## The documentation
 

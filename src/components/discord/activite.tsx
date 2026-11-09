@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLangue, useT } from "@/components/langue";
 import { ChoixVitesse, Commande, lireVolumeRetenu, retenirVolume, Volume } from "@/components/player/commandes";
 import { Manette } from "@/components/player/manette";
 import { Savestates, type AccesEtats } from "@/components/player/savestates";
@@ -8,6 +9,8 @@ import { useManette } from "@/components/player/use-manette";
 import { DEFAULT_KEYMAP, toucheDeEvenement, type Touche } from "@/lib/consoles";
 import type { Bouton } from "@/lib/emulator/adapter";
 import { EmulateurMgs } from "@/lib/emulator/mgs";
+import type { Dictionnaire } from "@/lib/i18n/dictionnaires";
+import { REGION } from "@/lib/i18n/langues";
 import type { Enregistreur, ResultatTouches } from "@/lib/keymap/actions";
 import { MANETTE_PAR_DEFAUT } from "@/lib/manette";
 import { Duo } from "./duo";
@@ -71,8 +74,34 @@ function messageDe(erreur: unknown, defaut: string): string {
   return erreur instanceof Error && erreur.message ? erreur.message : defaut;
 }
 
-/** Les écritures de touches et de manette, par le jeton de l'Activité. */
-function enregistreurDiscord(jeton: string): Enregistreur {
+/**
+ * Le refus de `/api/discord/session`, dans la langue du joueur. Le serveur
+ * répond en français : quand le code HTTP suffit à dire pourquoi, le texte
+ * vient du dictionnaire. Le 403 a trois motifs que seul leur texte distingue
+ * (le verrou du serveur Discord, un compte désactivé, l'essai local fermé),
+ * le 400 en a deux : là, c'est le texte du serveur qui s'affiche.
+ */
+function refusDeSession(textes: Dictionnaire["activite"]["erreurs"], code: number, duServeur?: string): string {
+  switch (code) {
+    case 401:
+      return textes.nonReconnu;
+    case 429:
+      return textes.tropDeTentatives;
+    case 503:
+      return textes.jeuIntrouvable;
+    default:
+      return duServeur ?? textes.connexionImpossible(code);
+  }
+}
+
+/**
+ * Les écritures de touches et de manette, par le jeton de l'Activité.
+ *
+ * Un réglage que le serveur a lu puis refusé (deux boutons sur la même
+ * touche…) revient avec son explication, en français et sans code : elle est
+ * transmise telle quelle aux écrans de réglage.
+ */
+function enregistreurDiscord(jeton: string, textes: Dictionnaire["activite"]["reglages"]): Enregistreur {
   async function envoyer(corps: Record<string, unknown>): Promise<ResultatTouches> {
     try {
       const reponse = await fetch("/api/discord/touches", {
@@ -80,10 +109,10 @@ function enregistreurDiscord(jeton: string): Enregistreur {
         headers: { Authorization: `Bearer ${jeton}`, "Content-Type": "application/json" },
         body: JSON.stringify(corps),
       });
-      if (!reponse.ok) return { ok: false, message: `Enregistrement refusé (${reponse.status}).` };
+      if (!reponse.ok) return { ok: false, message: textes.refuse(reponse.status) };
       return (await reponse.json()) as ResultatTouches;
     } catch {
-      return { ok: false, message: "Le serveur ne répond pas : réglage gardé pour cette partie seulement." };
+      return { ok: false, message: textes.sansReponse };
     }
   }
   return {
@@ -101,6 +130,8 @@ const DISPOSITIONS_PAR_DEFAUT: Dispositions = {
 };
 
 export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLocal: boolean }) {
+  const t = useT();
+  const langue = useLangue();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const emulateurRef = useRef<EmulateurMgs | null>(null);
   const sessionRef = useRef<Session | null>(null);
@@ -182,7 +213,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
         // le même salon, comme deux joueurs d'un même salon vocal.
         corps = { essai: true, nom: parametres.get("essai") ?? undefined, instance: parametres.get("instance") ?? undefined };
       } else {
-        throw new Error("Cette page s'ouvre depuis Discord, en lançant l'Activité.");
+        throw new Error(t.activite.erreurs.horsDiscord);
       }
 
       const reponse = await fetch("/api/discord/session", {
@@ -192,7 +223,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       });
       if (!reponse.ok) {
         const detail = (await reponse.json().catch(() => null)) as { erreur?: string } | null;
-        throw new Error(detail?.erreur ?? `Connexion impossible (${reponse.status}).`);
+        throw new Error(refusDeSession(t.activite.erreurs, reponse.status, detail?.erreur));
       }
       const recue = (await reponse.json()) as Session;
       if (authentifier && recue.jetonDiscord) await authentifier(recue.jetonDiscord);
@@ -217,10 +248,11 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       setEtape("accueil");
     })().catch((cause: unknown) => {
       console.error("[discord]", cause);
-      setErreur(messageDe(cause, "La connexion à Discord a échoué."));
+      setErreur(messageDe(cause, t.activite.erreurs.connexion));
       setEtape("erreur");
     });
-  }, [clientId, essaiLocal]);
+    // `t` ne change pas en cours de route, et la connexion ne se lance de toute façon qu'une fois.
+  }, [clientId, essaiLocal, t]);
 
   // -------------------------------------------------------------------------
   // La sauvegarde
@@ -304,7 +336,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
     const canvas = canvasRef.current;
     if (!courante || !canvas || emulateurRef.current) return;
 
-    const emulateur = new EmulateurMgs(courante.coeur);
+    const emulateur = new EmulateurMgs(courante.coeur, t.link.coeur);
     emulateurRef.current = emulateur;
     emulateur.volume(muet ? 0 : volumeRef.current);
     // Tout de suite, tant qu'on est dans l'appui : après les téléchargements,
@@ -315,7 +347,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
     try {
       const autorisation = { Authorization: `Bearer ${courante.jeton}` };
 
-      setProgression("Récupération de ta partie…");
+      setProgression(t.activite.lancement.partie);
       let sauvegarde: Uint8Array | null = null;
       const reponseSauvegarde = await fetch("/api/discord/sauvegarde", {
         headers: autorisation,
@@ -328,22 +360,26 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       } else if (reponseSauvegarde.status !== 204) {
         // Démarrer sans la partie existante, puis l'écraser à la première
         // sauvegarde : c'est le pire qui puisse arriver ici. On s'arrête.
-        throw new Error(`Ta partie n'a pas pu être récupérée (${reponseSauvegarde.status}).`);
+        throw new Error(t.activite.erreurs.partieNonRecuperee(reponseSauvegarde.status));
       }
 
-      setProgression(`Téléchargement du jeu (${(courante.jeu.taille / 1048576).toFixed(1)} Mio)…`);
+      const mio = (courante.jeu.taille / 1048576).toLocaleString(REGION[langue], {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      });
+      setProgression(t.activite.lancement.jeu(mio));
       const reponseRom = await fetch(`/api/discord/rom?v=${courante.jeu.empreinte}`, { headers: autorisation });
-      if (!reponseRom.ok) throw new Error(`Jeu indisponible (${reponseRom.status}).`);
+      if (!reponseRom.ok) throw new Error(t.activite.erreurs.jeuIndisponible(reponseRom.status));
       const rom = new Uint8Array(await reponseRom.arrayBuffer());
 
-      setProgression("Démarrage de la console…");
+      setProgression(t.activite.lancement.console);
       await emulateur.demarrer({
         canvas,
         rom: { nom: `jeu.${courante.jeu.console}`, donnees: rom },
         sauvegarde,
         surSauvegardeModifiee: planifierEnvoi,
         surPlantage: () => {
-          setErreur("Le cœur d'émulation n'a pas pu démarrer.");
+          setErreur(t.activite.erreurs.coeur);
           setEtape("erreur");
         },
       });
@@ -352,10 +388,10 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       console.error("[discord]", cause);
       emulateur.arreter();
       emulateurRef.current = null;
-      setErreur(messageDe(cause, "Le jeu n'a pas pu démarrer."));
+      setErreur(messageDe(cause, t.activite.erreurs.demarrage));
       setEtape("erreur");
     }
-  }, [muet, planifierEnvoi]);
+  }, [muet, planifierEnvoi, t, langue]);
 
   // En quittant la page, on libère le cœur et sa sortie son.
   useEffect(
@@ -426,7 +462,10 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
     [],
   );
 
-  const enregistreur = useMemo(() => enregistreurDiscord(session?.jeton ?? ""), [session?.jeton]);
+  const enregistreur = useMemo(
+    () => enregistreurDiscord(session?.jeton ?? "", t.activite.reglages),
+    [session?.jeton, t],
+  );
 
   // La manette du compte, en solo. À deux, c'est le client du salon qui la lit.
   const surToucheManette = useCallback(
@@ -482,10 +521,10 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
 
   const libelleSauvegarde: Record<EtatSauvegarde, string> = {
     aucun: "",
-    envoi: "Sauvegarde en cours…",
-    ok: "Partie sauvegardée",
-    echec: "Sauvegarde non envoyée, nouvel essai à la prochaine",
-    conflit: "Partie plus récente sur le serveur : celle-ci n'est pas envoyée",
+    envoi: t.activite.sauvegarde.envoi,
+    ok: t.activite.sauvegarde.ok,
+    echec: t.activite.sauvegarde.echec,
+    conflit: t.activite.sauvegarde.conflit,
   };
 
   return (
@@ -518,7 +557,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
               etape === "duo" ? "p-0 text-left" : "p-6"
             }`}
           >
-            {etape === "connexion" && <p className="text-ink-400">Connexion à Discord…</p>}
+            {etape === "connexion" && <p className="text-ink-400">{t.activite.accueil.connexion}</p>}
 
             {etape === "accueil" && session && !reglages && (
               <>
@@ -526,14 +565,14 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
                 {session.accueil.mot && (
                   <p className="max-w-lg whitespace-pre-line text-sm text-ink-200">{session.accueil.mot}</p>
                 )}
-                <p className="text-sm text-ink-400">Ta partie est gardée pour {session.pseudo}.</p>
+                <p className="text-sm text-ink-400">{t.activite.accueil.partieGardee(session.pseudo)}</p>
                 <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
                     type="button"
                     onClick={() => void jouer()}
                     className="rounded-xl bg-accent-500 px-8 py-3 text-lg font-semibold text-ink-950 transition-colors hover:bg-accent-400"
                   >
-                    Jouer seul
+                    {t.activite.accueil.jouerSeul}
                   </button>
                   {session.instance && (
                     <button
@@ -541,22 +580,19 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
                       onClick={() => setEtape("duo")}
                       className="rounded-xl border border-accent-500 px-8 py-3 text-lg font-semibold text-accent-400 transition-colors hover:bg-accent-600/20"
                     >
-                      Jouer à deux
+                      {t.activite.accueil.jouerADeux}
                     </button>
                   )}
                 </div>
                 {session.instance && (
-                  <p className="max-w-md text-xs text-ink-400">
-                    À deux : avec quelqu&apos;un de ce salon vocal, par le câble link. La partie de chacun est
-                    celle de son compte, seul comme à deux.
-                  </p>
+                  <p className="max-w-md text-xs text-ink-400">{t.activite.accueil.explicationADeux}</p>
                 )}
                 <button
                   type="button"
                   onClick={() => setReglages(true)}
                   className="rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-sm text-ink-200"
                 >
-                  Touches et manette
+                  {t.activite.reglages.titre}
                 </button>
                 <PartieActivite jeton={session.jeton} titre={session.jeu.titre} />
                 {session.accueil.astuces[0] !== undefined && <Astuce texte={session.accueil.astuces[0]} />}
@@ -598,7 +634,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
                   onClick={() => window.location.reload()}
                   className="rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-sm"
                 >
-                  Réessayer
+                  {t.activite.erreurs.reessayer}
                 </button>
               </>
             )}
@@ -608,14 +644,11 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
         {etape === "jeu" && panneau === "pause" && session && accesEtats && (
           <div className="absolute inset-0 flex flex-col gap-3 overflow-y-auto bg-ink-950/95 p-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-ink-50">Pause</h2>
-              <Commande onClick={() => ouvrirPanneau(null)}>Reprendre la partie</Commande>
+              <h2 className="text-lg font-semibold text-ink-50">{t.activite.pause.titre}</h2>
+              <Commande onClick={() => ouvrirPanneau(null)}>{t.activite.pause.reprendre}</Commande>
             </div>
             {session.accueil.astuces.length > 0 && <AstucesQuiDefilent liste={session.accueil.astuces} />}
-            <p className="text-xs text-ink-400">
-              Une reprise est l&apos;instant exact où tu l&apos;as prise : elle suit ton compte, comme ta
-              partie. Cinq emplacements, que tu remplis quand tu veux.
-            </p>
+            <p className="text-xs text-ink-400">{t.activite.pause.explication}</p>
             <Savestates
               gameId={session.jeu.id}
               acces={accesEtats}
@@ -638,12 +671,12 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
         <span className="flex flex-wrap items-center gap-2">
           {/* Constat du prototype : Discord n'isole pas ses iframes. */}
           {isolation !== null && etape !== "jeu" && (
-            <span title="self.crossOriginIsolated">Isolation cross-origin : {isolation ? "oui" : "non"}</span>
+            <span title="self.crossOriginIsolated">{t.activite.accueil.isolation(isolation)}</span>
           )}
           {etape === "jeu" && (
             <>
               <Commande onClick={() => ouvrirPanneau(panneau === "pause" ? null : "pause")} actif={panneau === "pause"}>
-                {panneau === "pause" ? "Reprendre" : "Pause"}
+                {panneau === "pause" ? t.activite.pause.fermer : t.activite.pause.ouvrir}
               </Commande>
               <ChoixVitesse
                 valeur={vitesse}
@@ -661,10 +694,12 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   );
 }
 
+/** Une astuce de l'administrateur : son texte s'affiche tel quel, seul le mot qui l'annonce est traduit. */
 function Astuce({ texte }: { texte: string }) {
+  const t = useT();
   return (
     <p className="max-w-lg rounded-lg border border-ink-800 bg-ink-900/60 px-4 py-2 text-xs text-ink-300">
-      <span className="font-semibold text-ink-100">Astuce : </span>
+      <span className="font-semibold text-ink-100">{t.activite.accueil.astuce} </span>
       {texte}
     </p>
   );

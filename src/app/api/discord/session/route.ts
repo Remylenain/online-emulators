@@ -6,6 +6,7 @@ import { jeuDeLActivite } from "@/lib/discord/jeu";
 import { cleInstance, signerJeton } from "@/lib/discord/jeton";
 import { echangerCode, profilDiscord, type ProfilDiscord } from "@/lib/discord/oauth";
 import { verifierLieu } from "@/lib/discord/instance";
+import { textes } from "@/lib/i18n/serveur";
 import { discordEssaiLocal } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const debit = rateLimit(`discord-session:${ip}`, { limit: 30, windowMs: 60_000 });
   if (!debit.allowed) {
     return NextResponse.json(
-      { erreur: "Trop de tentatives. Réessaie dans un instant." },
+      { erreur: (await textes()).activite.erreurs.tropDeTentatives },
       { status: 429, headers: { "Retry-After": String(debit.retryAfter) } },
     );
   }
@@ -47,19 +48,19 @@ export async function POST(request: Request) {
   try {
     corps = (await request.json()) as typeof corps;
   } catch {
-    return NextResponse.json({ erreur: "Requête illisible." }, { status: 400 });
+    return NextResponse.json({ erreur: (await textes()).activite.serveur.requeteIllisible }, { status: 400 });
   }
 
   const jeu = await jeuDeLActivite(application.gameId);
   if (!jeu) {
-    return NextResponse.json({ erreur: "Le jeu de cette Activité est introuvable." }, { status: 503 });
+    return NextResponse.json({ erreur: (await textes()).activite.erreurs.jeuIntrouvable }, { status: 503 });
   }
 
   let profil: ProfilDiscord;
   let jetonAcces: string | null = null;
 
   if (corps.essai === true) {
-    if (!discordEssaiLocal) return NextResponse.json({ erreur: "Essai local désactivé." }, { status: 403 });
+    if (!discordEssaiLocal) return NextResponse.json({ erreur: (await textes()).activite.serveur.essaiLocalDesactive }, { status: 403 });
     // Un nom facultatif, pour essayer à plusieurs sans partager la partie.
     const nom = typeof corps.nom === "string" && /^[a-z0-9]{1,16}$/.test(corps.nom) ? corps.nom : "";
     profil = { id: nom ? `essai-local-${nom}` : "essai-local", pseudo: nom ? `Essai ${nom}` : "Essai local" };
@@ -68,12 +69,12 @@ export async function POST(request: Request) {
     if (typeof corps.instance !== "string" || !/^[a-z0-9-]{1,64}$/.test(corps.instance)) corps.instance = "essai";
   } else {
     if (typeof corps.code !== "string" || corps.code.length === 0 || corps.code.length > 200) {
-      return NextResponse.json({ erreur: "Code d'autorisation manquant." }, { status: 400 });
+      return NextResponse.json({ erreur: (await textes()).activite.serveur.codeManquant }, { status: 400 });
     }
     jetonAcces = await echangerCode(application, corps.code);
     const connu = jetonAcces ? await profilDiscord(jetonAcces) : null;
     if (!jetonAcces || !connu) {
-      return NextResponse.json({ erreur: "Discord n'a pas reconnu cette connexion." }, { status: 401 });
+      return NextResponse.json({ erreur: (await textes()).activite.erreurs.nonReconnu }, { status: 401 });
     }
     profil = connu;
 
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
       if (!lieu.permis) {
         console.warn(`[discord] session refusée par le verrou : ${lieu.motif}`);
         return NextResponse.json(
-          { erreur: "Cette Activité ne se joue que dans son serveur Discord." },
+          { erreur: (await textes()).activite.serveur.horsServeur },
           { status: 403 },
         );
       }
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
   }
 
   const compte = compteDiscord(profil, jeu.id);
-  if (!compte) return NextResponse.json({ erreur: "Ce compte est désactivé." }, { status: 403 });
+  if (!compte) return NextResponse.json({ erreur: (await textes()).activite.serveur.compteDesactive }, { status: 403 });
 
   return NextResponse.json(
     {

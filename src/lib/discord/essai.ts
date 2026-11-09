@@ -1,3 +1,4 @@
+import type { Dictionnaire } from "@/lib/i18n/dictionnaires";
 import type { ConfigActivite } from "./applications";
 
 /**
@@ -24,7 +25,10 @@ export type EssaiApplication = {
   serveur: Verdict | null;
 };
 
-async function identifiants(application: ConfigActivite): Promise<Verdict> {
+/** Les textes des verdicts : ceux de la langue de l'administrateur qui lance l'essai. */
+type Libelles = Dictionnaire["adminDiscord"]["essai"]["verdicts"];
+
+async function identifiants(application: ConfigActivite, t: Libelles): Promise<Verdict> {
   try {
     const reponse = await fetch(`${API}/oauth2/token`, {
       method: "POST",
@@ -35,17 +39,17 @@ async function identifiants(application: ConfigActivite): Promise<Verdict> {
       body: new URLSearchParams({ grant_type: "client_credentials", scope: "identify" }),
       cache: "no-store",
     });
-    if (reponse.ok) return { ok: true, detail: "Identifiant et secret acceptés par Discord." };
+    if (reponse.ok) return { ok: true, detail: t.identifiantsAcceptes };
     if (reponse.status === 401) {
-      return { ok: false, detail: "Discord refuse l'identifiant ou le secret (invalid_client). Le secret n'est pas la Public Key." };
+      return { ok: false, detail: t.identifiantsRefuses };
     }
-    return { ok: false, detail: `Discord a répondu ${reponse.status}.` };
+    return { ok: false, detail: t.reponse(reponse.status) };
   } catch {
-    return { ok: false, detail: "Discord est injoignable depuis le serveur." };
+    return { ok: false, detail: t.injoignable };
   }
 }
 
-async function bot(application: ConfigActivite): Promise<Verdict> {
+async function bot(application: ConfigActivite, t: Libelles): Promise<Verdict> {
   try {
     const reponse = await fetch(`${API}/users/@me`, {
       headers: { Authorization: `Bot ${application.botToken}` },
@@ -54,7 +58,7 @@ async function bot(application: ConfigActivite): Promise<Verdict> {
     if (!reponse.ok) {
       return {
         ok: false,
-        detail: reponse.status === 401 ? "Discord refuse ce jeton de bot." : `Discord a répondu ${reponse.status}.`,
+        detail: reponse.status === 401 ? t.jetonRefuse : t.reponse(reponse.status),
       };
     }
     const corps = (await reponse.json()) as { id?: unknown; username?: unknown };
@@ -62,15 +66,15 @@ async function bot(application: ConfigActivite): Promise<Verdict> {
     return {
       ok: meme,
       detail: meme
-        ? `Jeton de bot accepté (${String(corps.username ?? "bot")}).`
-        : "Ce jeton de bot appartient à une autre application que cet identifiant.",
+        ? t.jetonAccepte(String(corps.username ?? "bot"))
+        : t.jetonDUneAutre,
     };
   } catch {
-    return { ok: false, detail: "Discord est injoignable depuis le serveur." };
+    return { ok: false, detail: t.injoignable };
   }
 }
 
-async function serveur(application: ConfigActivite): Promise<Verdict> {
+async function serveur(application: ConfigActivite, t: Libelles): Promise<Verdict> {
   try {
     const reponse = await fetch(`${API}/guilds/${encodeURIComponent(application.guildId)}`, {
       headers: { Authorization: `Bot ${application.botToken}` },
@@ -78,7 +82,7 @@ async function serveur(application: ConfigActivite): Promise<Verdict> {
     });
     if (reponse.ok) {
       const corps = (await reponse.json()) as { name?: unknown };
-      return { ok: true, detail: `Serveur trouvé : ${String(corps.name ?? application.guildId)}.` };
+      return { ok: true, detail: t.serveurTrouve(String(corps.name ?? application.guildId)) };
     }
     if (reponse.status === 403 || reponse.status === 404) {
       // Discord ne distingue pas un serveur inexistant d'un serveur où le
@@ -87,19 +91,19 @@ async function serveur(application: ConfigActivite): Promise<Verdict> {
       // l'Activité, pas le serveur.
       return {
         ok: false,
-        detail: "Discord ne montre pas ce serveur à ce bot : identifiant faux, ou bot non invité. Le verrou peut marcher quand même ; à essayer dans Discord.",
+        detail: t.serveurInvisible,
       };
     }
-    return { ok: false, detail: `Discord a répondu ${reponse.status}.` };
+    return { ok: false, detail: t.reponse(reponse.status) };
   } catch {
-    return { ok: false, detail: "Discord est injoignable depuis le serveur." };
+    return { ok: false, detail: t.injoignable };
   }
 }
 
-export async function essayerApplication(application: ConfigActivite): Promise<EssaiApplication> {
+export async function essayerApplication(application: ConfigActivite, t: Libelles): Promise<EssaiApplication> {
   return {
-    identifiants: await identifiants(application),
-    bot: application.botToken ? await bot(application) : null,
-    serveur: application.guildId && application.botToken ? await serveur(application) : null,
+    identifiants: await identifiants(application, t),
+    bot: application.botToken ? await bot(application, t) : null,
+    serveur: application.guildId && application.botToken ? await serveur(application, t) : null,
   };
 }

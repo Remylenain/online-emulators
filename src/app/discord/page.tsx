@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Activite } from "@/components/discord/activite";
-import { FournisseurLangue } from "@/components/langue";
 import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
 import { discordEssaiLocal } from "@/lib/env";
+import { textes } from "@/lib/i18n/serveur";
 
 /**
  * Rien du site dans l'en-tête de cette page : ni son nom, ni sa description,
@@ -12,13 +12,15 @@ import { discordEssaiLocal } from "@/lib/env";
  * l'Activité, à travers le proxy de Discord ; ce qui l'héberge ne les regarde
  * pas, et n'a pas à se lire dans le code source de la page.
  */
-export const metadata: Metadata = {
-  title: { absolute: "Activité" },
-  description: null,
-  manifest: null,
-  icons: null,
-  appleWebApp: null,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: { absolute: (await textes()).activite.titreOnglet },
+    description: null,
+    manifest: null,
+    icons: null,
+    appleWebApp: null,
+  };
+}
 
 /**
  * La page que Discord ouvre dans son iframe : l'Activité.
@@ -38,16 +40,11 @@ export default async function PageDiscord() {
   if (!application) notFound();
 
   /*
-   * En français, quel que soit le navigateur : les écrans propres à
-   * l'Activité ne sont pas encore traduits, alors que les panneaux qu'elle
-   * partage avec le lecteur du site le sont. Sans ce fournisseur, un joueur
-   * anglophone verrait les deux langues mêlées.
+   * La langue est celle de la requête : celle du navigateur du joueur, ou la
+   * langue par défaut du site. Pas de choix explicite ici — une iframe tierce
+   * n'a pas de cookie, et l'Activité n'a pas de sélecteur. Les requêtes
+   * qu'elle fait ensuite portent le même en-tête : les refus du serveur
+   * arrivent donc dans la même langue que l'écran.
    */
-  return (
-    <FournisseurLangue langue="fr">
-      <div lang="fr">
-        <Activite clientId={application.clientId} essaiLocal={discordEssaiLocal} />
-      </div>
-    </FournisseurLangue>
-  );
+  return <Activite clientId={application.clientId} essaiLocal={discordEssaiLocal} />;
 }

@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { basculerFavori } from "@/lib/favoris/actions";
+import { useT } from "./langue";
 
 /** L'étoile d'un jeu : un clic l'ajoute aux favoris du compte, un second l'en retire. */
 export function Favori({ gameId, initial }: { gameId: string; initial: boolean }) {
   const [favori, setFavori] = useState(initial);
   const [enCours, demarrer] = useTransition();
+  const t = useT().catalogue.favori;
 
   return (
     <button
@@ -26,7 +28,7 @@ export function Favori({ gameId, initial }: { gameId: string; initial: boolean }
       }`}
     >
       <span aria-hidden>{favori ? "★" : "☆"}</span>
-      {favori ? "Dans tes favoris" : "Ajouter aux favoris"}
+      {favori ? t.dansTesFavoris : t.ajouter}
     </button>
   );
 }

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { games } from "@/db/schema";
 import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { nomDeFichier } from "@/lib/format";
 import { ecrireSauvegarde, lireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/saves";
 
@@ -19,9 +20,14 @@ import { ecrireSauvegarde, lireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/s
  * de toute façon que sa propre partie à abîmer.
  */
 
+/** Le champ `erreur` d'un refus, dans la langue de la requête ; lu seulement quand il y en a un. */
+async function refus() {
+  return (await textes()).mesJeux.reponses.erreurs;
+}
+
 export async function GET(request: Request, context: { params: Promise<{ gameId: string }> }) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const { gameId } = await context.params;
   const sauvegarde = await lireSauvegarde(viewer.id, gameId);
@@ -54,25 +60,25 @@ export async function GET(request: Request, context: { params: Promise<{ gameId:
 
 export async function PUT(request: Request, context: { params: Promise<{ gameId: string }> }) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const { gameId } = await context.params;
   if (!(await jeuAccessible(viewer, gameId))) {
-    return NextResponse.json({ erreur: "Jeu introuvable." }, { status: 404 });
+    return NextResponse.json({ erreur: (await refus()).jeuIntrouvable }, { status: 404 });
   }
 
   const corps = await request.arrayBuffer();
   if (corps.byteLength === 0) {
-    return NextResponse.json({ erreur: "Sauvegarde vide." }, { status: 400 });
+    return NextResponse.json({ erreur: (await refus()).sauvegardeVide }, { status: 400 });
   }
   if (corps.byteLength > TAILLE_MAX_SAUVEGARDE) {
-    return NextResponse.json({ erreur: "Ce fichier est trop gros pour être une sauvegarde." }, { status: 413 });
+    return NextResponse.json({ erreur: (await refus()).sauvegardeTropGrosse }, { status: 413 });
   }
 
   const entete = request.headers.get("X-Revision");
   const revisionAttendue = entete === null || entete === "" ? null : Number(entete);
   if (revisionAttendue !== null && !Number.isInteger(revisionAttendue)) {
-    return NextResponse.json({ erreur: "Révision invalide." }, { status: 400 });
+    return NextResponse.json({ erreur: (await refus()).revisionInvalide }, { status: 400 });
   }
 
   const resultat = await ecrireSauvegarde(
@@ -85,9 +91,8 @@ export async function PUT(request: Request, context: { params: Promise<{ gameId:
   if (resultat.etat === "conflit") {
     return NextResponse.json(
       {
-        erreur:
-          "Cette partie a été sauvegardée ailleurs depuis que tu as commencé. " +
-          "Ta sauvegarde n'a pas été écrasée.",
+        // La phrase que le lecteur affiche lui-même devant ce refus.
+        erreur: (await textes()).lecteur.sauvegarde.conflit,
         revision: resultat.revision,
       },
       { status: 409 },

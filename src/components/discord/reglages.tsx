@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/langue";
 import { ManetteConfig } from "@/components/player/manette-config";
 import { Touches } from "@/components/player/touches";
 import type { useManette } from "@/components/player/use-manette";
@@ -28,24 +29,22 @@ export function ReglagesActivite({
   enregistreur: Enregistreur;
   fermer: () => void;
 }) {
+  const t = useT().activite.reglages;
   const boutons = (consoleSlug === "gba" ? [...BUTTONS.common, ...BUTTONS.shoulder] : [...BUTTONS.common]) as ButtonName[];
 
   return (
     <div className="flex w-full max-w-xl flex-col gap-6 overflow-y-auto p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-ink-50">Touches et manette</h2>
+        <h2 className="text-lg font-semibold text-ink-50">{t.titre}</h2>
         <button
           type="button"
           onClick={fermer}
           className="rounded-lg border border-ink-700 bg-ink-800 px-3 py-1.5 text-sm text-ink-200"
         >
-          Fermer
+          {t.fermer}
         </button>
       </div>
-      <p className="text-xs text-ink-400">
-        Enregistrés sur ton compte : les mêmes réglages valent sur le site et dans l&apos;Activité, seul ou
-        à deux.
-      </p>
+      <p className="text-xs text-ink-400">{t.explication}</p>
       {!tactile && (
         <Touches
           consoleSlug={consoleSlug}

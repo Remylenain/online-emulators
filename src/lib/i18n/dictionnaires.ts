@@ -21,8 +21,9 @@ import type { Langue } from "./langues";
  * mis en valeur par le composant qui l'affiche (`Accentue`). Les dictionnaires
  * restent du texte, sans balises.
  *
- * Tout n'est pas encore traduit : l'administration reste en français, et les
- * écrans qui ne lisent pas ce module aussi. Voir `docs/langues.md`.
+ * Tout ce qui se lit à l'écran passe par ici, administration comprise. Voir
+ * `docs/langues.md` pour ce qui ne se traduit pas, et pour les cas où le
+ * serveur ne peut pas choisir les mots lui-même.
  */
 export type Dictionnaire = typeof fr;
 

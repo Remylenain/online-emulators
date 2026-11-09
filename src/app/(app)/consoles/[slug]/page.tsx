@@ -11,12 +11,12 @@ import {
   TYPE_PAR_DEFAUT,
   TRI_PAR_DEFAUT,
   isViewMode,
-  LANGUE_PAR_DEFAUT,
   nomDeLangue,
   TOUTES_LANGUES,
   type ViewMode,
 } from "@/lib/catalog-options";
 import { CONSOLES, findConsole } from "@/lib/consoles";
+import { langueDeLaRequete, textes } from "@/lib/i18n/serveur";
 
 type Params = { slug: string };
 type Query = { q?: string; tri?: string; vue?: string; langue?: string; type?: string };
@@ -44,6 +44,8 @@ export default async function ConsolePage({
   searchParams: Promise<Query>;
 }) {
   const user = await requireUser();
+  const langueInterface = await langueDeLaRequete();
+  const t = (await textes()).catalogue.console;
 
   const { slug } = await params;
   const console = findConsole(slug);
@@ -61,11 +63,11 @@ export default async function ConsolePage({
   const langues = await languesDisponibles(user, console.slug, type);
 
   /**
-   * Le français s'affiche par défaut, mais seulement s'il y a du français sur
-   * cette console : sinon le catalogue s'ouvrirait vide, ce qui ressemble à
-   * une panne plus qu'à un filtre.
+   * Les jeux dans la langue du visiteur s'affichent par défaut, mais
+   * seulement s'il y en a sur cette console : sinon le catalogue s'ouvrirait
+   * vide, ce qui ressemble à une panne plus qu'à un filtre.
    */
-  const defaut = langues.includes(LANGUE_PAR_DEFAUT) ? LANGUE_PAR_DEFAUT : TOUTES_LANGUES;
+  const defaut = langues.includes(langueInterface) ? langueInterface : TOUTES_LANGUES;
   const langue = query.langue ?? defaut;
 
   const { jeux, total } = await listConsoleGames({
@@ -84,8 +86,7 @@ export default async function ConsolePage({
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-ink-50">{console.name}</h1>
         <p className="text-sm text-ink-400">
-          {console.screenWidth}×{console.screenHeight} pixels
-          {console.hasShoulderButtons && ", avec gâchettes L et R"}
+          {t.ecran(console.screenWidth, console.screenHeight, console.hasShoulderButtons)}
         </p>
       </div>
 
@@ -104,10 +105,10 @@ export default async function ConsolePage({
       {jeux.length === 0 ? (
         <p className="rounded-panel border border-dashed border-ink-800 px-5 py-12 text-center text-sm text-ink-400">
           {search
-            ? `Rien ne correspond à « ${search} ».`
+            ? t.rienNeCorrespond(search)
             : langue !== TOUTES_LANGUES
-              ? `Aucun jeu en ${nomDeLangue(langue).toLowerCase()} sur cette console.`
-              : "Aucun jeu sur cette console pour le moment."}
+              ? t.aucunDansLaLangue(nomDeLangue(langue, langueInterface))
+              : t.aucunJeu}
         </p>
       ) : view === "liste" ? (
         <GameList games={jeux} />
@@ -120,10 +121,7 @@ export default async function ConsolePage({
         donne l'impression que des jeux ont disparu.
       */}
       {masques > 0 && (
-        <p className="text-center text-xs text-ink-700">
-          {masques} autre{masques > 1 ? "s" : ""} jeu{masques > 1 ? "x" : ""} dans
-          d&apos;autres langues, ou sans langue déclarée.
-        </p>
+        <p className="text-center text-xs text-ink-700">{t.autresMasques(masques)}</p>
       )}
     </div>
   );

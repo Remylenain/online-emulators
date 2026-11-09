@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Alert, Panel } from "@/components/ui";
 import { redirectIfAuthenticated } from "@/lib/auth/guard";
+import { textes } from "@/lib/i18n/serveur";
 import { configCaptcha, inscriptionsOuvertes } from "@/lib/parametres";
 import { OpenRegisterForm } from "./open-register-form";
 import { RegisterForm } from "./register-form";
 
-export const metadata: Metadata = { title: "Inscription" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await textes();
+  return { title: t.connexion.inscription.onglet };
+}
 
 /**
  * Deux façons d'arriver ici : avec un jeton d'invitation dans l'adresse, ou
@@ -28,19 +32,17 @@ export default async function RegisterPage({
   // droit de descendre jusqu'au navigateur.
   if (inscriptionsOuvertes()) return <OpenRegisterForm siteKey={configCaptcha().siteKey} />;
 
+  const t = await textes();
   return (
     <Panel>
       <div className="flex flex-col gap-4">
-        <h1 className="text-lg font-semibold text-ink-50">Inscription sur invitation</h1>
-        <Alert tone="info">
-          Les comptes se créent sur invitation : il te faut un lien donné par l&apos;administrateur.
-          Si tu en as reçu un et qu&apos;il semble tronqué, copie-le en entier.
-        </Alert>
+        <h1 className="text-lg font-semibold text-ink-50">{t.connexion.inscription.surInvitation.titre}</h1>
+        <Alert tone="info">{t.connexion.inscription.surInvitation.explication}</Alert>
         <Link
           href="/connexion"
           className="text-center text-xs text-ink-400 underline-offset-4 hover:text-ink-200 hover:underline"
         >
-          J&apos;ai déjà un compte
+          {t.connexion.dejaUnCompte}
         </Link>
       </div>
     </Panel>

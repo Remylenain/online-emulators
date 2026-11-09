@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CONSOLES } from "@/lib/consoles";
 import type { SessionUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { nomDuSite } from "@/lib/parametres";
 import { MenuCompte } from "./menu-compte";
 import { RechercheGlobale } from "./recherche-globale";
@@ -16,7 +17,8 @@ import { RechercheGlobale } from "./recherche-globale";
  * liste est fixe, et l'en-tête s'affiche sur toutes les pages — autant éviter
  * une requête à chaque rendu.
  */
-export function SiteHeader({ user }: { user: SessionUser }) {
+export async function SiteHeader({ user }: { user: SessionUser }) {
+  const t = (await textes()).site.navigation;
   const lien =
     "rounded-md px-2.5 py-1.5 text-sm text-ink-400 transition-colors hover:bg-ink-800 hover:text-ink-50";
 
@@ -27,7 +29,7 @@ export function SiteHeader({ user }: { user: SessionUser }) {
           {nomDuSite()}
         </Link>
 
-        <nav className="hidden items-center gap-1 sm:flex" aria-label="Consoles">
+        <nav className="hidden items-center gap-1 sm:flex" aria-label={t.consoles}>
           {CONSOLES.map((console) => (
             <Link key={console.slug} href={`/consoles/${console.slug}`} className={lien}>
               {console.shortName}
@@ -38,7 +40,7 @@ export function SiteHeader({ user }: { user: SessionUser }) {
         <div className="ml-auto flex items-center gap-2">
           <RechercheGlobale />
           <Link href="/mes-jeux" className={`hidden sm:inline-block ${lien}`}>
-            Mes jeux
+            {t.mesJeux}
           </Link>
           <MenuCompte user={user} />
         </div>

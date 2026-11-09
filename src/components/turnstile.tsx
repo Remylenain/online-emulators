@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useLangue } from "@/components/langue";
 
 declare global {
   interface Window {
@@ -22,10 +23,14 @@ const SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render
  *
  * Sans clé publique configurée, le composant ne rend rien : en développement,
  * la vérification serveur est elle aussi contournée.
+ *
+ * Le widget n'a pas de texte à nous : c'est Cloudflare qui écrit le sien,
+ * dans la langue de l'interface qu'on lui indique.
  */
 export function Turnstile({ siteKey }: { siteKey: string }) {
   const container = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
+  const langue = useLangue();
 
   useEffect(() => {
     if (!siteKey || !container.current) return;
@@ -38,7 +43,7 @@ export function Turnstile({ siteKey }: { siteKey: string }) {
       widgetId.current = window.turnstile.render(container.current, {
         sitekey: siteKey,
         theme: "dark",
-        language: "fr",
+        language: langue,
       });
     }
 
@@ -63,7 +68,7 @@ export function Turnstile({ siteKey }: { siteKey: string }) {
         widgetId.current = null;
       }
     };
-  }, [siteKey]);
+  }, [siteKey, langue]);
 
   if (!siteKey) return null;
 

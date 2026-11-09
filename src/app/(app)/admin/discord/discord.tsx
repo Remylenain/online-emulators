@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import { useT } from "@/components/langue";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 import {
   ajouterAstuceDiscord,
@@ -18,7 +19,7 @@ import {
   LONGUEUR_MAX_EDITEUR,
 } from "@/lib/discord/limites";
 import type { EssaiApplication, Verdict } from "@/lib/discord/essai";
-import { Tutoriel } from "./tutoriel";
+import { Prose, Tutoriel } from "./tutoriel";
 
 type Jeu = { id: string; titre: string; console: string; publie: boolean };
 
@@ -42,30 +43,27 @@ export function Discord({
   repli: { jeu: string; verrou: boolean } | null;
 }) {
   const [enEdition, setEnEdition] = useState<ApplicationDiscord | null | "nouvelle">(null);
+  const t = useT().adminDiscord;
 
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-ink-50">Activités Discord</h2>
-          <p className="mt-1 max-w-2xl text-sm text-ink-400">
-            Un jeu du site, jouable dans Discord. Une Activité est une application Discord et ne
-            sert qu&apos;un jeu. Elle répond sur son propre nom d&apos;hôte, où rien d&apos;autre du site
-            n&apos;est servi — ou sur celui du site, à côté de lui. Le joueur n&apos;a besoin ni de compte
-            ni de mot de passe : sa partie suit son compte Discord.
-          </p>
+          <h2 className="text-lg font-semibold text-ink-50">{t.titre}</h2>
+          <p className="mt-1 max-w-2xl text-sm text-ink-400">{t.presentation}</p>
         </div>
         <Button type="button" onClick={() => setEnEdition("nouvelle")} disabled={enEdition === "nouvelle"}>
-          Nouvelle application
+          {t.nouvelle}
         </Button>
       </div>
 
       {repli && (
         <Alert tone="info">
-          L&apos;environnement du serveur configure aussi une Activité ({repli.jeu}
-          {repli.verrou ? ", verrouillée sur un serveur" : ""}) : elle répond sur{" "}
-          <code className="text-ink-50">{hoteDuSite}</code> et sur tout hôte sans application
-          ci-dessous.
+          {/* Le titre du jeu est une saisie libre : il ne passe pas par `Prose`. */}
+          {t.repli.annonce(repli.jeu, repli.verrou)}{" "}
+          <span className="[&_code]:text-ink-50">
+            <Prose texte={t.repli.portee(hoteDuSite)} />
+          </span>
         </Alert>
       )}
 
@@ -76,7 +74,7 @@ export function Discord({
       )}
 
       {applications.length === 0 && enEdition !== "nouvelle" && (
-        <p className="text-sm text-ink-400">Aucune application déclarée.</p>
+        <p className="text-sm text-ink-400">{t.aucune}</p>
       )}
 
       {applications.map((application) =>
@@ -114,6 +112,7 @@ function Carte({
   const [retour, setRetour] = useState<Resultat | null>(null);
   const [enCours, demarrer] = useTransition();
   const [marche, setMarche] = useState(false);
+  const t = useT().adminDiscord;
 
   return (
     <Panel className="flex flex-col gap-3">
@@ -122,7 +121,7 @@ function Carte({
           <h3 className="text-base font-semibold text-ink-50">{application.name}</h3>
           <p className="text-sm text-ink-300">
             <code className="text-ink-50">{application.host}</code>
-            {application.host === hoteDuSite && <span className="text-ink-400"> (l&apos;hôte du site)</span>}
+            {application.host === hoteDuSite && <span className="text-ink-400"> {t.carte.hoteDuSite}</span>}
             {" · "}
             {application.jeu ? (
               <>
@@ -130,20 +129,16 @@ function Carte({
                 <span className="text-ink-500 uppercase">{application.jeu.console}</span>
               </>
             ) : (
-              <span className="text-red-300">jeu introuvable</span>
+              <span className="text-red-300">{t.carte.jeuIntrouvable}</span>
             )}
           </p>
           <p className="text-xs text-ink-400">
-            Application {application.clientId}
-            {application.guildId
-              ? ` · réservée au serveur ${application.guildId}`
-              : " · jouable dans tout serveur où Discord l'accepte"}
-            {application.guildId && !application.botTokenDefini ? " · sans jeton de bot !" : ""}
+            {t.carte.resume(application.clientId, application.guildId, !application.botTokenDefini)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="ghost" onClick={modifier}>
-            Modifier
+            {t.carte.modifier}
           </Button>
           <Button
             type="button"
@@ -156,32 +151,32 @@ function Carte({
               })
             }
           >
-            {enCours ? "Essai…" : "Essayer auprès de Discord"}
+            {enCours ? t.carte.essaiEnCours : t.carte.essayer}
           </Button>
           <Button type="button" variant="ghost" onClick={() => setMarche((v) => !v)}>
-            {marche ? "Masquer la marche à suivre" : "Marche à suivre"}
+            {marche ? t.carte.masquerMarche : t.carte.marche}
           </Button>
           <button
             type="button"
             disabled={enCours}
             onClick={() => {
-              if (!window.confirm(`Supprimer l'application « ${application.name} » ? L'Activité cessera de répondre sur ${application.host}.`)) return;
+              if (!window.confirm(t.carte.confirmerSuppression(application.name, application.host))) return;
               demarrer(async () => setRetour(await supprimerApplicationDiscord(application.id)));
             }}
             className="self-center text-xs text-ink-400 underline-offset-4 hover:text-red-300 hover:underline"
           >
-            Supprimer
+            {t.carte.supprimer}
           </button>
         </div>
       </div>
 
       {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
-      {essai === "aucune" && <Alert tone="error">Cette application n&apos;existe plus.</Alert>}
+      {essai === "aucune" && <Alert tone="error">{t.actions.applicationDisparue}</Alert>}
       {essai && essai !== "aucune" && (
         <ul className="flex flex-col gap-1 text-sm">
-          <Ligne titre="Identifiant et secret" verdict={essai.identifiants} />
-          {essai.bot && <Ligne titre="Jeton de bot" verdict={essai.bot} />}
-          {essai.serveur && <Ligne titre="Serveur du verrou" verdict={essai.serveur} />}
+          <Ligne titre={t.essai.identifiants} verdict={essai.identifiants} />
+          {essai.bot && <Ligne titre={t.essai.bot} verdict={essai.bot} />}
+          {essai.serveur && <Ligne titre={t.essai.serveur} verdict={essai.serveur} />}
         </ul>
       )}
 
@@ -201,25 +196,24 @@ function Astuces({ application }: { application: ApplicationDiscord }) {
   const [texte, setTexte] = useState("");
   const [retour, setRetour] = useState<Resultat | null>(null);
   const [enCours, demarrer] = useTransition();
+  const t = useT().adminDiscord.astuces;
 
   return (
     <div className="flex flex-col gap-2 border-t border-ink-800 pt-3 text-sm">
       {application.welcome ? (
         <p className="text-ink-300">
-          <span className="text-ink-400">Mot d&apos;accueil : </span>
+          <span className="text-ink-400">{t.accueil} </span>
           <span className="whitespace-pre-line text-ink-100">{application.welcome}</span>
         </p>
       ) : (
-        <p className="text-xs text-ink-400">Pas de mot d&apos;accueil : « Modifier » pour en écrire un.</p>
+        <p className="text-xs text-ink-400">{t.sansAccueil}</p>
       )}
 
       <h4 className="text-sm font-semibold text-ink-200">
-        Astuces
-        <span className="ml-2 font-normal text-ink-400">
-          Mot du jour, conseil, rappel : une au hasard à chaque lancement.
-        </span>
+        {t.titre}
+        <span className="ml-2 font-normal text-ink-400">{t.explication}</span>
       </h4>
-      {application.astuces.length === 0 && <p className="text-xs text-ink-400">Aucune pour l&apos;instant.</p>}
+      {application.astuces.length === 0 && <p className="text-xs text-ink-400">{t.aucune}</p>}
       {application.astuces.length > 0 && (
         <ul className="flex flex-col gap-1">
           {application.astuces.map((astuce) => (
@@ -231,7 +225,7 @@ function Astuces({ application }: { application: ApplicationDiscord }) {
                 onClick={() => demarrer(async () => setRetour(await supprimerAstuceDiscord(astuce.id)))}
                 className="shrink-0 text-xs text-ink-400 underline-offset-4 hover:text-red-300 hover:underline"
               >
-                Retirer
+                {t.retirer}
               </button>
             </li>
           ))}
@@ -254,12 +248,12 @@ function Astuces({ application }: { application: ApplicationDiscord }) {
           value={texte}
           onChange={(evenement) => setTexte(evenement.target.value)}
           maxLength={LONGUEUR_MAX_ASTUCE}
-          placeholder="Une astuce de plus…"
-          aria-label="Nouvelle astuce"
+          placeholder={t.exemple}
+          aria-label={t.nouvelle}
           className="min-w-0 flex-1"
         />
         <Button type="submit" variant="ghost" disabled={enCours || texte.trim().length === 0}>
-          Ajouter
+          {t.ajouter}
         </Button>
       </form>
       {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
@@ -289,70 +283,49 @@ function MarcheASuivre({
   /** L'Activité est déclarée sur l'hôte du site : rien à préparer côté serveur. */
   surLeSite: boolean;
 }) {
+  const t = useT().adminDiscord.marche;
+  const hote = application.host;
+
   return (
-    <ol className="flex list-decimal flex-col gap-2 border-t border-ink-800 pt-3 pl-5 text-sm text-ink-300">
-      {surLeSite ? (
-        <li>
-          <strong className="text-ink-100">Le nom d&apos;hôte.</strong> Rien à faire :{" "}
-          <code className="text-ink-50">{application.host}</code> est l&apos;hôte du site, déjà en
-          place. Le site continue d&apos;y répondre ; Discord, lui, y trouve l&apos;Activité.
-        </li>
-      ) : (
-        <li>
-          <strong className="text-ink-100">Le nom d&apos;hôte.</strong> Faire pointer{" "}
-          <code className="text-ink-50">{application.host}</code> vers ce serveur (DNS), puis lui
-          donner un certificat et un vhost qui relaie vers le site, comme l&apos;hôte principal — voir{" "}
-          <code>docs/discord/README.md</code>. Tant que ce n&apos;est pas fait, Discord n&apos;atteint
-          pas l&apos;Activité.
-        </li>
-      )}
+    <ol className="flex list-decimal flex-col gap-2 border-t border-ink-800 pt-3 pl-5 text-sm text-ink-300 [&_code]:text-ink-50 [&_strong]:text-ink-100">
       <li>
-        <strong className="text-ink-100">Le portail Discord</strong> (discord.com/developers,
-        application {application.clientId}) :
+        <Prose texte={surLeSite ? t.hote.enPlace(hote) : t.hote.aPreparer(hote)} />
+      </li>
+      <li>
+        <Prose texte={t.portail.titre(application.clientId)} />
         <ul className="mt-1 list-disc pl-5">
           <li>
-            OAuth2 → Redirects : <code className="text-ink-50">https://127.0.0.1</code> (exigé,
-            jamais utilisé).
+            <Prose texte={t.portail.redirects} />
           </li>
-          <li>Activities → Settings : cocher « Enable Activities », et les plateformes voulues (iOS, Android).</li>
           <li>
-            Activities → URL Mappings : préfixe <code className="text-ink-50">/</code>, cible{" "}
-            <code className="text-ink-50">{application.host}</code> (sans https://).
+            <Prose texte={t.portail.activites} />
+          </li>
+          <li>
+            <Prose texte={t.portail.mappings(hote)} />
           </li>
           {application.guildId && (
             <li>
-              Bot : le jeton enregistré ici doit être celui de cette application. Le bot n&apos;a pas
-              besoin d&apos;être invité dans le serveur : le verrou interroge l&apos;instance de
-              l&apos;Activité, pas le serveur.
+              <Prose texte={t.portail.bot} />
             </li>
           )}
         </ul>
       </li>
       <li>
-        <strong className="text-ink-100">Les pages légales</strong>, que Discord demande pour vérifier
-        l&apos;application (General Information du portail) :
+        <Prose texte={t.pages.titre} />
         <ul className="mt-1 list-disc pl-5">
           <li>
-            Privacy Policy URL :{" "}
-            <code className="text-ink-50">https://{application.host}/discord/confidentialite</code>
+            <Prose texte={t.pages.confidentialite(hote)} />
           </li>
           <li>
-            Terms of Service URL :{" "}
-            <code className="text-ink-50">https://{application.host}/discord/conditions</code>
+            <Prose texte={t.pages.conditions(hote)} />
           </li>
         </ul>
         {(!application.publisher || !application.contact) && (
-          <span className="mt-1 block text-amber-300">
-            « Proposée par » ou « Contact » est vide : ces pages renvoient pour l&apos;instant aux
-            responsables du serveur Discord. « Modifier » pour les remplir.
-          </span>
+          <span className="mt-1 block text-amber-300">{t.pages.incompletes}</span>
         )}
       </li>
       <li>
-        <strong className="text-ink-100">Essayer.</strong> Dans Discord, mode développeur activé :
-        entrer dans un salon vocal, ouvrir le lanceur d&apos;activités. Une application non vérifiée
-        ne se lance que dans un serveur de moins de 25 membres, et seulement pour son propriétaire,
-        son équipe et ses testeurs.
+        <Prose texte={t.essayer} />
       </li>
     </ol>
   );
@@ -373,6 +346,7 @@ function Formulaire({
   const [, demarrer] = useTransition();
   const [verrou, setVerrou] = useState(Boolean(application?.guildId));
   const nouvelle = application === null;
+  const t = useT().adminDiscord.formulaire;
 
   return (
     <Panel>
@@ -390,23 +364,19 @@ function Formulaire({
         className="flex flex-col gap-4"
       >
         <h3 className="text-sm font-semibold text-ink-200">
-          {nouvelle ? "Nouvelle application" : `Modifier « ${application.name} »`}
+          {nouvelle ? t.titreNouvelle : t.titreModifier(application.name)}
         </h3>
         {!nouvelle && <input type="hidden" name="id" value={application.id} />}
         {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nom" htmlFor="name" hint="Pour toi seulement.">
+          <Field label={t.nom.libelle} htmlFor="name" hint={t.nom.aide}>
             <Input id="name" name="name" defaultValue={application?.name ?? ""} required maxLength={60} autoComplete="off" />
           </Field>
-          <Field
-            label="Nom d'hôte"
-            htmlFor="host"
-            hint={`Sans https:// ni chemin. Un hôte à elle : rien d'autre du site n'y sera servi. Ou ${hoteDuSite}, celui du site : l'Activité s'y ajoute, et le site continue d'y répondre.`}
-          >
+          <Field label={t.hote.libelle} htmlFor="host" hint={t.hote.aide(hoteDuSite)}>
             <Input id="host" name="host" defaultValue={application?.host ?? ""} required placeholder="prism.exemple.com" autoComplete="off" />
           </Field>
-          <Field label="Jeu servi" htmlFor="gameId" hint="Le seul jeu de cette Activité. Pour un autre jeu, une autre application.">
+          <Field label={t.jeu.libelle} htmlFor="gameId" hint={t.jeu.aide}>
             <select
               id="gameId"
               name="gameId"
@@ -415,23 +385,22 @@ function Formulaire({
               className="w-full rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-ink-50 focus:border-accent-500 focus:outline-none"
             >
               <option value="" disabled>
-                Choisir un jeu…
+                {t.jeu.choisir}
               </option>
               {jeux.map((jeu) => (
                 <option key={jeu.id} value={jeu.id}>
-                  {jeu.console.toUpperCase()} — {jeu.titre}
-                  {jeu.publie ? "" : " (dépublié)"}
+                  {t.jeu.option(jeu.console.toUpperCase(), jeu.titre, jeu.publie)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Identifiant d'application" htmlFor="clientId" hint="Application ID, onglet General Information du portail.">
+          <Field label={t.identifiant.libelle} htmlFor="clientId" hint={t.identifiant.aide}>
             <Input id="clientId" name="clientId" defaultValue={application?.clientId ?? ""} required inputMode="numeric" pattern="\d{17,20}" autoComplete="off" />
           </Field>
           <Field
-            label="Client Secret"
+            label={t.secret.libelle}
             htmlFor="clientSecret"
-            hint={nouvelle ? "Onglet OAuth2 → Reset Secret. Pas la Public Key." : "Enregistré. Vide : inchangé."}
+            hint={nouvelle ? t.secret.aide : t.dejaEnregistre}
           >
             <Input
               id="clientSecret"
@@ -444,11 +413,7 @@ function Formulaire({
           </Field>
         </div>
 
-        <Field
-          label="Mot d'accueil"
-          htmlFor="welcome"
-          hint="Affiché à chaque lancement, sous le titre du jeu : une présentation, une consigne pour les testeurs. Vide : rien. Les astuces, elles, s'ajoutent sur la carte de l'application."
-        >
+        <Field label={t.accueil.libelle} htmlFor="welcome" hint={t.accueil.aide}>
           <textarea
             id="welcome"
             name="welcome"
@@ -460,11 +425,7 @@ function Formulaire({
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Proposée par"
-            htmlFor="publisher"
-            hint="Un nom ou un pseudonyme, affiché sur les pages de confidentialité et de conditions de l'Activité."
-          >
+          <Field label={t.editeur.libelle} htmlFor="publisher" hint={t.editeur.aide}>
             <Input
               id="publisher"
               name="publisher"
@@ -473,11 +434,7 @@ function Formulaire({
               autoComplete="off"
             />
           </Field>
-          <Field
-            label="Contact"
-            htmlFor="contact"
-            hint="Affiché sur ces mêmes pages : une adresse e-mail, ou comment te joindre sur Discord. C'est par là qu'un joueur demande la suppression de ses données."
-          >
+          <Field label={t.contact.libelle} htmlFor="contact" hint={t.contact.aide}>
             <Input
               id="contact"
               name="contact"
@@ -490,25 +447,17 @@ function Formulaire({
 
         <label className="flex items-center gap-2 text-sm text-ink-200">
           <input type="checkbox" checked={verrou} onChange={(e) => setVerrou(e.target.checked)} className="size-4 accent-accent-500" />
-          Réserver l&apos;Activité à un seul serveur Discord
+          {t.verrou}
         </label>
         {verrou && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field
-              label="Identifiant du serveur"
-              htmlFor="guildId"
-              hint="Clic droit sur le serveur → Copier l'identifiant (mode développeur activé)."
-            >
+            <Field label={t.serveur.libelle} htmlFor="guildId" hint={t.serveur.aide}>
               <Input id="guildId" name="guildId" defaultValue={application?.guildId ?? ""} required inputMode="numeric" pattern="\d{17,20}" autoComplete="off" />
             </Field>
             <Field
-              label="Jeton de bot"
+              label={t.jetonBot.libelle}
               htmlFor="botToken"
-              hint={
-                application?.botTokenDefini
-                  ? "Enregistré. Vide : inchangé."
-                  : "Onglet Bot → Reset Token. Avec lui, le site demande à Discord où tourne l'Activité."
-              }
+              hint={application?.botTokenDefini ? t.dejaEnregistre : t.jetonBot.aide}
             >
               <Input
                 id="botToken"
@@ -524,10 +473,10 @@ function Formulaire({
 
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" disabled={enCours}>
-            {enCours ? "Enregistrement…" : nouvelle ? "Enregistrer l'application" : "Enregistrer les changements"}
+            {enCours ? t.enregistrement : nouvelle ? t.enregistrerNouvelle : t.enregistrerChangements}
           </Button>
           <Button type="button" variant="ghost" onClick={fermer}>
-            {retour?.ok ? "Fermer" : "Annuler"}
+            {retour?.ok ? t.fermer : t.annuler}
           </Button>
         </div>
       </form>

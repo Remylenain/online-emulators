@@ -22,6 +22,7 @@ import { salons } from "./src/lib/link/registre.ts";
 import { attacher, creerSalon, MAX_SPECTATEURS, regarder, surveillerAbandons } from "./src/lib/link/salons.ts";
 import { famille, placesLibres } from "./src/lib/link/capacite.ts";
 import { attendre } from "./src/lib/link/file.ts";
+import type { CodeErreur, MessageServeur, Refus } from "./src/lib/link/protocole.ts";
 import { salonDInstance, salonsEnAttente, salonDuCompte, salonsRegardables } from "./src/lib/link/registre.ts";
 
 const { values } = parseArgs({
@@ -56,6 +57,14 @@ const app = next({
 });
 const wss = new WebSocketServer({ noServer: true });
 
+/**
+ * Un refus : le texte français, en repli, et le code d'après lequel le
+ * navigateur le dira dans la langue du joueur (voir `src/lib/link/protocole.ts`).
+ */
+function refus(code: CodeErreur, erreur: string): Refus {
+  return { erreur, code };
+}
+
 function json(reponse: ServerResponse, statut: number, corps: unknown): void {
   reponse.writeHead(statut, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
   reponse.end(JSON.stringify(corps));
@@ -77,7 +86,7 @@ async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url
 
   const compte = await compteDuLink(requete.headers, url);
   if (!compte) {
-    json(reponse, 401, { erreur: "Non connecté." });
+    json(reponse, 401, refus("non-connecte", "Non connecté."));
     return true;
   }
 
@@ -132,7 +141,7 @@ async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url
     try {
       corps = await lireJson(requete);
     } catch {
-      json(reponse, 400, { erreur: "Requête illisible." });
+      json(reponse, 400, refus("requete-illisible", "Requête illisible."));
       return true;
     }
     // L'instance Discord : une clé opaque donnée par `/api/discord/session`, jamais un nom libre.
@@ -149,7 +158,7 @@ async function routesLink(requete: IncomingMessage, reponse: ServerResponse, url
     return true;
   }
 
-  json(reponse, 405, { erreur: "Méthode non permise." });
+  json(reponse, 405, refus("methode-non-permise", "Méthode non permise."));
   return true;
 }
 
@@ -174,7 +183,7 @@ const serveur = createServer((requete, reponse) => {
     })
     .catch((erreur: unknown) => {
       console.error("[link]", erreur);
-      if (!reponse.headersSent) json(reponse, 500, { erreur: "Erreur interne." });
+      if (!reponse.headersSent) json(reponse, 500, refus("erreur-interne", "Erreur interne."));
     });
 });
 
@@ -201,7 +210,12 @@ serveur.on("upgrade", (requete, socket, tete) => {
         // tomber le serveur du site avec une promesse rejetée.
         console.error("[link] salon", salon.id, erreur);
         if (prise.readyState === prise.OPEN) {
-          prise.send(JSON.stringify({ t: "erreur", message: "Le salon n'a pas pu démarrer." }));
+          const erreur: MessageServeur = {
+            t: "erreur",
+            message: "Le salon n'a pas pu démarrer.",
+            code: "salon-non-demarre",
+          };
+          prise.send(JSON.stringify(erreur));
           prise.close();
         }
       });

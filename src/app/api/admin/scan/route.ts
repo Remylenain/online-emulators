@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { demarrerScan, etatDuScan } from "@/lib/admin/scan";
+import { textes } from "@/lib/i18n/serveur";
 
 /**
  * Le scan de bibliothèque, lancé et suivi depuis le site.
@@ -11,9 +12,10 @@ import { demarrerScan, etatDuScan } from "@/lib/admin/scan";
  */
 async function exigerAdmin() {
   const viewer = await getCurrentUser();
-  if (!viewer) return { refus: new NextResponse("Non autorisé", { status: 401 }) };
-  if (viewer.role !== "ADMIN") return { refus: new NextResponse("Interdit", { status: 403 }) };
-  return { refus: null };
+  if (viewer?.role === "ADMIN") return { refus: null };
+  const t = (await textes()).adminBibliotheque.api;
+  if (!viewer) return { refus: new NextResponse(t.nonAutorise, { status: 401 }) };
+  return { refus: new NextResponse(t.interdit, { status: 403 }) };
 }
 
 export async function GET() {

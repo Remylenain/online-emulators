@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { requireUser } from "@/lib/auth/guard";
+import { textes } from "@/lib/i18n/serveur";
 import { BandeauVoirComme } from "@/components/bandeau-voir-comme";
 import { BarreBasse } from "@/components/barre-basse";
 import { SiteHeader } from "@/components/site-header";
@@ -10,18 +11,17 @@ import { SiteHeader } from "@/components/site-header";
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
+  const t = await textes();
 
   return (
-    // `lang="fr"` : le site côté compte n'est pas encore traduit, alors que la
-    // racine annonce la langue du visiteur. Le lecteur, lui, pose la sienne.
-    <div lang="fr" className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col">
       {user.vuPar && <BandeauVoirComme user={user} />}
       <SiteHeader user={user} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8">{children}</main>
       {/* Marge basse sur téléphone : la barre de navigation fixe ne doit pas
           recouvrir la fin de la page. */}
       <footer className="border-t border-ink-800 px-5 py-6 pb-20 text-center text-xs text-ink-700 sm:pb-6">
-        Bibliothèque privée. Les sauvegardes sont attachées à ton compte.
+        {t.site.piedDePage}
       </footer>
       <BarreBasse />
     </div>

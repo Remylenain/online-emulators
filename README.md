@@ -29,9 +29,10 @@ le droit de partager.
 - **Activité Discord** (facultative, à l'essai) : un jeu du site jouable dans
   Discord, émulé dans le navigateur du joueur, avec sa sauvegarde gardée par
   utilisateur Discord. Voir [docs/discord](docs/discord/README.md).
-- **Français et anglais** : la vitrine et le lecteur suivent la langue du
-  visiteur, ou celle du jeu lancé. Le reste du site est en français pour
-  l'instant. Voir [docs/langues.md](docs/langues.md).
+- **Français et anglais** : tout le site, administration comprise. Chaque
+  visiteur le voit dans la langue de son navigateur ou dans celle qu'il
+  choisit ; l'administrateur règle la langue par défaut. Voir
+  [docs/langues.md](docs/langues.md).
 - **Vitrine** (facultative) : quelques jeux ouverts aux visiteurs sans
   compte, qui jouent en invités — leur partie reste dans leur navigateur, le
   serveur n'en garde rien. Voir [docs/vitrine.md](docs/vitrine.md).

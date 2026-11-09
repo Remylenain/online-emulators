@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { useLangue, useT } from "@/components/langue";
 import { Alert } from "@/components/ui";
 import { formatDate, formatTaille } from "@/lib/format";
 import { titreComplet } from "@/lib/jeu-resume";
@@ -18,24 +19,19 @@ export function Sauvegardes({ sauvegardes }: { sauvegardes: SauvegardeJeu[] }) {
   const [deplie, setDeplie] = useState<string | null>(null);
   const [retour, setRetour] = useState<{ ok: boolean; message: string } | null>(null);
   const [enCours, demarrer] = useTransition();
+  const t = useT();
+  const langue = useLangue();
 
   if (sauvegardes.length === 0) {
     return (
       <p className="rounded-panel border border-dashed border-ink-800 px-4 py-8 text-center text-sm text-ink-400">
-        Aucune sauvegarde pour l&apos;instant : elles apparaissent dès qu&apos;un jeu enregistre.
+        {t.mesJeux.sauvegardes.vide}
       </p>
     );
   }
 
   function restaurerCopie(copieId: string, titre: string, quand: string) {
-    if (
-      !window.confirm(
-        `Remettre la copie du ${quand} à la place de ta sauvegarde de ${titre} ? ` +
-          "La version actuelle sera gardée dans les copies.",
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm(t.mesJeux.sauvegardes.confirmerRestauration(quand, titre))) return;
     demarrer(async () => setRetour(await restaurer(copieId)));
   }
 
@@ -43,14 +39,13 @@ export function Sauvegardes({ sauvegardes }: { sauvegardes: SauvegardeJeu[] }) {
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <p className="min-w-0 flex-1 text-sm text-ink-400">
-          {sauvegardes.length} jeu{sauvegardes.length > 1 ? "x" : ""} avec une sauvegarde. Les copies de
-          secours gardent les cinq dernières écritures et une par jour pendant trente jours.
+          {t.mesJeux.sauvegardes.resume(sauvegardes.length)}
         </p>
         <a
           href="/api/sauvegardes/zip"
           className="inline-flex items-center justify-center rounded-lg bg-accent-600 px-4 py-2 text-sm font-semibold text-ink-950 transition-colors hover:bg-accent-500"
         >
-          Tout télécharger (zip)
+          {t.mesJeux.sauvegardes.toutTelecharger}
         </a>
       </div>
 
@@ -58,7 +53,7 @@ export function Sauvegardes({ sauvegardes }: { sauvegardes: SauvegardeJeu[] }) {
 
       <ul className="flex flex-col divide-y divide-ink-800 overflow-hidden rounded-panel border border-ink-800">
         {sauvegardes.map((s) => {
-          const titre = titreComplet(s.jeu);
+          const titre = titreComplet(s.jeu, t.mesJeux.titrePartie);
           const ouvert = deplie === s.jeu.id;
           return (
             <li key={s.jeu.id} className="bg-ink-900/40">
@@ -71,9 +66,12 @@ export function Sauvegardes({ sauvegardes }: { sauvegardes: SauvegardeJeu[] }) {
                     {titre}
                   </span>
                   <span className="block text-xs text-ink-700">
-                    <span className="uppercase">{s.jeu.consoleSlug}</span> · {formatTaille(s.taille)} ·
-                    modifiée le {formatDate(s.modifiee)} · {s.etatsManuels} point
-                    {s.etatsManuels > 1 ? "s" : ""} de reprise
+                    <span className="uppercase">{s.jeu.consoleSlug}</span> ·{" "}
+                    {t.mesJeux.sauvegardes.details(
+                      formatTaille(s.taille, langue),
+                      formatDate(s.modifiee, true, langue),
+                      s.etatsManuels,
+                    )}
                   </span>
                 </Link>
 
@@ -82,7 +80,7 @@ export function Sauvegardes({ sauvegardes }: { sauvegardes: SauvegardeJeu[] }) {
                     href={`/api/save/${s.jeu.id}?fichier`}
                     className="rounded border border-ink-700 px-2 py-1 text-xs text-ink-200 transition-colors hover:border-ink-400 hover:text-ink-50"
                   >
-                    Télécharger
+                    {t.mesJeux.sauvegardes.telecharger}
                   </a>
                   <button
                     type="button"
@@ -91,8 +89,8 @@ export function Sauvegardes({ sauvegardes }: { sauvegardes: SauvegardeJeu[] }) {
                     className="rounded border border-ink-700 px-2 py-1 text-xs text-ink-200 transition-colors hover:border-ink-400 hover:text-ink-50 disabled:opacity-40"
                   >
                     {s.copies.length === 0
-                      ? "Pas de copie"
-                      : `${s.copies.length} copie${s.copies.length > 1 ? "s" : ""} de secours`}
+                      ? t.mesJeux.sauvegardes.pasDeCopie
+                      : t.mesJeux.sauvegardes.copies(s.copies.length)}
                   </button>
                 </div>
               </div>
@@ -100,20 +98,20 @@ export function Sauvegardes({ sauvegardes }: { sauvegardes: SauvegardeJeu[] }) {
               {ouvert && (
                 <ul className="flex flex-col gap-1 border-t border-ink-800 bg-ink-950/40 px-4 py-3">
                   {s.copies.map((c) => {
-                    const quand = formatDate(c.creeLe);
+                    const quand = formatDate(c.creeLe, true, langue);
                     return (
                       <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                         <span className="min-w-0 flex-1 text-ink-200">
                           {quand}
                           <span className="ml-2 text-ink-700">
-                            rév. {c.revision} · {formatTaille(c.taille)}
+                            {t.mesJeux.sauvegardes.copie(c.revision, formatTaille(c.taille, langue))}
                           </span>
                         </span>
                         <a
                           href={`/api/copies/${c.id}`}
                           className="text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
                         >
-                          télécharger
+                          {t.mesJeux.sauvegardes.telechargerCopie}
                         </a>
                         <button
                           type="button"
@@ -121,7 +119,7 @@ export function Sauvegardes({ sauvegardes }: { sauvegardes: SauvegardeJeu[] }) {
                           onClick={() => restaurerCopie(c.id, titre, quand)}
                           className="text-accent-400 underline-offset-4 hover:underline disabled:opacity-40"
                         >
-                          restaurer
+                          {t.mesJeux.sauvegardes.restaurer}
                         </button>
                       </li>
                     );

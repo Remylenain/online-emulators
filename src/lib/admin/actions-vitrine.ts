@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { games } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/guard";
+import { textes } from "@/lib/i18n/serveur";
 import { definirVitrine, ENTREES_MAX, LIBELLE_MAX, type EntreeVitrine } from "@/lib/vitrine";
 import type { Resultat } from "./actions";
 
@@ -15,6 +16,7 @@ import type { Resultat } from "./actions";
  */
 export async function definirLaVitrine(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminReglages.vitrine.retours;
 
   const active = donnees.get("active") === "on";
   const entrees: EntreeVitrine[] = [];
@@ -25,10 +27,10 @@ export async function definirLaVitrine(_etat: unknown, donnees: FormData): Promi
       .replace(/\s+/g, " ");
     if (!jeu) continue;
     if (libelle.length > LIBELLE_MAX) {
-      return { ok: false, message: `Un libellé ne peut pas dépasser ${LIBELLE_MAX} caractères.` };
+      return { ok: false, message: t.libelleTropLong(LIBELLE_MAX) };
     }
     if (entrees.some((e) => e.jeu === jeu)) {
-      return { ok: false, message: "Le même jeu est choisi deux fois." };
+      return { ok: false, message: t.jeuEnDouble };
     }
     entrees.push({ libelle, jeu });
   }
@@ -39,25 +41,17 @@ export async function definirLaVitrine(_etat: unknown, donnees: FormData): Promi
       .from(games)
       .where(inArray(games.id, entrees.map((e) => e.jeu)))
       .all();
-    if (connus.length !== entrees.length) return { ok: false, message: "Un des jeux choisis n'existe plus." };
+    if (connus.length !== entrees.length) return { ok: false, message: t.jeuDisparu };
     const depublie = connus.find((jeu) => !jeu.publie);
     if (depublie && active) {
-      return {
-        ok: false,
-        message: `« ${depublie.titre} » n'est pas publié : un invité ne pourrait pas le lancer. Publie-le d'abord.`,
-      };
+      return { ok: false, message: t.jeuDepublie(depublie.titre) };
     }
   }
   if (active && entrees.length === 0) {
-    return { ok: false, message: "Choisis au moins un jeu avant d'ouvrir la vitrine." };
+    return { ok: false, message: t.aucunJeu };
   }
 
   definirVitrine(active, entrees);
   revalidatePath("/", "layout");
-  return {
-    ok: true,
-    message: active
-      ? "Vitrine ouverte : ces jeux se lancent sans compte. Effet en quelques secondes."
-      : "Vitrine fermée : tout le site demande un compte.",
-  };
+  return { ok: true, message: active ? t.ouverte : t.fermee };
 }

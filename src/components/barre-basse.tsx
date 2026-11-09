@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CONSOLES } from "@/lib/consoles";
+import { useT } from "./langue";
 
 /**
  * Barre de navigation du bas, sur téléphone seulement : l'accueil, les trois
@@ -14,10 +15,11 @@ import { CONSOLES } from "@/lib/consoles";
  */
 export function BarreBasse() {
   const chemin = usePathname();
+  const t = useT().site.navigation;
   if (chemin.startsWith("/jouer/") || chemin.startsWith("/link/")) return null;
 
   const entrees = [
-    { href: "/", libelle: "Accueil", actif: chemin === "/" },
+    { href: "/", libelle: t.accueil, actif: chemin === "/" },
     ...CONSOLES.map((console) => ({
       href: `/consoles/${console.slug}`,
       libelle: console.shortName,
@@ -28,12 +30,12 @@ export function BarreBasse() {
         chemin.startsWith(`/consoles/${console.slug}/`) ||
         chemin.startsWith(`/jeux/${console.slug}/`),
     })),
-    { href: "/mes-jeux", libelle: "Mes jeux", actif: chemin.startsWith("/mes-jeux") },
+    { href: "/mes-jeux", libelle: t.mesJeux, actif: chemin.startsWith("/mes-jeux") },
   ];
 
   return (
     <nav
-      aria-label="Navigation principale"
+      aria-label={t.principale}
       className="fixed inset-x-0 bottom-0 z-20 border-t border-ink-800 bg-ink-900/95 backdrop-blur sm:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >

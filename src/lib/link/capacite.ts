@@ -1,5 +1,6 @@
 import os from "node:os";
 import { ecrireParametre, lireParametre } from "@/lib/parametres";
+import type { Refus } from "./protocole";
 import { salons } from "./registre";
 
 /**
@@ -83,16 +84,33 @@ export function placesLibres(f: Famille): number | null {
   return Math.max(0, Math.floor((budgetLink() - chargeEnCours()) / charge + 1e-9));
 }
 
-/** Le message de refus s'il n'y a plus de place pour un salon de cette console, sinon `null`. */
-export function refusCapacite(consoleSlug: string): string | null {
+/**
+ * Le refus s'il n'y a plus de place pour un salon de cette console, sinon
+ * `null` : le code que le navigateur traduira, et le texte français en repli
+ * (voir `protocole.ts`).
+ */
+export function motifRefusCapacite(consoleSlug: string): Refus | null {
   const libres = placesLibres(famille(consoleSlug));
   if (libres === null || libres > 0) return null;
   const ouverts = [...salons().values()].filter((salon) => salon.etat !== "termine").length;
   if (ouverts === 0) {
     // Le budget ne tient même pas un salon : la marge est trop basse pour cette console.
-    return "Le câble link n'a pas assez de processeur réservé pour cette console. L'administrateur peut relever la marge dans les réglages.";
+    return {
+      erreur:
+        "Le câble link n'a pas assez de processeur réservé pour cette console. L'administrateur peut relever la marge dans les réglages.",
+      code: "marge-insuffisante",
+    };
   }
-  return `Le serveur est au complet : ${ouverts} salon${ouverts > 1 ? "s" : ""} en cours. Réessaie dans quelques minutes.`;
+  return {
+    erreur: `Le serveur est au complet : ${ouverts} salon${ouverts > 1 ? "s" : ""} en cours. Réessaie dans quelques minutes.`,
+    code: "serveur-complet",
+    valeurs: { salons: ouverts },
+  };
+}
+
+/** Le message de refus, en français, s'il n'y a plus de place pour un salon de cette console, sinon `null`. */
+export function refusCapacite(consoleSlug: string): string | null {
+  return motifRefusCapacite(consoleSlug)?.erreur ?? null;
 }
 
 export type EtatCapacite = {

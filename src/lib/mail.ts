@@ -1,4 +1,6 @@
 import nodemailer, { type Transporter } from "nodemailer";
+import { dictionnaire } from "./i18n/dictionnaires";
+import { LANGUE_DE_REFERENCE, type Langue } from "./i18n/langues";
 import { configMail, type ConfigMail } from "./parametres";
 
 /**
@@ -52,17 +54,20 @@ export async function sendMail(message: {
   });
 }
 
-export async function sendPasswordReset(to: string, pseudo: string, url: string): Promise<void> {
-  await sendMail({
-    to,
-    subject: "Réinitialisation de ton mot de passe",
-    text:
-      `Salut ${pseudo},\n\n` +
-      `Une réinitialisation de mot de passe a été demandée pour ton compte.\n` +
-      `Ce lien est valable une heure et ne fonctionne qu'une fois :\n\n` +
-      `${url}\n\n` +
-      `Si tu n'as rien demandé, ignore ce message : ton mot de passe reste inchangé.\n`,
-  });
+/*
+ * Les e-mails qui suivent sont écrits dans le dictionnaire `emails`. Chacun
+ * reçoit sa langue en dernier paramètre : celle de la requête qui le
+ * déclenche, quand l'appelant la connaît ; le français sinon, comme avant.
+ */
+
+export async function sendPasswordReset(
+  to: string,
+  pseudo: string,
+  url: string,
+  langue: Langue = LANGUE_DE_REFERENCE,
+): Promise<void> {
+  const t = dictionnaire(langue).emails.reinitialisation;
+  await sendMail({ to, subject: t.objet, text: t.corps(pseudo, url) });
 }
 
 /**
@@ -78,18 +83,10 @@ export async function sendInvitation(
   pseudo: string,
   url: string,
   invitePar: string,
+  langue: Langue = LANGUE_DE_REFERENCE,
 ): Promise<void> {
-  await sendMail({
-    to,
-    subject: "Ton accès à la bibliothèque de jeux",
-    text:
-      `Salut ${pseudo},\n\n` +
-      `${invitePar} t'a créé un compte sur sa bibliothèque de jeux.\n` +
-      `Choisis ton mot de passe ici — le lien est valable une semaine :\n\n` +
-      `${url}\n\n` +
-      `Si ce message est arrivé dans tes indésirables, pense à le marquer\n` +
-      `comme légitime : les prochains messages du site suivraient le même chemin.\n`,
-  });
+  const t = dictionnaire(langue).emails.invitation;
+  await sendMail({ to, subject: t.objet, text: t.corps(pseudo, url, invitePar) });
 }
 
 /** Inscription ouverte : le compte n'existe qu'une fois ce lien confirmé. */
@@ -97,15 +94,8 @@ export async function sendRegistrationConfirmation(
   to: string,
   pseudo: string,
   url: string,
+  langue: Langue = LANGUE_DE_REFERENCE,
 ): Promise<void> {
-  await sendMail({
-    to,
-    subject: "Confirme ton inscription",
-    text:
-      `Salut ${pseudo},\n\n` +
-      `Quelqu'un — toi, sans doute — a demandé un compte avec cette adresse.\n` +
-      `Pour le créer, ouvre ce lien et confirme. Il est valable une heure :\n\n` +
-      `${url}\n\n` +
-      `Si ce n'est pas toi, ignore ce message : aucun compte ne sera créé.\n`,
-  });
+  const t = dictionnaire(langue).emails.confirmation;
+  await sendMail({ to, subject: t.objet, text: t.corps(pseudo, url) });
 }

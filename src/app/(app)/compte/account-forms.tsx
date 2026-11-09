@@ -3,35 +3,37 @@
 import { useActionState } from "react";
 import { changePassword, updateProfile, uploadAvatar } from "@/lib/account/actions";
 import type { FormState } from "@/lib/auth/actions";
+import { useT } from "@/components/langue";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 
 const initial: FormState = {};
 
 export function ProfileForm({ pseudo, email }: { pseudo: string; email: string | null }) {
   const [state, action, pending] = useActionState(updateProfile, initial);
+  const t = useT();
 
   return (
     <Panel>
       <form action={action} className="flex flex-col gap-5">
-        <h2 className="text-base font-semibold text-ink-50">Profil</h2>
+        <h2 className="text-base font-semibold text-ink-50">{t.compte.profil.titre}</h2>
 
         {state.message && <Alert tone={state.done ? "success" : "error"}>{state.message}</Alert>}
 
-        <Field label="Pseudo" htmlFor="pseudo" error={state.errors?.pseudo}>
+        <Field label={t.compte.profil.pseudo} htmlFor="pseudo" error={state.errors?.pseudo}>
           <Input id="pseudo" name="pseudo" defaultValue={pseudo} required />
         </Field>
 
         <Field
-          label="Adresse e-mail (facultative)"
+          label={t.compte.profil.email}
           htmlFor="email"
           error={state.errors?.email}
-          hint="Sert à la réinitialisation du mot de passe. Sans adresse, c'est l'administrateur qui le change."
+          hint={t.compte.profil.aideEmail}
         >
           <Input id="email" name="email" type="email" defaultValue={email ?? ""} />
         </Field>
 
         <Button type="submit" disabled={pending} className="self-start">
-          {pending ? "Enregistrement…" : "Enregistrer"}
+          {pending ? t.compte.profil.enregistrement : t.compte.profil.enregistrer}
         </Button>
       </form>
     </Panel>
@@ -40,16 +42,17 @@ export function ProfileForm({ pseudo, email }: { pseudo: string; email: string |
 
 export function PasswordForm() {
   const [state, action, pending] = useActionState(changePassword, initial);
+  const t = useT();
 
   return (
     <Panel>
       <form action={action} className="flex flex-col gap-5">
-        <h2 className="text-base font-semibold text-ink-50">Mot de passe</h2>
+        <h2 className="text-base font-semibold text-ink-50">{t.compte.motDePasse.titre}</h2>
 
         {state.message && <Alert tone={state.done ? "success" : "error"}>{state.message}</Alert>}
 
         <Field
-          label="Mot de passe actuel"
+          label={t.compte.motDePasse.actuel}
           htmlFor="currentPassword"
           error={state.errors?.currentPassword}
         >
@@ -63,15 +66,19 @@ export function PasswordForm() {
         </Field>
 
         <Field
-          label="Nouveau mot de passe"
+          label={t.compte.motDePasse.nouveau}
           htmlFor="password"
           error={state.errors?.password}
-          hint="Au moins 10 caractères."
+          hint={t.compte.motDePasse.aideNouveau}
         >
           <Input id="password" name="password" type="password" autoComplete="new-password" required />
         </Field>
 
-        <Field label="Confirmation" htmlFor="passwordConfirm" error={state.errors?.passwordConfirm}>
+        <Field
+          label={t.compte.motDePasse.confirmation}
+          htmlFor="passwordConfirm"
+          error={state.errors?.passwordConfirm}
+        >
           <Input
             id="passwordConfirm"
             name="passwordConfirm"
@@ -81,12 +88,10 @@ export function PasswordForm() {
           />
         </Field>
 
-        <p className="text-xs text-ink-400">
-          Changer le mot de passe ferme toutes les sessions, y compris celle-ci.
-        </p>
+        <p className="text-xs text-ink-400">{t.compte.motDePasse.avertissement}</p>
 
         <Button type="submit" disabled={pending} className="self-start">
-          {pending ? "Modification…" : "Changer le mot de passe"}
+          {pending ? t.compte.motDePasse.modification : t.compte.motDePasse.changer}
         </Button>
       </form>
     </Panel>
@@ -95,16 +100,17 @@ export function PasswordForm() {
 
 export function AvatarForm({ hasAvatar }: { hasAvatar: boolean }) {
   const [state, action, pending] = useActionState(uploadAvatar, initial);
+  const t = useT();
 
   return (
     <form action={action} className="flex flex-col gap-3">
       {state.message && <Alert tone={state.done ? "success" : "error"}>{state.message}</Alert>}
 
       <Field
-        label={hasAvatar ? "Remplacer l'avatar" : "Choisir un avatar"}
+        label={hasAvatar ? t.compte.avatar.remplacer : t.compte.avatar.choisir}
         htmlFor="avatar"
         error={state.errors?.avatar}
-        hint="JPEG, PNG ou WebP, 5 Mo maximum. L'image est recadrée en carré."
+        hint={t.compte.avatar.aide}
       >
         <input
           id="avatar"
@@ -117,7 +123,7 @@ export function AvatarForm({ hasAvatar }: { hasAvatar: boolean }) {
       </Field>
 
       <Button type="submit" disabled={pending} variant="ghost" className="self-start">
-        {pending ? "Envoi…" : "Envoyer"}
+        {pending ? t.compte.avatar.envoi : t.compte.avatar.envoyer}
       </Button>
     </form>
   );

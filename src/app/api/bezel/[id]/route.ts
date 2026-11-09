@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { bezels } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { paths } from "@/lib/paths";
 import { vitrineOuverte } from "@/lib/vitrine";
 
@@ -19,7 +20,9 @@ import { vitrineOuverte } from "@/lib/vitrine";
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const viewer = await getCurrentUser();
-  if (!viewer && !vitrineOuverte()) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer && !vitrineOuverte()) {
+    return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
+  }
 
   const { id } = await context.params;
   const row = await db
@@ -27,7 +30,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     .from(bezels)
     .where(eq(bezels.id, id))
     .get();
-  if (!row) return new NextResponse("Introuvable", { status: 404 });
+  if (!row) return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
 
   try {
     const file = await fs.readFile(paths.data(row.path));
@@ -38,6 +41,6 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       },
     });
   } catch {
-    return new NextResponse("Introuvable", { status: 404 });
+    return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
   }
 }

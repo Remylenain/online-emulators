@@ -4,8 +4,11 @@ import type { ReactNode } from "react";
 import { requireAdmin } from "@/lib/auth/guard";
 import { tableauDeBord } from "@/lib/admin/tableau";
 import { formatDate, formatDuree, formatTaille } from "@/lib/format";
+import { langueDeLaRequete, textes } from "@/lib/i18n/serveur";
 
-export const metadata: Metadata = { title: "Tableau de bord" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await textes()).adminGeneral.tableau.titre };
+}
 // Tout ici décrit l'instant : rien ne doit sortir d'un cache.
 export const dynamic = "force-dynamic";
 
@@ -17,27 +20,29 @@ export const dynamic = "force-dynamic";
  */
 export default async function TableauPage() {
   await requireAdmin();
-  const t = await tableauDeBord();
-  const { capacite } = t.maintenant;
+  const langue = await langueDeLaRequete();
+  const { onglets, tableau: t } = (await textes()).adminGeneral;
+  const tableau = await tableauDeBord();
+  const { capacite } = tableau.maintenant;
   const mesure = capacite.charges.gb !== null || capacite.charges.gba !== null;
   const occupation = capacite.budget > 0 ? Math.min(100, Math.round((capacite.enCours / capacite.budget) * 100)) : 0;
-  const disque = t.stockage.disque;
+  const disque = tableau.stockage.disque;
 
   return (
     <section className="flex flex-col gap-6">
-      <h2 className="text-lg font-semibold text-ink-50">Tableau de bord</h2>
+      <h2 className="text-lg font-semibold text-ink-50">{t.titre}</h2>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Bloc titre="En ce moment">
-          {t.maintenant.joueurs.length === 0 ? (
-            <Vide>Personne ne joue en solo.</Vide>
+        <Bloc titre={t.maintenant.titre}>
+          {tableau.maintenant.joueurs.length === 0 ? (
+            <Vide>{t.maintenant.personne}</Vide>
           ) : (
             <ul className="flex flex-col gap-1 text-sm">
-              {t.maintenant.joueurs.map((joueur) => (
+              {tableau.maintenant.joueurs.map((joueur) => (
                 <li key={joueur.pseudo} className="flex items-center gap-2 text-ink-200">
                   <span aria-hidden className="size-2 shrink-0 rounded-full bg-green-400" />
                   <strong className="text-ink-50">{joueur.pseudo}</strong>
-                  <span className="min-w-0 truncate">joue à {joueur.jeu}</span>
+                  <span className="min-w-0 truncate">{t.maintenant.joueA(joueur.jeu)}</span>
                   <Etiquette>{joueur.console}</Etiquette>
                 </li>
               ))}
@@ -45,88 +50,99 @@ export default async function TableauPage() {
           )}
         </Bloc>
 
-        <Bloc titre="Câble link" lien={{ href: "/admin/reglages", libelle: "Réglages" }}>
-          {t.maintenant.salons.length === 0 ? (
-            <Vide>Aucun salon ouvert.</Vide>
+        <Bloc titre={t.link.titre} lien={{ href: "/admin/reglages", libelle: onglets.reglages }}>
+          {tableau.maintenant.salons.length === 0 ? (
+            <Vide>{t.link.aucunSalon}</Vide>
           ) : (
             <ul className="flex flex-col gap-2 text-sm">
-              {t.maintenant.salons.map((salon) => (
+              {tableau.maintenant.salons.map((salon) => (
                 <li key={salon.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-200">
                   <span className="font-mono text-ink-50">{salon.id}</span>
-                  <span className="min-w-0 truncate">
-                    {salon.jeu} — {salon.joueurs.join(" et ")}
-                  </span>
+                  <span className="min-w-0 truncate">{t.link.salon(salon.jeu, salon.joueurs)}</span>
                   <Etiquette>{salon.console}</Etiquette>
-                  <Etiquette>{salon.etat === "attente" ? "en attente" : "en jeu"}</Etiquette>
-                  {salon.prive && <Etiquette>privé</Etiquette>}
-                  {salon.spectateurs !== null && (
-                    <Etiquette>
-                      {salon.spectateurs} spectateur{salon.spectateurs > 1 ? "s" : ""}
-                    </Etiquette>
-                  )}
-                  <span className="text-xs text-ink-700">depuis {formatDate(new Date(salon.depuis))}</span>
+                  <Etiquette>{salon.etat === "attente" ? t.link.enAttente : t.link.enJeu}</Etiquette>
+                  {salon.prive && <Etiquette>{t.link.prive}</Etiquette>}
+                  {salon.spectateurs !== null && <Etiquette>{t.link.spectateurs(salon.spectateurs)}</Etiquette>}
+                  <span className="text-xs text-ink-700">
+                    {t.link.depuis(formatDate(new Date(salon.depuis), true, langue))}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
           {mesure ? (
             <div className="flex flex-col gap-1">
-              <div className="h-2 overflow-hidden rounded-full bg-ink-800" role="img" aria-label={`Occupation ${occupation} %`}>
+              <div className="h-2 overflow-hidden rounded-full bg-ink-800" role="img" aria-label={t.link.occupation(occupation)}>
                 <div
                   className={`h-full rounded-full ${occupation >= 85 ? "bg-red-400" : "bg-accent-500"}`}
                   style={{ width: `${occupation}%` }}
                 />
               </div>
               <p className="text-xs text-ink-400">
-                {capacite.enCours.toFixed(2)} cœur pris sur {capacite.budget.toFixed(1)} réservés ({capacite.marge} % de{" "}
-                {capacite.coeurs} cœurs) — encore {capacite.libres.gb ?? "∞"} salon
-                {(capacite.libres.gb ?? 2) > 1 ? "s" : ""} GB / GBC ou {capacite.libres.gba ?? "∞"} GBA.
+                {t.link.capacite({
+                  enCours: capacite.enCours,
+                  budget: capacite.budget,
+                  marge: capacite.marge,
+                  coeurs: capacite.coeurs,
+                  gb: capacite.libres.gb,
+                  gba: capacite.libres.gba,
+                })}
               </p>
             </div>
           ) : (
-            <p className="text-xs text-ink-400">
-              Capacité non mesurée : aucune limite de salons. Voir Réglages.
-            </p>
+            <p className="text-xs text-ink-400">{t.link.nonMesuree}</p>
           )}
         </Bloc>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Chiffre titre="Comptes" valeur={String(t.comptes.total)} detail={`${t.comptes.actifs7j} ont joué ces 7 jours`} href="/admin/comptes" />
         <Chiffre
-          titre="Jeux publiés"
-          valeur={String(t.jeux.publies)}
+          titre={t.comptes.titre}
+          valeur={String(tableau.comptes.total)}
+          detail={t.comptes.actifs(tableau.comptes.actifs7j)}
+          href="/admin/comptes"
+        />
+        <Chiffre
+          titre={t.jeux.titre}
+          valeur={String(tableau.jeux.publies)}
           detail={[
-            ...t.jeux.parConsole.map((c) => `${c.total} ${c.console.toUpperCase()}`),
-            t.jeux.officiels > 0 ? `${t.jeux.officiels} officiels` : null,
+            ...tableau.jeux.parConsole.map((c) => `${c.total} ${c.console.toUpperCase()}`),
+            tableau.jeux.officiels > 0 ? t.jeux.officiels(tableau.jeux.officiels) : null,
           ]
             .filter(Boolean)
             .join(" · ")}
           href="/admin/bibliotheque"
         />
         <Chiffre
-          titre="Temps de jeu"
-          valeur={formatDuree(t.temps.septJours)}
-          detail={`ces 7 jours · ${formatDuree(t.temps.aujourdhui)} aujourd'hui · ${formatDuree(t.temps.total)} en tout`}
+          titre={t.temps.titre}
+          valeur={formatDuree(tableau.temps.septJours, langue)}
+          detail={t.temps.detail(formatDuree(tableau.temps.aujourdhui, langue), formatDuree(tableau.temps.total, langue))}
           href="/admin/temps"
         />
         <Chiffre
-          titre="Sauvegardes"
-          valeur={formatTaille(t.stockage.sauvegardes.octets + t.stockage.copies.octets + t.stockage.etats.octets)}
-          detail={`${t.stockage.sauvegardes.nombre} parties · ${t.stockage.copies.nombre} copies · ${t.stockage.etats.nombre} points de reprise`}
+          titre={t.sauvegardes.titre}
+          valeur={formatTaille(
+            tableau.stockage.sauvegardes.octets + tableau.stockage.copies.octets + tableau.stockage.etats.octets,
+            langue,
+          )}
+          detail={t.sauvegardes.detail(
+            tableau.stockage.sauvegardes.nombre,
+            tableau.stockage.copies.nombre,
+            tableau.stockage.etats.nombre,
+          )}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Bloc titre="Dernières connexions" lien={{ href: "/admin/comptes", libelle: "Comptes" }}>
-          {t.comptes.connexions.length === 0 ? (
-            <Vide>Aucune session.</Vide>
+        <Bloc titre={t.connexions.titre} lien={{ href: "/admin/comptes", libelle: onglets.comptes }}>
+          {tableau.comptes.connexions.length === 0 ? (
+            <Vide>{t.connexions.aucune}</Vide>
           ) : (
             <ul className="flex flex-col gap-1 text-sm">
-              {t.comptes.connexions.map((connexion, index) => (
+              {tableau.comptes.connexions.map((connexion, index) => (
                 <li key={index} className="flex flex-wrap items-baseline gap-x-2 text-ink-200">
                   <strong className="text-ink-50">{connexion.pseudo}</strong>
-                  <span className="text-xs text-ink-400">{formatDate(connexion.quand)}</span>
+                  <span className="text-xs text-ink-400">{formatDate(connexion.quand, true, langue)}</span>
                   <span className="text-xs text-ink-700">{connexion.appareil}</span>
                 </li>
               ))}
@@ -134,30 +150,32 @@ export default async function TableauPage() {
           )}
         </Bloc>
 
-        <Bloc titre="Serveur et bibliothèque" lien={{ href: "/admin/bibliotheque", libelle: "Bibliothèque" }}>
+        <Bloc titre={t.serveur.titre} lien={{ href: "/admin/bibliotheque", libelle: onglets.bibliotheque }}>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-ink-400">Service</dt>
+            <dt className="text-ink-400">{t.serveur.service}</dt>
             <dd className="text-ink-50">
-              démarré le {formatDate(new Date(t.serveur.depuis))} · {formatTaille(t.serveur.memoire)} de mémoire · Node{" "}
-              {t.serveur.node}
+              {t.serveur.demarre(
+                formatDate(new Date(tableau.serveur.depuis), true, langue),
+                formatTaille(tableau.serveur.memoire, langue),
+                tableau.serveur.node,
+              )}
             </dd>
-            <dt className="text-ink-400">Charge</dt>
+            <dt className="text-ink-400">{t.serveur.charge}</dt>
             <dd className="text-ink-50">
-              {t.serveur.charge.map((c) => c.toFixed(2)).join(" · ")} sur {t.serveur.coeurs} cœurs
-              <span className="text-ink-700"> (1, 5 et 15 min)</span>
+              {t.serveur.chargeSur(tableau.serveur.charge.map((c) => c.toFixed(2)).join(" · "), tableau.serveur.coeurs)}
+              <span className="text-ink-700"> {t.serveur.periodes}</span>
             </dd>
             {disque && (
               <>
-                <dt className="text-ink-400">Disque</dt>
+                <dt className="text-ink-400">{t.serveur.disque}</dt>
                 <dd className="text-ink-50">
-                  {formatTaille(disque.libre)} libres sur {formatTaille(disque.total)}
+                  {t.serveur.disqueLibre(formatTaille(disque.libre, langue), formatTaille(disque.total, langue))}
                 </dd>
               </>
             )}
-            <dt className="text-ink-400">Catalogue</dt>
+            <dt className="text-ink-400">{t.serveur.catalogue}</dt>
             <dd className="text-ink-50">
-              {t.jeux.sansJaquette} jeu{t.jeux.sansJaquette > 1 ? "x" : ""} sans jaquette · {t.jeux.depublies} dépublié
-              {t.jeux.depublies > 1 ? "s" : ""}
+              {t.serveur.etatDuCatalogue(tableau.jeux.sansJaquette, tableau.jeux.depublies)}
             </dd>
           </dl>
         </Bloc>

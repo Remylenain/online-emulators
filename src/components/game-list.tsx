@@ -1,17 +1,22 @@
 import Link from "next/link";
 import type { GameCard } from "@/lib/catalog";
+import { formatNote } from "@/lib/format";
+import { langueDeLaRequete, textes } from "@/lib/i18n/serveur";
 
 /**
  * Vue en liste : plus dense que la grille, et elle montre des informations
  * qu'une jaquette ne porte pas — version, jeu de base, nombre de parties.
  * Utile quand on cherche un jeu précis plutôt qu'on ne parcourt le catalogue.
  */
-export function GameList({
+export async function GameList({
   games,
 }: {
   games: GameCard[];
   /** Préfixe des liens, à la place de la fiche du jeu. Suivi de `/<slug>`. */
 }) {
+  const langue = await langueDeLaRequete();
+  const t = (await textes()).catalogue.cartes;
+
   return (
     <ul className="flex flex-col divide-y divide-ink-800 overflow-hidden rounded-panel border border-ink-800">
       {games.map((game) => (
@@ -29,13 +34,13 @@ export function GameList({
                   <span className="ml-2 text-xs font-normal text-ink-400">{game.version}</span>
                 )}
                 {game.favori && (
-                  <span className="ml-2 text-xs text-accent-400" aria-label="Dans tes favoris">
+                  <span className="ml-2 text-xs text-accent-400" aria-label={t.dansTesFavoris}>
                     ★
                   </span>
                 )}
                 {game.enCours && (
                   <span className="ml-2 rounded bg-accent-600 px-1.5 py-0.5 text-[10px] font-semibold text-ink-950">
-                    en cours
+                    {t.enCours}
                   </span>
                 )}
               </span>
@@ -45,15 +50,11 @@ export function GameList({
             </span>
 
             <span className="hidden shrink-0 text-xs text-ink-400 sm:block">
-              {game.ratingCount > 0 ? `${game.ratingAvg.toFixed(1)} ★` : "pas de note"}
+              {game.ratingCount > 0 ? `${formatNote(game.ratingAvg, langue)} ★` : t.pasDeNote}
             </span>
 
             <span className="shrink-0 text-xs text-ink-700">
-              {game.playCount === 0
-                ? "jamais lancé"
-                : game.playCount === 1
-                  ? "1 partie"
-                  : `${game.playCount} parties`}
+              {t.partiesJouees(game.playCount)}
             </span>
           </Link>
         </li>

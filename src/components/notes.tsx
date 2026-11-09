@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { formatNote } from "@/lib/format";
 import { noter, retirerNote } from "@/lib/ratings/actions";
+import { useLangue, useT } from "./langue";
 
 /**
  * Les cinq étoiles d'un jeu.
@@ -25,6 +27,8 @@ export function Notes({
   const [stats, setStats] = useState({ moyenne, nombre });
   const [survol, setSurvol] = useState<number | null>(null);
   const [enCours, demarrer] = useTransition();
+  const langue = useLangue();
+  const t = useT().catalogue.notes;
 
   function choisir(valeur: number) {
     demarrer(async () => {
@@ -45,7 +49,7 @@ export function Notes({
         className="flex items-center gap-0.5"
         onMouseLeave={() => setSurvol(null)}
         role="group"
-        aria-label="Ta note"
+        aria-label={t.taNote}
       >
         {[1, 2, 3, 4, 5].map((valeur) => (
           <button
@@ -54,7 +58,7 @@ export function Notes({
             disabled={enCours}
             onClick={() => choisir(valeur)}
             onMouseEnter={() => setSurvol(valeur)}
-            aria-label={`${valeur} sur 5`}
+            aria-label={t.surCinq(valeur)}
             aria-pressed={note === valeur}
             className={`text-2xl leading-none transition-colors disabled:opacity-50 ${
               valeur <= affichee ? "text-accent-400" : "text-ink-700 hover:text-ink-400"
@@ -67,9 +71,9 @@ export function Notes({
 
       <p className="text-xs text-ink-400">
         {stats.nombre === 0
-          ? "Personne n'a encore noté ce jeu."
-          : `${stats.moyenne.toFixed(1)} sur 5 — ${stats.nombre} avis`}
-        {note !== null && <span className="ml-2 text-ink-700">ta note : {note}</span>}
+          ? t.personne
+          : t.moyenne(formatNote(stats.moyenne, langue), stats.nombre)}
+        {note !== null && <span className="ml-2 text-ink-700">{t.laTienne(note)}</span>}
       </p>
     </div>
   );

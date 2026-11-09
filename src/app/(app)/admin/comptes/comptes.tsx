@@ -18,10 +18,11 @@ import {
   voirLeSiteComme,
   type Resultat,
 } from "@/lib/admin/actions";
-import { MODES_ACCES, type ModeAcces } from "@/lib/modes-acces";
+import { modesAcces, type ModeAcces } from "@/lib/modes-acces";
 import { INSCRIPTION_PLAFONDS } from "@/lib/auth/inscription";
 import type { LienInscription } from "@/lib/auth/invitations";
 import { formatDate } from "@/lib/format";
+import { Accentue, useLangue, useT } from "@/components/langue";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 
 export type Compte = {
@@ -69,6 +70,7 @@ export function Comptes({
   );
   const [retour, setRetour] = useState<Resultat | null>(null);
   const [enCours, demarrer] = useTransition();
+  const t = useT().adminComptes;
 
   function agir(operation: () => Promise<Resultat>) {
     demarrer(async () => setRetour(await operation()));
@@ -76,7 +78,7 @@ export function Comptes({
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold text-ink-50">Comptes</h2>
+      <h2 className="text-lg font-semibold text-ink-50">{t.titre}</h2>
 
       {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
       {retour?.ok && <Acces resultat={retour} />}
@@ -105,10 +107,10 @@ export function Comptes({
         ))}
       </ul>
 
-      <h3 className="mt-4 text-sm font-semibold text-ink-200">Nouveaux comptes</h3>
+      <h3 className="mt-4 text-sm font-semibold text-ink-200">{t.creation.nouveauxComptes}</h3>
       <Panel>
         <form action={action} className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold text-ink-200">Créer un compte</h3>
+          <h3 className="text-sm font-semibold text-ink-200">{t.creation.titre}</h3>
 
           {creation && (
             <Alert tone={creation.ok ? "success" : "error"}>{creation.message}</Alert>
@@ -116,46 +118,41 @@ export function Comptes({
           {creation?.ok && <Acces resultat={creation} />}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Pseudo" htmlFor="pseudo">
+            <Field label={t.creation.pseudo} htmlFor="pseudo">
               <Input id="pseudo" name="pseudo" required autoComplete="off" />
             </Field>
-            <Field label="Adresse e-mail (facultative)" htmlFor="email">
+            <Field label={t.creation.email} htmlFor="email">
               <Input id="email" name="email" type="email" autoComplete="off" />
             </Field>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-ink-200">
             <input type="checkbox" name="admin" className="size-4" />
-            Administrateur
+            {t.creation.administrateur}
           </label>
 
           <Button type="submit" disabled={enCreation} className="self-start">
-            {enCreation ? "Création…" : "Créer le compte"}
+            {enCreation ? t.creation.enCours : t.creation.creer}
           </Button>
         </form>
       </Panel>
 
       <Panel>
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-ink-200">Ou laisser les gens s&apos;inscrire</h3>
-          <p className="text-xs text-ink-400">
-            Un lien à donner : chacun y choisit son pseudo et son mot de passe. Il expire au bout
-            de 24 heures et vaut pour le nombre de comptes choisi ici. Qui a le lien peut créer
-            un compte : s&apos;il circule trop, révoque-le, les comptes qu&apos;il a donnés sont
-            listés dessous.
-          </p>
+          <h3 className="text-sm font-semibold text-ink-200">{t.liens.titre}</h3>
+          <p className="text-xs text-ink-400">{t.liens.explication}</p>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-ink-200">
-              Pour
+              {t.liens.pour}
               <select
                 value={plafond}
                 onChange={(e) => setPlafond(Number(e.target.value))}
                 className="rounded-lg border border-ink-700 bg-ink-950 px-2 py-1.5 text-sm text-ink-200"
-                aria-label="Nombre de comptes"
+                aria-label={t.liens.nombreDeComptes}
               >
                 {INSCRIPTION_PLAFONDS.map((n) => (
                   <option key={n} value={n}>
-                    {n === 1 ? "un seul compte" : `${n} comptes au plus`}
+                    {t.liens.plafond(n)}
                   </option>
                 ))}
               </select>
@@ -165,7 +162,7 @@ export function Comptes({
               onClick={() => agir(() => creerInvitation(plafond))}
               disabled={enCours}
             >
-              Créer un lien d&apos;inscription
+              {t.liens.creer}
             </Button>
           </div>
 
@@ -186,18 +183,9 @@ export function Comptes({
 
       <Panel>
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-ink-200">Inscriptions</h3>
-          <p className="text-xs text-ink-400">
-            Fermées, un compte ne naît que d&apos;une invitation. Ouvertes, n&apos;importe qui peut
-            s&apos;inscrire avec une adresse e-mail confirmée, derrière un captcha — et accéder à
-            tout le catalogue.
-          </p>
-          {!inscriptions.ouvrables && (
-            <Alert tone="info">
-              L&apos;ouverture demande un serveur de mail (SMTP) et un captcha Turnstile configurés
-              dans l&apos;environnement du serveur. Sans eux, les inscriptions restent fermées.
-            </Alert>
-          )}
+          <h3 className="text-sm font-semibold text-ink-200">{t.inscriptions.titre}</h3>
+          <p className="text-xs text-ink-400">{t.inscriptions.explication}</p>
+          {!inscriptions.ouvrables && <Alert tone="info">{t.inscriptions.prerequis}</Alert>}
           <div className="flex flex-wrap gap-4 text-sm text-ink-200">
             <label className="flex items-center gap-2">
               <input
@@ -208,7 +196,7 @@ export function Comptes({
                 disabled={enCours}
                 onChange={() => agir(() => definirInscriptions(false))}
               />
-              Fermées, sur invitation
+              {t.inscriptions.fermees}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -219,7 +207,7 @@ export function Comptes({
                 disabled={enCours || !inscriptions.ouvrables}
                 onChange={() => agir(() => definirInscriptions(true))}
               />
-              Ouvertes à tous, avec e-mail confirmé et captcha
+              {t.inscriptions.ouvertes}
             </label>
           </div>
         </div>
@@ -262,7 +250,8 @@ function FicheCompte({
   attribuerPour: string | null;
   setAttribuerPour: (id: string | null) => void;
 }) {
-  const pluriel = compte.parties > 1 ? "s" : "";
+  const t = useT().adminComptes;
+  const langue = useLangue();
 
   return (
     <li className="bg-ink-900/40">
@@ -270,18 +259,14 @@ function FicheCompte({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-sm font-medium text-ink-50">{compte.pseudo}</span>
-            {compte.role === "ADMIN" && <Badge tone="accent">admin</Badge>}
-            {!compte.isActive && <Badge tone="danger">désactivé</Badge>}
+            {compte.role === "ADMIN" && <Badge tone="accent">{t.ligne.admin}</Badge>}
+            {!compte.isActive && <Badge tone="danger">{t.ligne.desactive}</Badge>}
             {compte.accessMode !== "normal" && (
-              <Badge>
-                {compte.accessMode === "restreint" ? "restreint" : "testeur"} · {compte.jeux.length} jeu
-                {compte.jeux.length > 1 ? "x" : ""}
-              </Badge>
+              <Badge>{t.ligne.mode(t.modes[compte.accessMode].libelle, compte.jeux.length)}</Badge>
             )}
           </div>
           <div className="truncate text-xs text-ink-700">
-            {compte.email ?? "sans adresse e-mail"} · {compte.parties} partie{pluriel} sauvegardée{pluriel} · depuis le{" "}
-            {formatDate(compte.createdAt)}
+            {t.ligne.resume(compte.email, compte.parties, formatDate(compte.createdAt, true, langue))}
           </div>
         </div>
         <button
@@ -294,23 +279,23 @@ function FicheCompte({
               : "border-ink-700 text-ink-200 hover:border-ink-400 hover:text-ink-50"
           }`}
         >
-          {ouverte ? "Fermer" : "Gérer"}
+          {ouverte ? t.ligne.fermer : t.ligne.gerer}
         </button>
       </div>
 
       {ouverte && (
         <div className="grid gap-5 border-t border-ink-800 bg-ink-950/40 px-4 py-4 sm:grid-cols-2">
-          <Groupe titre="Accès au catalogue">
+          <Groupe titre={t.acces.titre}>
             <select
               value={compte.accessMode}
               onChange={(e) => agir(() => definirModeAcces(compte.id, e.target.value))}
               disabled={enCours}
-              aria-label="Accès au catalogue"
+              aria-label={t.acces.titre}
               className="rounded border border-ink-700 bg-ink-950 px-2 py-1 text-xs text-ink-200"
             >
-              {MODES_ACCES.map((m) => (
+              {modesAcces(t.modes).map((m) => (
                 <option key={m.valeur} value={m.valeur}>
-                  Accès {m.libelle.toLowerCase()}
+                  {t.acces.option(m.libelle)}
                 </option>
               ))}
             </select>
@@ -319,98 +304,87 @@ function FicheCompte({
                 onClick={() => setAttribuerPour(attribuerPour === compte.id ? null : compte.id)}
                 disabled={enCours}
               >
-                Jeux attribués ({compte.jeux.length})
+                {t.acces.jeuxAttribues(compte.jeux.length)}
               </Petit>
             )}
           </Groupe>
 
-          <Groupe titre="Connexion">
+          <Groupe titre={t.connexion.titre}>
             <Petit onClick={() => agir(() => renvoyerInvitation(compte.id))} disabled={enCours}>
-              Lien d&apos;accès
+              {t.connexion.lienAcces}
             </Petit>
             <Petit onClick={() => agir(() => reinitialiserMotDePasse(compte.id))} disabled={enCours}>
-              Nouveau mot de passe
+              {t.connexion.nouveauMotDePasse}
             </Petit>
             {compte.id !== moi && compte.isActive && (
               <Petit onClick={() => demarrer(() => voirLeSiteComme(compte.id))} disabled={enCours}>
-                Voir le site comme {compte.pseudo}
+                {t.connexion.voirComme(compte.pseudo)}
               </Petit>
             )}
           </Groupe>
 
-          <Groupe titre="Sauvegardes">
+          <Groupe titre={t.sauvegardes.titre}>
             <Petit
               onClick={() => setImportPour(importPour === compte.id ? null : compte.id)}
               disabled={enCours}
             >
-              Importer une sauvegarde
+              {t.sauvegardes.importer}
             </Petit>
             <Petit
               onClick={() => {
-                if (
-                  window.confirm(
-                    `Remettre à zéro le compte de ${compte.pseudo} ? Sauvegardes, copies de secours, ` +
-                      "points de reprise, temps de jeu et notes seront effacés. Le compte et son mot de passe restent.",
-                  )
-                ) {
+                if (window.confirm(t.sauvegardes.confirmerRemiseAZero(compte.pseudo))) {
                   agir(() => remettreAZero(compte.id));
                 }
               }}
               disabled={enCours}
               danger
             >
-              Remettre à zéro
+              {t.sauvegardes.remettreAZero}
             </Petit>
           </Groupe>
 
-          <Groupe titre="Compte">
+          <Groupe titre={t.compte.titre}>
             {/* On ne se retire pas ses propres droits ni son propre accès :
                 le site se retrouverait sans administrateur. */}
             {compte.id !== moi ? (
               <>
                 <Petit onClick={() => agir(() => basculerAdministration(compte.id))} disabled={enCours}>
-                  {compte.role === "ADMIN" ? "Retirer admin" : "Passer admin"}
+                  {compte.role === "ADMIN" ? t.compte.retirerAdmin : t.compte.passerAdmin}
                 </Petit>
                 <Petit
                   onClick={() => agir(() => basculerActivation(compte.id))}
                   disabled={enCours}
                   danger={compte.isActive}
                 >
-                  {compte.isActive ? "Désactiver" : "Réactiver"}
+                  {compte.isActive ? t.compte.desactiver : t.compte.reactiver}
                 </Petit>
                 {/* Seul un compte désactivé se supprime : deux gestes séparés,
                     le second ne se défait pas. */}
                 {!compte.isActive && (
                   <Petit
                     onClick={() => {
-                      if (
-                        window.confirm(
-                          `Supprimer définitivement le compte de ${compte.pseudo} ? ` +
-                            "Le compte, ses sauvegardes, copies de secours, points de reprise, temps de jeu, " +
-                            "notes, favoris et réglages seront effacés. C'est irréversible.",
-                        )
-                      ) {
+                      if (window.confirm(t.compte.confirmerSuppression(compte.pseudo))) {
                         agir(() => supprimerCompte(compte.id));
                       }
                     }}
                     disabled={enCours}
                     danger
                   >
-                    Supprimer définitivement
+                    {t.compte.supprimer}
                   </Petit>
                 )}
               </>
             ) : (
-              <span className="text-xs text-ink-700">C&apos;est toi.</span>
+              <span className="text-xs text-ink-700">{t.compte.cEstToi}</span>
             )}
             {/* L'identifiant est le nom du dossier du compte dans `saves/` et
                 `states/` sur le serveur : c'est par lui qu'on retrouve ses
                 fichiers. `select-all` le sélectionne d'un clic. */}
             <span
               className="w-full truncate font-mono text-[11px] text-ink-700 select-all"
-              title="Nom du dossier de ses sauvegardes sur le serveur"
+              title={t.compte.dossierInfobulle}
             >
-              dossier {compte.id}
+              {t.compte.dossier(compte.id)}
             </span>
           </Groupe>
 
@@ -471,28 +445,29 @@ function LigneLien({
   const expire = lien.expireLe.getTime() <= maintenant;
   const epuise = lien.usesCount >= lien.maxUses;
   const actif = !expire && !epuise;
+  const t = useT().adminComptes.liens;
+  const langue = useLangue();
 
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-xs">
       <span className="min-w-0 flex-1">
         <span className="block text-ink-200">
-          Lien du {formatDate(lien.creeLe)} · {lien.usesCount}/{lien.maxUses} compte
-          {lien.maxUses > 1 ? "s" : ""}
+          {t.lien(formatDate(lien.creeLe, true, langue), lien.usesCount, lien.maxUses)}
           {actif ? (
-            <span className="ml-2 text-accent-400">valable jusqu&apos;au {formatDate(lien.expireLe)}</span>
+            <span className="ml-2 text-accent-400">
+              {t.valableJusquAu(formatDate(lien.expireLe, true, langue))}
+            </span>
           ) : (
-            <span className="ml-2 text-ink-700">{epuise ? "épuisé" : "expiré ou révoqué"}</span>
+            <span className="ml-2 text-ink-700">{epuise ? t.epuise : t.expire}</span>
           )}
         </span>
         {lien.comptes.length > 0 && (
-          <span className="block truncate text-ink-400">
-            A donné : {lien.comptes.join(", ")}
-          </span>
+          <span className="block truncate text-ink-400">{t.aDonne(lien.comptes)}</span>
         )}
       </span>
       {actif && (
         <Petit onClick={surRevocation} disabled={occupe} danger>
-          Révoquer
+          {t.revoquer}
         </Petit>
       )}
     </li>
@@ -519,18 +494,17 @@ function AttributionJeux({
     null,
   );
   const proposes = compte.accessMode === "testeur" ? jeux.filter((j) => !j.publie) : jeux;
+  const t = useT().adminComptes.attribution;
 
   return (
     <form action={action} className="flex w-full flex-col gap-3 rounded-lg border border-ink-800 p-3">
       <input type="hidden" name="userId" value={compte.id} />
       <span className="text-xs text-ink-400">
-        {compte.accessMode === "testeur"
-          ? "Jeux non publiés que ce testeur peut voir, en plus du catalogue."
-          : "Les seuls jeux que ce compte verra."}
+        {compte.accessMode === "testeur" ? t.testeur : t.restreint}
       </span>
       {resultat && <Alert tone={resultat.ok ? "success" : "error"}>{resultat.message}</Alert>}
       {proposes.length === 0 ? (
-        <span className="text-xs text-ink-700">Aucun jeu à proposer.</span>
+        <span className="text-xs text-ink-700">{t.aucunJeu}</span>
       ) : (
         <ul className="grid max-h-72 gap-1 overflow-y-auto sm:grid-cols-2">
           {proposes.map((jeu) => (
@@ -545,7 +519,7 @@ function AttributionJeux({
                 />
                 <span className="uppercase text-ink-700">{jeu.console}</span>
                 <span className="truncate">{jeu.titre}</span>
-                {!jeu.publie && <span className="text-[10px] text-ink-700">non publié</span>}
+                {!jeu.publie && <span className="text-[10px] text-ink-700">{t.nonPublie}</span>}
               </label>
             </li>
           ))}
@@ -553,10 +527,10 @@ function AttributionJeux({
       )}
       <div className="flex gap-2">
         <Button type="submit" disabled={enCours}>
-          {enCours ? "Enregistrement…" : "Enregistrer"}
+          {enCours ? t.enregistrement : t.enregistrer}
         </Button>
         <Button type="button" variant="ghost" onClick={surFin}>
-          Fermer
+          {t.fermer}
         </Button>
       </div>
     </form>
@@ -581,13 +555,13 @@ function ImportSauvegarde({
     importerSauvegarde,
     null,
   );
+  const t = useT().adminComptes.importation;
 
   return (
     <form action={action} className="flex w-full flex-col gap-3 rounded-lg border border-ink-800 p-3">
       <input type="hidden" name="userId" value={compte.id} />
-      <span className="text-xs text-ink-400">
-        Sauvegarde à déposer sur le compte de <strong className="text-ink-200">{compte.pseudo}</strong>.
-        Sa sauvegarde actuelle pour ce jeu, s&apos;il en a une, part dans les copies de secours.
+      <span className="text-xs text-ink-400 [&_strong]:text-ink-200">
+        <Accentue texte={t.explication(compte.pseudo)} />
       </span>
       {resultat && <Alert tone={resultat.ok ? "success" : "error"}>{resultat.message}</Alert>}
       <div className="flex flex-wrap items-center gap-2">
@@ -595,11 +569,11 @@ function ImportSauvegarde({
           name="gameId"
           required
           defaultValue=""
-          aria-label="Jeu"
+          aria-label={t.jeu}
           className="min-w-0 flex-1 rounded-lg border border-ink-700 bg-ink-950 px-2 py-1.5 text-sm text-ink-200"
         >
           <option value="" disabled>
-            Choisir le jeu…
+            {t.choisirLeJeu}
           </option>
           {jeux.map((jeu) => (
             <option key={jeu.id} value={jeu.id}>
@@ -612,16 +586,16 @@ function ImportSauvegarde({
           name="fichier"
           required
           accept=".sav,.srm"
-          aria-label="Fichier de sauvegarde"
+          aria-label={t.fichier}
           className="text-xs text-ink-400"
         />
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={enCours}>
-          {enCours ? "Import…" : "Importer"}
+          {enCours ? t.enCours : t.importer}
         </Button>
         <Button type="button" variant="ghost" onClick={surFin}>
-          Fermer
+          {t.fermer}
         </Button>
       </div>
     </form>
@@ -644,6 +618,8 @@ function Acces({
 }: {
   resultat: { motDePasse?: string; lien?: string; lienLibelle?: string; mailEnvoye?: boolean };
 }) {
+  const t = useT().adminComptes.transmission;
+
   return (
     <div className="flex flex-col gap-2">
       {resultat.lien && (
@@ -651,17 +627,12 @@ function Acces({
           valeur={resultat.lien}
           libelle={
             resultat.lienLibelle ??
-            (resultat.mailEnvoye
-              ? "Lien envoyé par mail. À transmettre aussi en direct si besoin — pense aux indésirables."
-              : "Lien à transmettre : la personne y choisira son mot de passe. Valable une semaine.")
+            (resultat.mailEnvoye ? t.lienEnvoye : t.lienATransmettre)
           }
         />
       )}
       {resultat.motDePasse && (
-        <ValeurACopier
-          valeur={resultat.motDePasse}
-          libelle="Ou ce mot de passe, à donner de vive voix. Il ne sera plus affiché."
-        />
+        <ValeurACopier valeur={resultat.motDePasse} libelle={t.motDePasse} />
       )}
     </div>
   );
@@ -676,6 +647,7 @@ function Acces({
  */
 function ValeurACopier({ valeur, libelle }: { valeur: string; libelle: string }) {
   const [copie, setCopie] = useState(false);
+  const t = useT().adminComptes.transmission;
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent-600/50 bg-accent-600/10 px-3 py-2">
@@ -690,7 +662,7 @@ function ValeurACopier({ valeur, libelle }: { valeur: string; libelle: string })
         }}
         className="shrink-0 text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
       >
-        {copie ? "copié" : "copier"}
+        {copie ? t.copie : t.copier}
       </button>
       <span className="w-full text-xs text-ink-700">{libelle}</span>
     </div>

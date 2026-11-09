@@ -3,6 +3,8 @@ import os from "node:os";
 import { desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { games, playSessions, saveBackups, saveFiles, saveStates, sessions, users } from "@/db/schema";
+import type { Dictionnaire } from "@/lib/i18n/dictionnaires";
+import { textes } from "@/lib/i18n/serveur";
 import { etatCapacite, type EtatCapacite } from "@/lib/link/capacite";
 import { salons } from "@/lib/link/registre";
 import { paths } from "@/lib/paths";
@@ -54,8 +56,8 @@ export type TableauDeBord = {
 };
 
 /** Un agent utilisateur ramené à « Chrome sur Windows » : assez pour reconnaître un appareil. */
-function appareil(agent: string | null): string {
-  if (!agent) return "appareil inconnu";
+function appareil(agent: string | null, t: Dictionnaire["adminGeneral"]["tableau"]["appareil"]): string {
+  if (!agent) return t.inconnu;
   const navigateur = /Edg\//.test(agent)
     ? "Edge"
     : /Firefox\//.test(agent)
@@ -64,7 +66,7 @@ function appareil(agent: string | null): string {
         ? "Chrome"
         : /Safari\//.test(agent)
           ? "Safari"
-          : "navigateur";
+          : t.navigateur;
   const systeme = /Android/.test(agent)
     ? "Android"
     : /iPhone|iPad/.test(agent)
@@ -76,13 +78,15 @@ function appareil(agent: string | null): string {
           : /Linux/.test(agent)
             ? "Linux"
             : "";
-  return systeme ? `${navigateur} sur ${systeme}` : navigateur;
+  return systeme ? t.sur(navigateur, systeme) : navigateur;
 }
 
 const compte = sql<number>`count(*)`;
 const somme = (colonne: unknown) => sql<number>`coalesce(sum(${colonne}), 0)`;
 
 export async function tableauDeBord(): Promise<TableauDeBord> {
+  // Le seul texte composé ici : le nom de l'appareil d'une connexion.
+  const t = (await textes()).adminGeneral.tableau.appareil;
   const maintenant = Date.now();
 
   const joueurs = db
@@ -159,7 +163,7 @@ export async function tableauDeBord(): Promise<TableauDeBord> {
     comptes: {
       total: db.select({ n: compte }).from(users).get()?.n ?? 0,
       actifs7j: actifs7j?.n ?? 0,
-      connexions: connexions.map((c) => ({ pseudo: c.pseudo, quand: c.quand, appareil: appareil(c.agent) })),
+      connexions: connexions.map((c) => ({ pseudo: c.pseudo, quand: c.quand, appareil: appareil(c.agent, t) })),
     },
     jeux: {
       publies: db.select({ n: compte }).from(games).where(eq(games.isPublished, true)).get()?.n ?? 0,

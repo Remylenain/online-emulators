@@ -20,11 +20,14 @@
  *   { t: "audio", joueur, frequence, pcm }              Int16 mono ; joueur null = pour les deux
  *   { t: "instantane", srams: [ArrayBuffer, ArrayBuffer] }   en cours de partie
  *   { t: "srams", srams: [ArrayBuffer, ArrayBuffer] }        à l'arrêt
- *   { t: "erreur", message }
+ *   { t: "erreur", message, code?, valeurs? }   `message` en français ; le code
+ *                               et ses valeurs quand l'erreur est connue (voir
+ *                               `protocole.ts`), pour que l'écran la traduise
  */
 import { performance } from "node:perf_hooks";
 import { parentPort } from "node:worker_threads";
 import { deflateRawSync } from "node:zlib";
+import { ErreurCoeur } from "../emulator/libretro.ts";
 import { demarrerMoteur, type DescriptionCoeur } from "./moteurs.ts";
 
 type Demarrage = {
@@ -163,9 +166,13 @@ port.once("message", (message: Entrant) => {
     return;
   }
   demarrer(message).catch((erreur: unknown) => {
-    port.postMessage({
-      t: "erreur",
-      message: erreur instanceof Error ? erreur.message : "Démarrage impossible.",
-    });
+    if (erreur instanceof ErreurCoeur) {
+      port.postMessage({ t: "erreur", message: erreur.message, code: erreur.code, valeurs: erreur.valeurs });
+    } else if (erreur instanceof Error) {
+      // Une erreur que personne n'a prévue : pas de code, son texte tel quel.
+      port.postMessage({ t: "erreur", message: erreur.message });
+    } else {
+      port.postMessage({ t: "erreur", message: "Démarrage impossible.", code: "demarrage-impossible" });
+    }
   });
 });

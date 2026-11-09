@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { games, ratings } from "@/db/schema";
 import { requireUser } from "@/lib/auth/guard";
+import { textes } from "@/lib/i18n/serveur";
 
 /**
  * Notes des joueurs, de 1 à 5.
@@ -19,7 +20,7 @@ export async function noter(gameId: string, score: number): Promise<ResultatNote
   const user = await requireUser();
 
   if (!Number.isInteger(score) || score < 1 || score > 5) {
-    return { ok: false, message: "Note invalide." };
+    return { ok: false, message: (await textes()).catalogue.notes.erreurs.invalide };
   }
 
   const jeu = await db
@@ -27,7 +28,7 @@ export async function noter(gameId: string, score: number): Promise<ResultatNote
     .from(games)
     .where(eq(games.id, gameId))
     .get();
-  if (!jeu) return { ok: false, message: "Jeu introuvable." };
+  if (!jeu) return { ok: false, message: (await textes()).catalogue.notes.erreurs.jeuIntrouvable };
 
   db.insert(ratings)
     .values({ userId: user.id, gameId, score })
@@ -48,7 +49,7 @@ export async function retirerNote(gameId: string): Promise<ResultatNote> {
     .from(games)
     .where(eq(games.id, gameId))
     .get();
-  if (!jeu) return { ok: false, message: "Jeu introuvable." };
+  if (!jeu) return { ok: false, message: (await textes()).catalogue.notes.erreurs.jeuIntrouvable };
 
   db.delete(ratings)
     .where(and(eq(ratings.userId, user.id), eq(ratings.gameId, gameId)))

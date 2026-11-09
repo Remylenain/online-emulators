@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useT } from "@/components/langue";
 import { nomDeFichier } from "@/lib/format";
 
 /**
@@ -23,6 +24,7 @@ export function PartieActivite({ jeton, titre }: { jeton: string; titre: string 
   const champ = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
+  const t = useT().activite;
   const autorisation = { Authorization: `Bearer ${jeton}` };
 
   async function telecharger(): Promise<void> {
@@ -31,10 +33,10 @@ export function PartieActivite({ jeton, titre }: { jeton: string; titre: string 
     try {
       const reponse = await fetch("/api/discord/sauvegarde", { headers: autorisation, cache: "no-store" });
       if (reponse.status === 204) {
-        setMessage("Il n'y a pas encore de partie à télécharger.");
+        setMessage(t.partie.rienATelecharger);
         return;
       }
-      if (!reponse.ok) throw new Error(`Le serveur a répondu ${reponse.status}.`);
+      if (!reponse.ok) throw new Error(t.erreurs.reponse(reponse.status));
       const donnees = await reponse.arrayBuffer();
       const url = URL.createObjectURL(new Blob([donnees]));
       const lien = document.createElement("a");
@@ -44,9 +46,9 @@ export function PartieActivite({ jeton, titre }: { jeton: string; titre: string 
       URL.revokeObjectURL(url);
       // Discord peut refuser le téléchargement depuis son cadre : le dire,
       // sans pouvoir le savoir d'ici.
-      setMessage(`Partie envoyée au téléchargement (${donnees.byteLength} octets). Si rien n'arrive, Discord l'a bloqué : récupère-la depuis le site, c'est la même.`);
+      setMessage(t.partie.telechargee(donnees.byteLength));
     } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Le téléchargement a échoué.");
+      setMessage(cause instanceof Error ? cause.message : t.partie.telechargementEchoue);
     } finally {
       setOccupe(false);
     }
@@ -56,12 +58,11 @@ export function PartieActivite({ jeton, titre }: { jeton: string; titre: string 
     setMessage(null);
     const donnees = new Uint8Array(await fichier.arrayBuffer());
     if (donnees.length === 0) {
-      setMessage("Ce fichier est vide.");
+      setMessage(t.partie.fichierVide);
       return;
     }
     const inhabituelle = !TAILLES_CONNUES.includes(donnees.length);
-    const question = `${inhabituelle ? `Taille inhabituelle pour une sauvegarde (${donnees.length} octets). ` : ""}Remplacer ta partie en cours par ce fichier ? L'ancienne version est gardée en secours.`;
-    if (!window.confirm(question)) return;
+    if (!window.confirm(t.partie.confirmer.remplacer(inhabituelle ? donnees.length : null))) return;
 
     setOccupe(true);
     try {
@@ -72,13 +73,16 @@ export function PartieActivite({ jeton, titre }: { jeton: string; titre: string 
         body: donnees,
       });
       if (!reponse.ok) {
+        // Le serveur explique son refus en français. Le fichier trop gros a
+        // son code à lui ; pour le reste, son texte s'affiche tel quel, faute
+        // de mieux — rien de ce que cet écran envoie n'y mène.
         const detail = (await reponse.json().catch(() => null)) as { erreur?: string } | null;
-        setMessage(detail?.erreur ?? "Le serveur a refusé cette sauvegarde.");
+        setMessage(reponse.status === 413 ? t.partie.tropGros : (detail?.erreur ?? t.partie.refusee));
         return;
       }
-      setMessage("Partie remplacée. Elle sera lue au prochain « Jouer ».");
+      setMessage(t.partie.remplacee);
     } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "L'envoi a échoué.");
+      setMessage(cause instanceof Error ? cause.message : t.partie.envoiEchoue);
     } finally {
       setOccupe(false);
     }
@@ -86,20 +90,15 @@ export function PartieActivite({ jeton, titre }: { jeton: string; titre: string 
 
   async function repartirDeZero(): Promise<void> {
     setMessage(null);
-    if (
-      !window.confirm(
-        "Repartir de zéro ? Ta partie en cours est mise de côté avec les versions précédentes, et le jeu redémarrera comme la première fois. Tes points de reprise restent.",
-      )
-    )
-      return;
+    if (!window.confirm(t.partie.confirmer.repartirDeZero)) return;
     setOccupe(true);
     try {
       const reponse = await fetch("/api/discord/sauvegarde", { method: "DELETE", headers: autorisation });
-      if (!reponse.ok) throw new Error(`Le serveur a répondu ${reponse.status}.`);
+      if (!reponse.ok) throw new Error(t.erreurs.reponse(reponse.status));
       const { effacee } = (await reponse.json()) as { effacee: boolean };
-      setMessage(effacee ? "Partie mise de côté. Le prochain « Jouer » repart du début." : "Il n'y avait pas de partie à mettre de côté.");
+      setMessage(effacee ? t.partie.miseDeCote : t.partie.rienAMettreDeCote);
     } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : "Ça n'a pas marché.");
+      setMessage(cause instanceof Error ? cause.message : t.partie.echec);
     } finally {
       setOccupe(false);
     }
@@ -114,7 +113,7 @@ export function PartieActivite({ jeton, titre }: { jeton: string; titre: string 
           onClick={() => void telecharger()}
           className="rounded-lg border border-ink-700 bg-ink-800 px-3 py-1.5 text-xs text-ink-200 disabled:opacity-40"
         >
-          Télécharger ma partie
+          {t.partie.telecharger}
         </button>
         <button
           type="button"
@@ -122,7 +121,7 @@ export function PartieActivite({ jeton, titre }: { jeton: string; titre: string 
           onClick={() => champ.current?.click()}
           className="rounded-lg border border-ink-700 bg-ink-800 px-3 py-1.5 text-xs text-ink-200 disabled:opacity-40"
         >
-          {occupe ? "En cours…" : "Remplacer par un fichier"}
+          {occupe ? t.partie.enCours : t.partie.remplacer}
         </button>
         <button
           type="button"
@@ -130,7 +129,7 @@ export function PartieActivite({ jeton, titre }: { jeton: string; titre: string 
           onClick={() => void repartirDeZero()}
           className="rounded-lg border border-transparent px-3 py-1.5 text-xs text-ink-400 hover:text-red-300 disabled:opacity-40"
         >
-          Repartir de zéro
+          {t.partie.repartirDeZero}
         </button>
         <input
           ref={champ}

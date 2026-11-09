@@ -465,7 +465,7 @@ export function Lecteur({
         const rom = new Uint8Array(await reponse.arrayBuffer());
 
         setProgression(t.lecteur.chargement.console);
-        const emulateur = new EmulateurMgba();
+        const emulateur = new EmulateurMgba(t.link.coeur);
         await emulateur.demarrer({
           canvas,
           rom: { nom: jeu.fichier, donnees: rom },

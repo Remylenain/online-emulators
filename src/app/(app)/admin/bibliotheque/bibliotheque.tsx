@@ -8,18 +8,18 @@ import {
   enregistrerRetouches,
   type Resultat,
 } from "@/lib/admin/actions";
+import { useLangue, useT } from "@/components/langue";
 import { Alert, Button } from "@/components/ui";
 import {
   ETATS,
   PAR_PAGE,
   TYPES_ADMIN,
   type ComptesBibliotheque,
-  type EtatKey,
   type FiltresBibliotheque,
-  type TypeAdmin,
 } from "@/lib/admin/filtres-bibliotheque";
 import { nomDeLangue } from "@/lib/catalog-options";
 import { CONSOLES } from "@/lib/consoles";
+import { REGION } from "@/lib/i18n/langues";
 
 export type JeuAdmin = {
   id: string;
@@ -49,6 +49,21 @@ type Volet = "scan" | "scraper" | "export" | "aide";
 const LANGUES_COURANTES = ["fr", "en", "es", "de", "it", "ja", "pt"];
 
 /**
+ * Affiche comme du code les passages entre accents graves d'un texte de
+ * dictionnaire : « repartir du `game.json` ». Le pendant d'`Accentue`, pour
+ * les noms de fichiers.
+ */
+function AvecCode({ texte }: { texte: string }) {
+  return (
+    <>
+      {texte.split("`").map((morceau, rang) =>
+        rang % 2 === 1 ? <code key={rang}>{morceau}</code> : <span key={rang}>{morceau}</span>,
+      )}
+    </>
+  );
+}
+
+/**
  * La bibliothèque vue par l'administration.
  *
  * Le scan se lance d'ici, et non plus en ligne de commande : le service tourne
@@ -74,6 +89,8 @@ export function Bibliotheque({
   inscriptible: boolean;
 }) {
   const router = useRouter();
+  const t = useT().adminBibliotheque;
+  const langue = useLangue();
   const [scan, setScan] = useState<EtatScan | null>(null);
   const [scraper, setScraper] = useState<EtatScan | null>(null);
   const scraperTournaitAvant = useRef(false);
@@ -151,7 +168,7 @@ export function Bibliotheque({
     const reponse = await fetch(`/api/admin/scraper${suffixe}`, { method: "POST" });
     if (!reponse.ok) {
       const corps = await reponse.json().catch(() => ({}));
-      setErreur(corps.erreur ?? "Le scraper n'a pas pu démarrer.");
+      setErreur(corps.erreur ?? t.taches.refus.demarrageImpossible.scraper);
       return;
     }
     scraperTournaitAvant.current = true;
@@ -165,7 +182,7 @@ export function Bibliotheque({
     const reponse = await fetch(`/api/admin/scan${suffixe}`, { method: "POST" });
     if (!reponse.ok) {
       const corps = await reponse.json().catch(() => ({}));
-      setErreur(corps.erreur ?? "Le scan n'a pas pu démarrer.");
+      setErreur(corps.erreur ?? t.taches.refus.demarrageImpossible.scan);
       return;
     }
     tournaitAvant.current = true;
@@ -175,26 +192,43 @@ export function Bibliotheque({
   }
 
   const volets: { nom: Volet; libelle: string }[] = [
-    ...(scan?.journal ? [{ nom: "scan" as const, libelle: "Journal du scan" }] : []),
-    ...(scraper?.journal ? [{ nom: "scraper" as const, libelle: "Journal des fiches" }] : []),
-    { nom: "export", libelle: "Exporter les fiches" },
-    { nom: "aide", libelle: "Aide" },
+    ...(scan?.journal ? [{ nom: "scan" as const, libelle: t.volets.journalDuScan }] : []),
+    ...(scraper?.journal ? [{ nom: "scraper" as const, libelle: t.volets.journalDesFiches }] : []),
+    { nom: "export", libelle: t.volets.exporter },
+    { nom: "aide", libelle: t.volets.aide },
   ];
   const journal = volet === "scan" ? scan?.journal : volet === "scraper" ? scraper?.journal : null;
 
   const premier = (filtres.page - 1) * PAR_PAGE + 1;
 
+  // Le résumé à droite des boutons : ce qui est publié, puis la date du dernier scan.
+  const resume = [
+    t.taches.publies(comptes.publies, comptes.total),
+    ...(scan?.termineLe
+      ? [
+          t.taches.dernierScan(
+            new Date(scan.termineLe).toLocaleString(REGION[langue], {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          ),
+        ]
+      : []),
+  ].join(" · ");
+
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" onClick={() => void lancer()} disabled={tacheEnCours}>
-          {scan?.enCours ? "Scan en cours…" : "Relancer le scan"}
+          {scan?.enCours ? t.taches.scanEnCours : t.taches.relancerLeScan}
         </Button>
         <Button type="button" variant="ghost" onClick={() => void lancerScraper()} disabled={tacheEnCours}>
-          {scraper?.enCours ? "Recherche en cours…" : "Compléter les fiches"}
+          {scraper?.enCours ? t.taches.rechercheEnCours : t.taches.completerLesFiches}
         </Button>
         <label htmlFor="portee-taches" className="sr-only">
-          Console sur laquelle portent le scan et la complétion des fiches
+          {t.taches.portee}
         </label>
         <select
           id="portee-taches"
@@ -203,23 +237,14 @@ export function Bibliotheque({
           disabled={tacheEnCours}
           className={selectClasses}
         >
-          <option value="">Sur toutes les consoles</option>
+          <option value="">{t.taches.surToutes}</option>
           {CONSOLES.map((definition) => (
             <option key={definition.slug} value={definition.slug}>
-              Sur {definition.name} seulement
+              {t.taches.surUneSeule(definition.name)}
             </option>
           ))}
         </select>
-        <p className="text-xs text-ink-400">
-          {comptes.publies} publié{comptes.publies > 1 ? "s" : ""} sur {comptes.total}
-          {scan?.termineLe &&
-            ` · dernier scan le ${new Date(scan.termineLe).toLocaleString("fr-FR", {
-              day: "2-digit",
-              month: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}`}
-        </p>
+        <p className="text-xs text-ink-400">{resume}</p>
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -246,19 +271,10 @@ export function Bibliotheque({
       {volet === "export" && <ExportFiches />}
       {volet === "aide" && (
         <div className="flex flex-col gap-2 rounded-panel border border-ink-800 p-3 text-xs text-ink-400">
+          <p>{t.aide.scan}</p>
+          <p>{t.aide.fiches}</p>
           <p>
-            « Relancer le scan » relit le dossier de la bibliothèque : nouveaux jeux, jaquettes,
-            manifestes modifiés.
-          </p>
-          <p>
-            « Compléter les fiches » cherche la description, l&apos;année et la jaquette des jeux
-            officiels qui n&apos;en ont pas, sans rien écraser, puis relance le scan. Le compte du
-            scraper se règle dans Réglages ; sans lui, seules les jaquettes sont cherchées.
-          </p>
-          <p>
-            Un clic sur un titre ouvre sa fiche. Les corrections sont enregistrées à côté de la
-            bibliothèque, qui reste en lecture seule pour le site ; le scan les réapplique à chaque
-            passage. Vider un champ le fait repartir du <code>game.json</code>.
+            <AvecCode texte={t.aide.retouches} />
           </p>
         </div>
       )}
@@ -267,10 +283,7 @@ export function Bibliotheque({
       {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
 
       {!inscriptible && (
-        <Alert tone="error">
-          Le serveur ne peut pas écrire dans son dossier de données : les
-          corrections ci-dessous échoueront.
-        </Alert>
+        <Alert tone="error">{t.lectureSeule}</Alert>
       )}
 
       <div ref={hautDeListe} className="scroll-mt-20">
@@ -279,8 +292,8 @@ export function Bibliotheque({
 
       <p className="text-xs text-ink-400" aria-live="polite">
         {comptes.trouves === 0
-          ? "Aucun jeu ne correspond."
-          : `${premier}–${premier + jeux.length - 1} sur ${comptes.trouves} jeu${comptes.trouves > 1 ? "x" : ""}`}
+          ? t.liste.aucunJeu
+          : t.liste.intervalle(premier, premier + jeux.length - 1, comptes.trouves)}
       </p>
 
       {jeux.length > 0 && (
@@ -381,6 +394,7 @@ function Filtres({
   comptes: ComptesBibliotheque;
   naviguer: (modifications: Record<string, string>) => void;
 }) {
+  const t = useT().adminBibliotheque;
   const [saisie, setSaisie] = useState(filtres.q);
   /** La dernière recherche que ce champ a demandée. */
   const [envoyee, setEnvoyee] = useState(filtres.q);
@@ -411,9 +425,7 @@ function Filtres({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saisie]);
 
-  const etats = (Object.keys(ETATS) as EtatKey[]).filter(
-    (nom) => comptes.etats[nom] > 0 || filtres.etat === nom,
-  );
+  const etats = ETATS.filter((nom) => comptes.etats[nom] > 0 || filtres.etat === nom);
   const filtre = Boolean(filtres.q || filtres.console || filtres.type || filtres.etat);
 
   return (
@@ -421,20 +433,20 @@ function Filtres({
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1 basis-48 sm:max-w-xs">
           <label htmlFor="recherche-bibliotheque" className="sr-only">
-            Rechercher un jeu
+            {t.filtres.rechercher}
           </label>
           <input
             id="recherche-bibliotheque"
             type="search"
             value={saisie}
             onChange={(evenement) => setSaisie(evenement.target.value)}
-            placeholder="Titre, auteur, jeu de base…"
+            placeholder={t.filtres.rechercherDans}
             className="w-full rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-50 placeholder:text-ink-700 focus:border-accent-500 focus:ring-2 focus:ring-accent-600/30 focus:outline-none"
           />
         </div>
 
         <label htmlFor="filtre-console" className="sr-only">
-          Console
+          {t.console}
         </label>
         <select
           id="filtre-console"
@@ -442,7 +454,7 @@ function Filtres({
           onChange={(evenement) => naviguer({ console: evenement.target.value })}
           className={selectClasses}
         >
-          <option value="">Toutes les consoles ({comptes.toutesConsoles})</option>
+          <option value="">{t.filtres.toutesLesConsoles(comptes.toutesConsoles)}</option>
           {CONSOLES.map((definition) => (
             <option key={definition.slug} value={definition.slug}>
               {definition.name} ({comptes.consoles[definition.slug] ?? 0})
@@ -451,7 +463,7 @@ function Filtres({
         </select>
 
         <label htmlFor="filtre-type" className="sr-only">
-          Type de jeu
+          {t.filtres.typeDeJeu}
         </label>
         <select
           id="filtre-type"
@@ -459,10 +471,10 @@ function Filtres({
           onChange={(evenement) => naviguer({ type: evenement.target.value })}
           className={selectClasses}
         >
-          <option value="">Tous les jeux ({comptes.tousTypes})</option>
-          {(Object.keys(TYPES_ADMIN) as TypeAdmin[]).map((nom) => (
+          <option value="">{t.filtres.tousLesJeux(comptes.tousTypes)}</option>
+          {TYPES_ADMIN.map((nom) => (
             <option key={nom} value={nom}>
-              {TYPES_ADMIN[nom]} ({comptes.types[nom]})
+              {t.filtres.types[nom]} ({comptes.types[nom]})
             </option>
           ))}
         </select>
@@ -473,13 +485,13 @@ function Filtres({
             onClick={() => naviguer({ q: "", console: "", type: "", etat: "" })}
             className="text-xs text-ink-400 hover:text-ink-200"
           >
-            Tout afficher
+            {t.filtres.toutAfficher}
           </button>
         )}
       </div>
 
       {etats.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="À traiter">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t.filtres.aTraiter}>
           {etats.map((nom) => {
             const actif = filtres.etat === nom;
             return (
@@ -494,7 +506,7 @@ function Filtres({
                     : "border-ink-700 text-ink-400 hover:border-ink-400 hover:text-ink-200"
                 }`}
               >
-                {ETATS[nom]} <span className="tabular-nums opacity-70">{comptes.etats[nom]}</span>
+                {t.filtres.etats[nom]} <span className="tabular-nums opacity-70">{comptes.etats[nom]}</span>
               </button>
             );
           })}
@@ -530,15 +542,16 @@ function Pagination({
   pages: number;
   aller: (page: number) => void;
 }) {
+  const t = useT().adminBibliotheque.pagination;
   if (pages <= 1) return null;
 
   const bouton =
     "rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200 transition-colors hover:border-ink-400 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
-    <nav className="flex flex-wrap items-center justify-center gap-2" aria-label="Pages">
+    <nav className="flex flex-wrap items-center justify-center gap-2" aria-label={t.pages}>
       <button type="button" className={bouton} disabled={page <= 1} onClick={() => aller(page - 1)}>
-        ‹ Précédente
+        {t.precedente}
       </button>
       {numerosDePages(page, pages).map((numero, rang) =>
         numero === null ? (
@@ -560,7 +573,7 @@ function Pagination({
         ),
       )}
       <button type="button" className={bouton} disabled={page >= pages} onClick={() => aller(page + 1)}>
-        Suivante ›
+        {t.suivante}
       </button>
     </nav>
   );
@@ -572,6 +585,7 @@ function Pagination({
  * lien de téléchargement : l'archive est produite par `/api/admin/gamelist`.
  */
 function ExportFiches() {
+  const t = useT().adminBibliotheque;
   const [consoleSlug, setConsoleSlug] = useState("");
   const [tout, setTout] = useState(false);
   const parametres = new URLSearchParams();
@@ -582,9 +596,9 @@ function ExportFiches() {
   return (
     <div className="flex flex-col gap-2 rounded-panel border border-ink-800 p-3">
       <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <p className="text-sm font-semibold text-ink-200">Exporter les fiches</p>
+        <p className="text-sm font-semibold text-ink-200">{t.export.titre}</p>
         <label htmlFor="export-console" className="sr-only">
-          Console
+          {t.console}
         </label>
         <select
           id="export-console"
@@ -592,7 +606,7 @@ function ExportFiches() {
           onChange={(evenement) => setConsoleSlug(evenement.target.value)}
           className="max-w-full min-w-0 rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-200 focus:border-accent-500 focus:outline-none"
         >
-          <option value="">Toutes les consoles</option>
+          <option value="">{t.export.toutesLesConsoles}</option>
           {CONSOLES.map((definition) => (
             <option key={definition.slug} value={definition.slug}>
               {definition.name}
@@ -601,21 +615,18 @@ function ExportFiches() {
         </select>
         <label className="flex items-center gap-2 text-sm text-ink-400">
           <input type="checkbox" checked={tout} onChange={(evenement) => setTout(evenement.target.checked)} />
-          Avec les jeux officiels
+          {t.export.avecLesOfficiels}
         </label>
         <a
           href={adresse}
           download
           className="inline-flex items-center justify-center rounded-lg border border-ink-700 px-4 py-2 text-sm font-semibold text-ink-200 transition-colors hover:border-ink-400 hover:text-ink-50"
         >
-          Télécharger (.zip)
+          {t.export.telecharger}
         </a>
       </div>
       <p className="text-xs text-ink-700">
-        Un <code>gamelist.xml</code> et un dossier d&apos;images par console, au format
-        d&apos;EmulationStation (Recalbox, Batocera, RetroPie, ES-DE) : titre, description, année,
-        auteur, langue et jaquette, rattachés au nom du fichier ROM. Aucune ROM n&apos;est dans
-        l&apos;archive.
+        <AvecCode texte={t.export.explication} />
       </p>
     </div>
   );
@@ -633,9 +644,20 @@ function FicheJeu({
   rapporter: (resultat: Resultat) => void;
 }) {
   const router = useRouter();
+  const t = useT().adminBibliotheque.fiche;
+  const langue = useLangue();
   const [enCours, demarrer] = useTransition();
 
   const retouche = (champ: string) => jeu.retouches.includes(champ);
+
+  // Les détails à droite du titre : chacun est une étiquette, pas un morceau de phrase.
+  const details = [
+    ...(jeu.isOfficial ? [t.officiel] : []),
+    jeu.language ? nomDeLangue(jeu.language, langue) : t.langueARenseigner,
+    t.taille((jeu.romSize / 1048576).toFixed(0)),
+    ...(jeu.coverPath ? [] : [t.sansJaquette]),
+    ...(jeu.retouches.length > 0 ? [t.retouches(jeu.retouches.length)] : []),
+  ].join(" · ");
 
   return (
     <li className="flex flex-col bg-ink-900/40">
@@ -668,15 +690,7 @@ function FicheJeu({
           >
             {jeu.title}
           </button>
-          <span className="min-w-0 truncate text-xs text-ink-400 sm:shrink-0">
-            {jeu.isOfficial && "officiel · "}
-            {jeu.language ? nomDeLangue(jeu.language) : "langue à renseigner"}
-            {" · "}
-            {(jeu.romSize / 1048576).toFixed(0)} Mio
-            {!jeu.coverPath && " · sans jaquette"}
-            {jeu.retouches.length > 0 &&
-              ` · ${jeu.retouches.length} retouche${jeu.retouches.length > 1 ? "s" : ""}`}
-          </span>
+          <span className="min-w-0 truncate text-xs text-ink-400 sm:shrink-0">{details}</span>
         </div>
         <button
           type="button"
@@ -693,7 +707,7 @@ function FicheJeu({
               : "border-red-900 text-red-300 hover:bg-red-950/50"
           }`}
         >
-          {jeu.isPublished ? "Publié" : "Retiré"}
+          {jeu.isPublished ? t.publie : t.retire}
         </button>
       </div>
 
@@ -708,7 +722,7 @@ function FicheJeu({
           className="flex flex-col gap-3 border-t border-ink-800 bg-ink-950/40 px-4 py-4"
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <Retouchable libelle="Titre" marque={retouche("titre")}>
+            <Retouchable libelle={t.champs.titre} marque={retouche("titre")}>
               <input
                 name="titre"
                 defaultValue={jeu.title}
@@ -717,7 +731,7 @@ function FicheJeu({
               />
             </Retouchable>
 
-            <Retouchable libelle="Langue" marque={retouche("langue")}>
+            <Retouchable libelle={t.champs.langue} marque={retouche("langue")}>
               <input
                 name="langue"
                 list="langues-connues"
@@ -729,13 +743,13 @@ function FicheJeu({
               <datalist id="langues-connues">
                 {LANGUES_COURANTES.map((code) => (
                   <option key={code} value={code}>
-                    {nomDeLangue(code)}
+                    {nomDeLangue(code, langue)}
                   </option>
                 ))}
               </datalist>
             </Retouchable>
 
-            <Retouchable libelle="Auteur" marque={retouche("auteur")}>
+            <Retouchable libelle={t.champs.auteur} marque={retouche("auteur")}>
               <input
                 name="auteur"
                 defaultValue={jeu.author ?? ""}
@@ -744,7 +758,7 @@ function FicheJeu({
               />
             </Retouchable>
 
-            <Retouchable libelle="Version" marque={retouche("version")}>
+            <Retouchable libelle={t.champs.version} marque={retouche("version")}>
               <input
                 name="version"
                 defaultValue={jeu.version ?? ""}
@@ -753,7 +767,7 @@ function FicheJeu({
               />
             </Retouchable>
 
-            <Retouchable libelle="Jeu de base" marque={retouche("jeuDeBase")}>
+            <Retouchable libelle={t.champs.jeuDeBase} marque={retouche("jeuDeBase")}>
               <input
                 name="jeuDeBase"
                 defaultValue={jeu.baseGame ?? ""}
@@ -762,7 +776,7 @@ function FicheJeu({
               />
             </Retouchable>
 
-            <Retouchable libelle="Année" marque={retouche("annee")}>
+            <Retouchable libelle={t.champs.annee} marque={retouche("annee")}>
               <input
                 name="annee"
                 type="number"
@@ -774,7 +788,7 @@ function FicheJeu({
             </Retouchable>
           </div>
 
-          <Retouchable libelle="Description" marque={retouche("description")}>
+          <Retouchable libelle={t.champs.description} marque={retouche("description")}>
             <textarea
               name="description"
               defaultValue={jeu.description ?? ""}
@@ -786,20 +800,20 @@ function FicheJeu({
 
           <div className="flex items-center gap-3">
             <Button type="submit" disabled={enCours}>
-              {enCours ? "Enregistrement…" : "Enregistrer"}
+              {enCours ? t.enregistrement : t.enregistrer}
             </Button>
             <button
               type="button"
               onClick={basculer}
               className="text-xs text-ink-400 hover:text-ink-200"
             >
-              Fermer
+              {t.fermer}
             </button>
             <Link
               href={`/jeux/${jeu.consoleSlug}/${jeu.slug}`}
               className="ml-auto text-xs text-ink-400 hover:text-ink-200"
             >
-              Voir la fiche du jeu →
+              {t.voirLaFiche}
             </Link>
           </div>
         </form>
@@ -821,6 +835,7 @@ function Retouchable({
   marque: boolean;
   children: React.ReactNode;
 }) {
+  const t = useT().adminBibliotheque.fiche;
   return (
     <label className="flex flex-col gap-1">
       <span className="flex items-center gap-2 text-xs text-ink-400">
@@ -828,9 +843,9 @@ function Retouchable({
         {marque && (
           <span
             className="rounded bg-accent-600/20 px-1.5 py-0.5 text-[10px] text-accent-400"
-            title="Cette valeur est saisie ici, elle ne vient pas du game.json."
+            title={t.retoucheExplication}
           >
-            retouché
+            {t.retouche}
           </span>
         )}
       </span>

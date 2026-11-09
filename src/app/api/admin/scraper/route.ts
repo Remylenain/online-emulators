@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { demarrerLaTache, etatDeLaTache } from "@/lib/admin/scan";
+import { textes } from "@/lib/i18n/serveur";
 
 /**
  * Le scraper — « Compléter les fiches » — lancé et suivi depuis le site, sur
@@ -9,9 +10,10 @@ import { demarrerLaTache, etatDeLaTache } from "@/lib/admin/scan";
  */
 async function exigerAdmin() {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
-  if (viewer.role !== "ADMIN") return new NextResponse("Interdit", { status: 403 });
-  return null;
+  if (viewer?.role === "ADMIN") return null;
+  const t = (await textes()).adminBibliotheque.api;
+  if (!viewer) return new NextResponse(t.nonAutorise, { status: 401 });
+  return new NextResponse(t.interdit, { status: 403 });
 }
 
 export async function GET() {

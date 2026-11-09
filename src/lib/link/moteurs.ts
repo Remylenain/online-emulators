@@ -12,7 +12,8 @@
  * de propriétés de paramètre, pas d'`enum`.
  */
 import { pathToFileURL } from "node:url";
-import { BOUTONS_LIBRETRO, CoeurLibretro } from "../emulator/libretro.ts";
+import { BOUTONS_LIBRETRO, CoeurLibretro, ErreurCoeur } from "../emulator/libretro.ts";
+import type { CodeErreur, Valeurs } from "./protocole.ts";
 
 /** Ce qu'il faut pour démarrer un moteur. Préparé par `salons.ts`, sérialisable. */
 export type DescriptionCoeur =
@@ -27,6 +28,14 @@ export type DescriptionCoeur =
   | { type: "mgs"; js: string; wasm: ArrayBuffer };
 
 export type Joueur = 0 | 1;
+
+/**
+ * Un échec du démarrage que les joueurs liront : le code que leur navigateur
+ * traduira, les valeurs que le texte cite, et le texte français en repli.
+ */
+function echec(code: CodeErreur, message: string, valeurs?: Valeurs): ErreurCoeur {
+  return new ErreurCoeur(code, message, valeurs);
+}
 
 export type Moteur = {
   ips: number;
@@ -85,7 +94,9 @@ async function moteurTgbDual(
   );
   for (const [i, sauvegarde] of saves.entries()) {
     if (sauvegarde && !libretro.ecrireMemoire(coeur.srams[i]!, sauvegarde)) {
-      throw new Error(`Le cœur n'a pas de mémoire de sauvegarde pour le joueur ${i + 1}.`);
+      throw echec("coeur-sans-memoire", `Le cœur n'a pas de mémoire de sauvegarde pour le joueur ${i + 1}.`, {
+        joueur: i + 1,
+      });
     }
   }
   // Comme une cartouche qu'on insère : les consoles relisent leur sauvegarde.
@@ -242,7 +253,7 @@ async function moteurMgs(
   const pRom = m._malloc(rom.length);
   m.HEAPU8.set(rom, pRom);
   const charge = m._mgs_load_rom(pRom, rom.length);
-  if (charge !== 0) throw new Error(`Le cœur a refusé cette ROM (${charge}).`);
+  if (charge !== 0) throw echec("coeur-rom-refusee", `Le cœur a refusé cette ROM (${charge}).`, { code: charge });
 
   const pieds: [Uint8Array | null, Uint8Array | null] = [null, null];
   for (const [i, sauvegarde] of saves.entries()) {
@@ -253,7 +264,12 @@ async function moteurMgs(
     m.HEAPU8.set(donnees, p);
     const ok = m._mgs_import_save(i, p, donnees.length);
     m._free(p);
-    if (ok !== 0) throw new Error(`La sauvegarde du joueur ${i + 1} n'a pas été acceptée (${ok}).`);
+    if (ok !== 0) {
+      throw echec("coeur-sauvegarde-refusee", `La sauvegarde du joueur ${i + 1} n'a pas été acceptée (${ok}).`, {
+        joueur: i + 1,
+        code: ok,
+      });
+    }
   }
 
   m._mgs_run_frame();

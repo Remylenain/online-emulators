@@ -148,10 +148,16 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
  * la sienne avec `null`. Réservé à un administrateur ; la cible ne peut pas
  * être lui-même, ni un compte désactivé.
  */
-export async function voirComme(userId: string | null): Promise<string | null> {
+export type RefusVoirComme = "nonConnecte" | "reserve" | "dejaToi" | "introuvable" | "desactive";
+
+/**
+ * Rend `null` quand c'est fait, sinon la raison du refus — un code, que
+ * l'appelant dit dans la langue de l'administrateur.
+ */
+export async function voirComme(userId: string | null): Promise<RefusVoirComme | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  if (!token) return "Non connecté.";
+  if (!token) return "nonConnecte";
   const sessionId = hashToken(token);
   const session = await db
     .select({ userId: sessions.userId, role: users.role })
@@ -159,12 +165,12 @@ export async function voirComme(userId: string | null): Promise<string | null> {
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(eq(sessions.id, sessionId))
     .get();
-  if (!session || session.role !== "ADMIN") return "Réservé à l'administrateur.";
+  if (!session || session.role !== "ADMIN") return "reserve";
   if (userId !== null) {
-    if (userId === session.userId) return "C'est déjà ton compte.";
+    if (userId === session.userId) return "dejaToi";
     const cible = await db.select({ isActive: users.isActive }).from(users).where(eq(users.id, userId)).get();
-    if (!cible) return "Compte introuvable.";
-    if (!cible.isActive) return "Ce compte est désactivé.";
+    if (!cible) return "introuvable";
+    if (!cible.isActive) return "desactive";
   }
   await db.update(sessions).set({ actingAsUserId: userId }).where(eq(sessions.id, sessionId));
   return null;

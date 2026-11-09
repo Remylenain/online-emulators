@@ -6,6 +6,8 @@ import {
   retablirManetteDe,
   retablirTouchesDe,
 } from "@/lib/keymap/ecriture";
+import { textes } from "@/lib/i18n/serveur";
+import { dansLaLangue } from "@/lib/keymap/langue";
 import { dispositionsDuCompte } from "@/lib/keymap/lecture";
 
 /**
@@ -35,24 +37,24 @@ export async function PUT(request: Request) {
   try {
     demande = (await request.json()) as Demande;
   } catch {
-    return NextResponse.json({ ok: false, message: "Requête illisible." }, { status: 400 });
+    return NextResponse.json({ ok: false, message: (await textes()).activite.serveur.requeteIllisible }, { status: 400 });
   }
   if (!demande || typeof demande !== "object" || typeof demande.console !== "string") {
-    return NextResponse.json({ ok: false, message: "Requête illisible." }, { status: 400 });
+    return NextResponse.json({ ok: false, message: (await textes()).activite.serveur.requeteIllisible }, { status: 400 });
   }
   const mapping = "mapping" in demande && demande.mapping && typeof demande.mapping === "object" ? demande.mapping : {};
   const cle = "cle" in demande && typeof demande.cle === "string" ? demande.cle : undefined;
 
   switch (demande.action) {
     case "touches":
-      return NextResponse.json(enregistrerTouchesDe(visiteur.id, demande.console, mapping));
+      return NextResponse.json(await dansLaLangue(enregistrerTouchesDe(visiteur.id, demande.console, mapping)));
     case "retablirTouches":
-      return NextResponse.json(retablirTouchesDe(visiteur.id, demande.console));
+      return NextResponse.json(await dansLaLangue(retablirTouchesDe(visiteur.id, demande.console)));
     case "manette":
-      return NextResponse.json(enregistrerManetteDe(visiteur.id, demande.console, mapping, cle));
+      return NextResponse.json(await dansLaLangue(enregistrerManetteDe(visiteur.id, demande.console, mapping, cle)));
     case "retablirManette":
-      return NextResponse.json(retablirManetteDe(visiteur.id, demande.console, cle));
+      return NextResponse.json(await dansLaLangue(retablirManetteDe(visiteur.id, demande.console, cle)));
     default:
-      return NextResponse.json({ ok: false, message: "Action inconnue." }, { status: 400 });
+      return NextResponse.json({ ok: false, message: (await textes()).activite.serveur.actionInconnue }, { status: 400 });
   }
 }

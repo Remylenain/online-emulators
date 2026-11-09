@@ -8,30 +8,27 @@
  * valeur.
  */
 
-/** Ce qu'il reste à faire sur un jeu : un seul état filtré à la fois. */
-export const ETATS = {
-  "sans-jaquette": "Sans jaquette",
-  "sans-description": "Sans description",
-  "sans-langue": "Langue à renseigner",
-  retires: "Retirés",
-  retouches: "Retouchés",
-} as const;
+/**
+ * Ce qu'il reste à faire sur un jeu : un seul état filtré à la fois.
+ *
+ * Seulement les clés, dans l'ordre d'affichage : les libellés suivent la
+ * langue et sont dans le dictionnaire (`adminBibliotheque.filtres.etats`).
+ */
+export const ETATS = ["sans-jaquette", "sans-description", "sans-langue", "retires", "retouches"] as const;
 
-export type EtatKey = keyof typeof ETATS;
+export type EtatKey = (typeof ETATS)[number];
 
 export function isEtatKey(valeur: string): valeur is EtatKey {
-  return valeur in ETATS;
+  return (ETATS as readonly string[]).includes(valeur);
 }
 
-export const TYPES_ADMIN = {
-  hacks: "Rom hacks et traductions",
-  officiels: "Jeux officiels",
-} as const;
+/** Les libellés sont dans le dictionnaire (`adminBibliotheque.filtres.types`). */
+export const TYPES_ADMIN = ["hacks", "officiels"] as const;
 
-export type TypeAdmin = keyof typeof TYPES_ADMIN;
+export type TypeAdmin = (typeof TYPES_ADMIN)[number];
 
 export function isTypeAdmin(valeur: string): valeur is TypeAdmin {
-  return valeur in TYPES_ADMIN;
+  return (TYPES_ADMIN as readonly string[]).includes(valeur);
 }
 
 /** Jeux affichés par page. Assez pour balayer, assez peu pour ne pas défiler sans fin. */

@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/components/langue";
 import { SalonLink } from "@/components/link/salon-link";
 import type { Touche } from "@/lib/consoles";
+import type { Refus } from "@/lib/link/protocole";
+import { texteErreurLink } from "@/lib/link/textes";
 import type { Enregistreur } from "@/lib/keymap/actions";
 
 /**
@@ -53,6 +56,7 @@ export function Duo({
   const [salon, setSalon] = useState<{ id: string; spectateur: boolean } | null>(null);
   const [rang, setRang] = useState<Rang | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const t = useT();
 
   useEffect(() => {
     if (salon) return;
@@ -64,7 +68,7 @@ export function Duo({
       try {
         const parametres = new URLSearchParams({ jeu: jeu.id, console: jeu.console, instance, attente: "1" });
         const reponse = await fetch(`/link/salons?${parametres}`, { headers: autorisation, cache: "no-store" });
-        if (!reponse.ok) throw new Error(`Le serveur a répondu ${reponse.status}.`);
+        if (!reponse.ok) throw new Error(t.activite.erreurs.reponse(reponse.status));
         const corps = (await reponse.json()) as Reponse;
         if (arrete) return;
 
@@ -74,7 +78,7 @@ export function Duo({
           // chaise ou si c'est la nôtre, sinon on regarde.
           const joueur = existant.maPlace >= 0 || existant.joueurs[1] === null;
           if (!joueur && existant.spectateurs >= MAX_SPECTATEURS) {
-            setMessage(`La partie est pleine : deux joueurs et ${MAX_SPECTATEURS} spectateurs.`);
+            setMessage(t.activite.duo.pleine(MAX_SPECTATEURS));
           } else {
             setSalon({ id: existant.id, spectateur: !joueur });
             return;
@@ -95,16 +99,20 @@ export function Duo({
               setSalon({ id, spectateur: false });
               return;
             }
-            const refus = (await creation.json().catch(() => null)) as { erreur?: string } | null;
+            const refus = (await creation.json().catch(() => null)) as Partial<Refus> | null;
             // « D'autres salons attendent », « serveur au complet » : on garde
-            // notre rang et on redemande.
-            setMessage(refus?.erreur ?? `Le salon n'a pas pu être ouvert (${creation.status}).`);
+            // notre rang et on redemande. Le serveur dit lequel c'est par un
+            // code, que `texteErreurLink` rend dans la langue du joueur ; à
+            // défaut de code, son texte, puis le numéro de la réponse.
+            setMessage(
+              texteErreurLink(t, refus ?? undefined, refus?.erreur ?? t.activite.duo.nonOuvert(creation.status)),
+            );
           } else {
             setMessage(null);
           }
         }
       } catch (cause) {
-        if (!arrete) setMessage(cause instanceof Error ? cause.message : "Le serveur ne répond pas.");
+        if (!arrete) setMessage(cause instanceof Error ? cause.message : t.activite.duo.sansReponse);
       }
       if (!arrete) minuterie = setTimeout(() => void chercher(), INTERVALLE_MS);
     }
@@ -114,7 +122,7 @@ export function Duo({
       arrete = true;
       if (minuterie) clearTimeout(minuterie);
     };
-  }, [salon, jeton, instance, jeu.id, jeu.console]);
+  }, [salon, jeton, instance, jeu.id, jeu.console, t]);
 
   if (salon) {
     return (
@@ -135,25 +143,21 @@ export function Duo({
 
   return (
     <div className="flex flex-col items-center gap-4 p-6 text-center">
-      <h1 className="text-xl font-semibold text-ink-50">{jeu.titre} — à deux</h1>
+      <h1 className="text-xl font-semibold text-ink-50">{t.activite.duo.titre(jeu.titre)}</h1>
       {rang && rang.position > 0 ? (
         <>
           <p className="text-ink-200">
-            Le serveur est au complet. Vous êtes {rang.position + 1}
-            <sup>e</sup> dans la file{rang.total > 1 ? ` (${rang.total} salons attendent)` : ""}.
+            <AvecExposant texte={t.activite.duo.file(rang.position + 1, rang.total)} />
           </p>
-          <p className="text-sm text-ink-400">
-            Un salon s&apos;ouvre dès qu&apos;une partie se termine ; reste sur cet écran, il se mettra à jour
-            tout seul.
-          </p>
+          <p className="text-sm text-ink-400">{t.activite.duo.fileConseil}</p>
         </>
       ) : rang && rang.libres === 0 ? (
         <>
-          <p className="text-ink-200">Le serveur est au complet. Vous êtes les premiers dans la file.</p>
-          <p className="text-sm text-ink-400">Un salon s&apos;ouvre dès qu&apos;une partie se termine.</p>
+          <p className="text-ink-200">{t.activite.duo.premiers}</p>
+          <p className="text-sm text-ink-400">{t.activite.duo.premiersConseil}</p>
         </>
       ) : (
-        <p className="text-ink-400">Ouverture du salon…</p>
+        <p className="text-ink-400">{t.activite.duo.ouverture}</p>
       )}
       {message && <p className="text-sm text-red-300">{message}</p>}
       <button
@@ -161,8 +165,21 @@ export function Duo({
         onClick={surQuitter}
         className="rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-sm text-ink-200"
       >
-        Retour
+        {t.activite.duo.retour}
       </button>
     </div>
+  );
+}
+
+/**
+ * L'exposant d'un ordinal, que le dictionnaire écrit entre accents
+ * circonflexes — « 2^e^ dans la file » — et qui prend sa balise ici. Une
+ * langue qui n'en met pas n'en écrit pas.
+ */
+function AvecExposant({ texte }: { texte: string }) {
+  return (
+    <>
+      {texte.split("^").map((morceau, rang) => (rang % 2 === 1 ? <sup key={rang}>{morceau}</sup> : morceau))}
+    </>
   );
 }

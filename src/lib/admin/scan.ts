@@ -4,6 +4,7 @@ import { createWriteStream } from "node:fs";
 import path from "node:path";
 import { CONSOLE_SLUGS } from "@/lib/consoles";
 import { env } from "@/lib/env";
+import { textes } from "@/lib/i18n/serveur";
 
 /**
  * Lancement du scan de bibliothèque depuis le site.
@@ -18,8 +19,11 @@ import { env } from "@/lib/env";
  * privilège supplémentaire. C'est ce qui permet de se passer de `sudo`.
  */
 
-/** Une tâche de fond : son script, son journal, son verrou. */
-type Tache = { script: string; journal: string; verrou: string; nom: string };
+/**
+ * Une tâche de fond : son script, son journal, son verrou. Son `nom` désigne
+ * ses messages dans le dictionnaire (`adminBibliotheque.taches.refus`).
+ */
+type Tache = { script: string; journal: string; verrou: string; nom: "scan" | "scraper" };
 
 const TACHES = {
   scan: { script: "scan-library.ts", journal: "scan.log", verrou: "scan.pid", nom: "scan" },
@@ -81,16 +85,21 @@ export type DemarrageScan = { demarre: boolean; message?: string };
 /**
  * `consoleSlug` limite la tâche à une console : relire ou compléter plusieurs
  * centaines de jeux pour en avoir ajouté un seul n'a pas de sens.
+ *
+ * Le message d'un refus est dans la langue de la requête : cette fonction ne
+ * s'appelle que depuis une route.
  */
 export async function demarrerLaTache(nom: NomTache, consoleSlug?: string): Promise<DemarrageScan> {
+  const refus = (await textes()).adminBibliotheque.taches.refus;
+
   if (consoleSlug !== undefined && !CONSOLE_SLUGS.includes(consoleSlug)) {
-    return { demarre: false, message: "Console inconnue." };
+    return { demarre: false, message: refus.consoleInconnue };
   }
 
   // Le scan et le scraper écrivent les mêmes fiches : jamais les deux à la fois.
   for (const autre of Object.values(TACHES)) {
     if (await pidEnCours(autre)) {
-      return { demarre: false, message: `Un ${autre.nom} est déjà en cours.` };
+      return { demarre: false, message: refus.dejaEnCours[autre.nom] };
     }
   }
   const tache = TACHES[nom];
@@ -99,7 +108,7 @@ export async function demarrerLaTache(nom: NomTache, consoleSlug?: string): Prom
   try {
     await fs.access(script);
   } catch {
-    return { demarre: false, message: `Le script du ${tache.nom} est introuvable sur le serveur.` };
+    return { demarre: false, message: refus.scriptIntrouvable[tache.nom] };
   }
 
   await fs.mkdir(env.DATA_DIR, { recursive: true });
@@ -119,7 +128,7 @@ export async function demarrerLaTache(nom: NomTache, consoleSlug?: string): Prom
     stdio: ["ignore", sortie, sortie],
   });
 
-  if (!enfant.pid) return { demarre: false, message: `Le ${tache.nom} n'a pas pu démarrer.` };
+  if (!enfant.pid) return { demarre: false, message: refus.demarrageImpossible[tache.nom] };
 
   await fs.writeFile(chemin(tache.verrou), String(enfant.pid), "utf8");
   enfant.unref();

@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "./langue";
 
 type Resultat = {
   id: string;
@@ -24,6 +25,7 @@ type Resultat = {
 export function RechercheGlobale() {
   const router = useRouter();
   const chemin = usePathname();
+  const t = useT().site.recherche;
   const [ouverte, setOuverte] = useState(false);
   const [saisie, setSaisie] = useState("");
   const [resultats, setResultats] = useState<Resultat[]>([]);
@@ -119,14 +121,14 @@ export function RechercheGlobale() {
       <button
         type="button"
         onClick={() => setOuverte(true)}
-        aria-label="Rechercher un jeu"
+        aria-label={t.titre}
         className="flex items-center gap-2 rounded-md border border-ink-800 px-2.5 py-1.5 text-sm text-ink-400 transition-colors hover:border-ink-700 hover:text-ink-50"
       >
         <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <circle cx="8.5" cy="8.5" r="5.5" />
           <path d="M13 13l4.5 4.5" strokeLinecap="round" />
         </svg>
-        <span className="hidden md:inline">Rechercher</span>
+        <span className="hidden md:inline">{t.bouton}</span>
         <kbd className="hidden rounded border border-ink-700 px-1 font-mono text-[10px] text-ink-400 md:inline">/</kbd>
       </button>
 
@@ -139,7 +141,7 @@ export function RechercheGlobale() {
         >
           <div
             role="dialog"
-            aria-label="Rechercher un jeu"
+            aria-label={t.titre}
             className="flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-panel border border-ink-700 bg-ink-900 shadow-2xl"
           >
             <input
@@ -147,8 +149,8 @@ export function RechercheGlobale() {
               value={saisie}
               onChange={(evenement) => setSaisie(evenement.target.value)}
               onKeyDown={surToucheChamp}
-              placeholder="Titre, auteur, jeu de base…"
-              aria-label="Rechercher un jeu"
+              placeholder={t.indication}
+              aria-label={t.titre}
               autoComplete="off"
               spellCheck={false}
               className="w-full border-b border-ink-800 bg-transparent px-4 py-3 text-base text-ink-50 placeholder:text-ink-700 focus:outline-none"
@@ -189,12 +191,12 @@ export function RechercheGlobale() {
             </ul>
             <p className="border-t border-ink-800 px-4 py-2 text-xs text-ink-700">
               {saisie.trim().length < 2
-                ? "Tape au moins deux lettres. Flèches pour choisir, Entrée pour ouvrir, Échap pour fermer."
+                ? t.aide
                 : cherche && visibles.length === 0
-                  ? "Recherche…"
+                  ? t.enCours
                   : visibles.length === 0
-                    ? `Rien ne correspond à « ${saisie.trim()} ».`
-                    : `${visibles.length} jeu${visibles.length > 1 ? "x" : ""}`}
+                    ? t.rien(saisie.trim())
+                    : t.resultats(visibles.length)}
             </p>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { ecrireEtat, lireEtat, lireSegment, supprimerEtat } from "@/lib/states";
 
 /**
@@ -14,6 +15,11 @@ const TAILLE_MAX = 8_388_608;
 
 type Contexte = { params: Promise<{ gameId: string; slot: string }> };
 
+/** Le champ `erreur` d'un refus, dans la langue de la requête ; lu seulement quand il y en a un. */
+async function refus() {
+  return (await textes()).mesJeux.reponses.erreurs;
+}
+
 async function resoudre(context: Contexte) {
   const { gameId, slot } = await context.params;
   // « 3 » pour le troisième emplacement manuel, « a3 » pour l'automatique.
@@ -22,13 +28,13 @@ async function resoudre(context: Contexte) {
 
 export async function GET(_request: Request, context: Contexte) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const { gameId, cible } = await resoudre(context);
-  if (!cible) return new NextResponse("Emplacement invalide", { status: 400 });
+  if (!cible) return new NextResponse((await textes()).mesJeux.reponses.emplacementInvalide, { status: 400 });
 
   const donnees = await lireEtat(viewer.id, gameId, cible.emplacement, cible.auto);
-  if (!donnees) return new NextResponse("Introuvable", { status: 404 });
+  if (!donnees) return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
 
   return new NextResponse(new Uint8Array(donnees), {
     headers: {
@@ -42,21 +48,21 @@ export async function GET(_request: Request, context: Contexte) {
 
 export async function PUT(request: Request, context: Contexte) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const { gameId, cible } = await resoudre(context);
-  if (!cible) return NextResponse.json({ erreur: "Emplacement invalide." }, { status: 400 });
+  if (!cible) return NextResponse.json({ erreur: (await refus()).emplacementInvalide }, { status: 400 });
 
   if (!(await jeuAccessible(viewer, gameId))) {
-    return NextResponse.json({ erreur: "Jeu introuvable." }, { status: 404 });
+    return NextResponse.json({ erreur: (await refus()).jeuIntrouvable }, { status: 404 });
   }
 
   const corps = await request.arrayBuffer();
   if (corps.byteLength === 0) {
-    return NextResponse.json({ erreur: "État vide." }, { status: 400 });
+    return NextResponse.json({ erreur: (await refus()).etatVide }, { status: 400 });
   }
   if (corps.byteLength > TAILLE_MAX) {
-    return NextResponse.json({ erreur: "État trop volumineux." }, { status: 413 });
+    return NextResponse.json({ erreur: (await refus()).etatTropVolumineux }, { status: 413 });
   }
 
   const resume = await ecrireEtat(
@@ -71,10 +77,10 @@ export async function PUT(request: Request, context: Contexte) {
 
 export async function DELETE(_request: Request, context: Contexte) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const { gameId, cible } = await resoudre(context);
-  if (!cible) return NextResponse.json({ erreur: "Emplacement invalide." }, { status: 400 });
+  if (!cible) return NextResponse.json({ erreur: (await refus()).emplacementInvalide }, { status: 400 });
 
   const supprime = await supprimerEtat(viewer.id, gameId, cible.emplacement, cible.auto);
   return NextResponse.json({ supprime });

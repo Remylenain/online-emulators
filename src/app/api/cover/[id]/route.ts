@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { games } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
+import { textes } from "@/lib/i18n/serveur";
 import { paths } from "@/lib/paths";
 
 /**
@@ -15,7 +16,7 @@ import { paths } from "@/lib/paths";
  */
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const viewer = await getCurrentUser();
-  if (!viewer) return new NextResponse("Non autorisé", { status: 401 });
+  if (!viewer) return new NextResponse((await textes()).mesJeux.reponses.nonAutorise, { status: 401 });
 
   const { id } = await context.params;
   const demande = new URL(request.url).searchParams.get("t") ?? "sm";
@@ -30,7 +31,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     .where(eq(games.id, id))
     .get();
 
-  if (!row) return new NextResponse("Introuvable", { status: 404 });
+  if (!row) return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
 
   // L'étiquette de cartouche est un fichier à part entière ; la face avant et
   // le dos sont deux découpes d'une même jaquette, distinguées par suffixe.
@@ -44,7 +45,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     fichier = row.coverPath ? `${row.coverPath}-${taille}.webp` : null;
   }
 
-  if (!fichier) return new NextResponse("Introuvable", { status: 404 });
+  if (!fichier) return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
 
   try {
     const file = await fs.readFile(paths.data(fichier));
@@ -64,6 +65,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   } catch {
     // Enregistrée en base mais absente du disque : la grille affichera son
     // cadre vide plutôt que de casser la page.
-    return new NextResponse("Introuvable", { status: 404 });
+    return new NextResponse((await textes()).mesJeux.reponses.introuvable, { status: 404 });
   }
 }

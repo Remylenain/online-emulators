@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { contexteDeLActivite } from "@/lib/discord/contexte";
+import { textes } from "@/lib/i18n/serveur";
 import { ecrireEtat, ecrireVignette, emplacementValide, lireEtat, lireVignette, supprimerEtat } from "@/lib/states";
 
 /**
@@ -57,22 +58,22 @@ export async function PUT(request: Request, context: Contexte) {
   const c = await contexteDeLActivite(request);
   if ("refus" in c) return c.refus;
   const emplacement = await emplacementDe(context);
-  if (emplacement === null) return NextResponse.json({ erreur: "Emplacement invalide." }, { status: 400 });
+  if (emplacement === null) return NextResponse.json({ erreur: (await textes()).activite.serveur.emplacementInvalide }, { status: 400 });
 
   const corps = new Uint8Array(await request.arrayBuffer());
-  if (corps.byteLength === 0) return NextResponse.json({ erreur: "État vide." }, { status: 400 });
+  if (corps.byteLength === 0) return NextResponse.json({ erreur: (await textes()).activite.serveur.etatVide }, { status: 400 });
 
   if (veutLaVignette(request)) {
     if (corps.byteLength > TAILLE_MAX_VIGNETTE || !SIGNATURE_PNG.every((octet, i) => corps[i] === octet)) {
-      return NextResponse.json({ erreur: "Ce n'est pas une vignette." }, { status: 400 });
+      return NextResponse.json({ erreur: (await textes()).activite.serveur.pasUneVignette }, { status: 400 });
     }
     const jointe = await ecrireVignette(c.visiteur.id, c.jeu.id, emplacement, false, corps);
     return jointe
       ? NextResponse.json({ vignette: true })
-      : NextResponse.json({ erreur: "Pas d'état à cet emplacement." }, { status: 404 });
+      : NextResponse.json({ erreur: (await textes()).activite.serveur.pasDEtat }, { status: 404 });
   }
 
-  if (corps.byteLength > TAILLE_MAX) return NextResponse.json({ erreur: "État trop volumineux." }, { status: 413 });
+  if (corps.byteLength > TAILLE_MAX) return NextResponse.json({ erreur: (await textes()).activite.serveur.etatTropGros }, { status: 413 });
   return NextResponse.json(await ecrireEtat(c.visiteur.id, c.jeu.id, emplacement, false, corps));
 }
 
@@ -80,7 +81,7 @@ export async function DELETE(request: Request, context: Contexte) {
   const c = await contexteDeLActivite(request);
   if ("refus" in c) return c.refus;
   const emplacement = await emplacementDe(context);
-  if (emplacement === null) return NextResponse.json({ erreur: "Emplacement invalide." }, { status: 400 });
+  if (emplacement === null) return NextResponse.json({ erreur: (await textes()).activite.serveur.emplacementInvalide }, { status: 400 });
 
   return NextResponse.json({ supprime: await supprimerEtat(c.visiteur.id, c.jeu.id, emplacement, false) });
 }

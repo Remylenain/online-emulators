@@ -37,9 +37,11 @@ import {
   effacerConfigMail,
   effacerConfigScraper,
   inscriptionsOuvrables,
+  langueDuSite,
   mailActif,
 } from "@/lib/parametres";
 import { estLangue } from "@/lib/i18n/langues";
+import { textes } from "@/lib/i18n/serveur";
 import { sendMail } from "@/lib/mail";
 import {
   manifestSchema,
@@ -55,7 +57,7 @@ import {
 } from "@/lib/library/retouches";
 import { sendInvitation } from "@/lib/mail";
 import { ecrireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/saves";
-import { normalizeForSearch, optionalEmailSchema, pseudoSchema } from "@/lib/validation";
+import { normalizeForSearch, schemasDeValidation } from "@/lib/validation";
 
 /**
  * Actions d'administration.
@@ -63,6 +65,9 @@ import { normalizeForSearch, optionalEmailSchema, pseudoSchema } from "@/lib/val
  * Chacune commence par `requireAdmin()` : le menu ne montre l'entrée qu'aux
  * administrateurs, mais une action reste une adresse que n'importe qui peut
  * appeler. Le contrôle se fait ici, pas dans l'affichage.
+ *
+ * Vient ensuite `textes()` : chaque message renvoyé à l'écran est lu dans le
+ * dictionnaire `adminActions`, dans la langue de l'administrateur qui agit.
  */
 
 export type Resultat =
@@ -81,6 +86,16 @@ export type Resultat =
   | { ok: false; message: string };
 
 /**
+ * Les bornes des réglages, dites une fois : le contrôle et le message qui
+ * l'explique lisent la même valeur.
+ */
+const NOM_DU_SITE = { min: 2, max: 40 };
+const DESCRIPTION_MAX = 120;
+const NOM_D_APPLICATION_MAX = 40;
+const PORT = { min: 1, max: 65535 };
+const CLE_CAPTCHA_MAX = 200;
+
+/**
  * Mot de passe lisible à l'oral, sans caractères ambigus — un zéro et un O se
  * confondent quand on dicte un mot de passe à quelqu'un.
  */
@@ -91,17 +106,22 @@ function motDePasseAleatoire(): string {
 
 export async function creerCompte(_etat: unknown, donnees: FormData): Promise<Resultat> {
   const admin = await requireAdmin();
+  const dictionnaire = await textes();
+  const t = dictionnaire.adminActions.comptes;
+  // Les schémas disent eux-mêmes ce qui ne va pas : on leur donne leurs
+  // messages dans la langue de l'administrateur.
+  const { pseudoSchema, optionalEmailSchema } = schemasDeValidation(dictionnaire.validation);
 
   const pseudo = pseudoSchema.safeParse(donnees.get("pseudo"));
   if (!pseudo.success) {
-    return { ok: false, message: pseudo.error.issues[0]?.message ?? "Pseudo invalide." };
+    return { ok: false, message: pseudo.error.issues[0]?.message ?? t.pseudoInvalide };
   }
 
   // Facultative : un ami sans adresse aura un compte quand même. Il ne pourra
   // simplement pas réinitialiser son mot de passe seul.
   const email = optionalEmailSchema.safeParse(donnees.get("email"));
   if (!email.success) {
-    return { ok: false, message: email.error.issues[0]?.message ?? "Adresse invalide." };
+    return { ok: false, message: email.error.issues[0]?.message ?? t.adresseInvalide };
   }
 
   const doublon = await db
@@ -119,8 +139,8 @@ export async function creerCompte(_etat: unknown, donnees: FormData): Promise<Re
       ok: false,
       message:
         email.data !== null && doublon.email === email.data
-          ? `Un compte utilise déjà l'adresse ${email.data}.`
-          : `Le pseudo « ${doublon.pseudo} » est déjà pris.`,
+          ? t.adresseDejaPrise(email.data)
+          : t.pseudoDejaPris(doublon.pseudo),
     };
   }
 
@@ -144,7 +164,7 @@ export async function creerCompte(_etat: unknown, donnees: FormData): Promise<Re
   // l'un ni l'autre n'est écrit ailleurs qu'ici.
   return {
     ok: true,
-    message: `Compte créé pour ${pseudo.data}.`,
+    message: t.cree(pseudo.data),
     motDePasse,
     lien,
     mailEnvoye,
@@ -157,6 +177,9 @@ export async function creerCompte(_etat: unknown, donnees: FormData): Promise<Re
  * L'échec de l'envoi n'est pas une erreur : le lien reste affiché, et
  * l'administrateur le transmet comme il veut. Tant qu'aucun serveur de mail
  * n'est configuré, c'est même le cas normal.
+ *
+ * Le mail part dans la langue par défaut du site, pas dans celle de
+ * l'administrateur : c'est l'invité qui le lit, et il n'a encore rien choisi.
  */
 async function preparerInvitation(
   userId: string,
@@ -170,7 +193,7 @@ async function preparerInvitation(
   if (!mailActif() || email === null) return { lien, mailEnvoye: false };
 
   try {
-    await sendInvitation(email, pseudo, lien, invitePar);
+    await sendInvitation(email, pseudo, lien, invitePar, langueDuSite());
     return { lien, mailEnvoye: true };
   } catch (erreur) {
     console.error("[invitation] envoi impossible", erreur);
@@ -181,13 +204,14 @@ async function preparerInvitation(
 /** Refait un lien d'invitation pour un compte existant. */
 export async function renvoyerInvitation(userId: string): Promise<Resultat> {
   const admin = await requireAdmin();
+  const t = (await textes()).adminActions.comptes;
 
   const compte = await db
     .select({ pseudo: users.pseudo, email: users.email })
     .from(users)
     .where(eq(users.id, userId))
     .get();
-  if (!compte) return { ok: false, message: "Compte introuvable." };
+  if (!compte) return { ok: false, message: t.introuvable };
 
   const { lien, mailEnvoye } = await preparerInvitation(
     userId,
@@ -198,7 +222,7 @@ export async function renvoyerInvitation(userId: string): Promise<Resultat> {
 
   return {
     ok: true,
-    message: `Nouveau lien pour ${compte.pseudo}.`,
+    message: t.nouveauLien(compte.pseudo),
     lien,
     mailEnvoye,
   };
@@ -211,19 +235,18 @@ export async function renvoyerInvitation(userId: string): Promise<Resultat> {
  */
 export async function creerInvitation(plafond: number): Promise<Resultat> {
   const admin = await requireAdmin();
+  const t = (await textes()).adminActions.invitations;
   if (!INSCRIPTION_PLAFONDS.includes(plafond as (typeof INSCRIPTION_PLAFONDS)[number])) {
-    return { ok: false, message: "Nombre de comptes invalide." };
+    return { ok: false, message: t.plafondInvalide };
   }
 
   const { token } = await creerLienInscription(admin.id, plafond);
   revalidatePath("/admin/comptes");
   return {
     ok: true,
-    message: "Lien d'inscription créé.",
+    message: t.cree,
     lien: `${env.PUBLIC_URL}/inscription?token=${encodeURIComponent(token)}`,
-    lienLibelle:
-      "Lien à transmettre : la personne y choisira son pseudo et son mot de passe. " +
-      `Valable 24 heures, pour ${plafond === 1 ? "un seul compte" : `${plafond} comptes au plus`}.`,
+    lienLibelle: t.aTransmettre(plafond),
   };
 }
 
@@ -236,31 +259,32 @@ export async function creerInvitation(plafond: number): Promise<Resultat> {
 export async function voirLeSiteComme(userId: string): Promise<void> {
   await requireAdmin();
   const refus = await voirComme(userId);
-  if (refus) throw new Error(refus);
+  if (refus) throw new Error((await textes()).adminActions.comptes.voirComme[refus]);
   redirect("/");
 }
 
 /** Nom et phrase d'accueil du site, affichés partout. */
 export async function definirNomDuSite(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.reglages.identite;
   const nom = String(donnees.get("nom") ?? "").trim();
   const description = String(donnees.get("description") ?? "").trim();
-  if (nom.length < 2 || nom.length > 40) {
-    return { ok: false, message: "Le nom doit faire entre 2 et 40 caractères." };
+  if (nom.length < NOM_DU_SITE.min || nom.length > NOM_DU_SITE.max) {
+    return { ok: false, message: t.nom(NOM_DU_SITE.min, NOM_DU_SITE.max) };
   }
-  if (description.length > 120) {
-    return { ok: false, message: "La description ne peut pas dépasser 120 caractères." };
+  if (description.length > DESCRIPTION_MAX) {
+    return { ok: false, message: t.description(DESCRIPTION_MAX) };
   }
   const application = String(donnees.get("application") ?? "").trim();
-  if (application.length > 40) {
-    return { ok: false, message: "Le nom de l'application ne peut pas dépasser 40 caractères." };
+  if (application.length > NOM_D_APPLICATION_MAX) {
+    return { ok: false, message: t.application(NOM_D_APPLICATION_MAX) };
   }
   const langue = String(donnees.get("langue") ?? "");
-  if (!estLangue(langue)) return { ok: false, message: "Langue inconnue." };
+  if (!estLangue(langue)) return { ok: false, message: t.langueInconnue };
   definirIdentite(nom, description, application);
   definirLangueDuSite(langue);
   revalidatePath("/", "layout");
-  return { ok: true, message: "Réglages enregistrés." };
+  return { ok: true, message: t.enregistree };
 }
 
 /**
@@ -270,67 +294,73 @@ export async function definirNomDuSite(_etat: unknown, donnees: FormData): Promi
  */
 export async function definirMail(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.reglages;
   const host = String(donnees.get("host") ?? "").trim();
   const port = Number(donnees.get("port"));
   const user = String(donnees.get("user") ?? "").trim();
   const password = String(donnees.get("password") ?? "");
   const from = String(donnees.get("from") ?? "").trim();
-  if (!host || host.length > 255) return { ok: false, message: "L'hôte du relais est obligatoire." };
-  if (!Number.isInteger(port) || port < 1 || port > 65535) return { ok: false, message: "Le port doit être un nombre entre 1 et 65535." };
-  if (user.length > 255 || from.length > 255 || password.length > 500) return { ok: false, message: "Une des valeurs est trop longue." };
+  if (!host || host.length > 255) return { ok: false, message: t.mail.hoteObligatoire };
+  if (!Number.isInteger(port) || port < PORT.min || port > PORT.max) return { ok: false, message: t.mail.port(PORT.min, PORT.max) };
+  if (user.length > 255 || from.length > 255 || password.length > 500) return { ok: false, message: t.valeurTropLongue };
 
   definirConfigMail({ host, port, user, from, ...(password ? { password } : {}) });
   revalidatePath("/admin/reglages");
   revalidatePath("/admin/comptes");
-  return { ok: true, message: "Relais enregistré. Envoie-toi un e-mail de test pour le vérifier." };
+  return { ok: true, message: t.mail.enregistre };
 }
 
 /** Revient au relais de l'environnement du serveur, s'il y en a un. */
 export async function oublierMail(): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.reglages;
   effacerConfigMail();
   revalidatePath("/admin/reglages");
   revalidatePath("/admin/comptes");
-  return { ok: true, message: "Réglage effacé : le site reprend la configuration du serveur." };
+  return { ok: true, message: t.efface };
 }
 
 /** Un e-mail de test, pour savoir tout de suite si le relais accepte. */
 export async function envoyerMailDeTest(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.reglages.mail;
   const destinataire = String(donnees.get("destinataire") ?? "").trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinataire)) return { ok: false, message: "Adresse de destination invalide." };
-  if (!mailActif()) return { ok: false, message: "Aucun relais d'e-mails n'est configuré." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(destinataire)) return { ok: false, message: t.destinataireInvalide };
+  if (!mailActif()) return { ok: false, message: t.aucunRelais };
   try {
+    // L'administrateur se l'envoie à lui-même : l'e-mail est dans sa langue.
     await sendMail({
       to: destinataire,
-      subject: "E-mail de test",
-      text: "Si tu lis ce message, le relais d'e-mails du site fonctionne.\n",
+      subject: t.test.objet,
+      text: t.test.texte,
     });
   } catch (erreur) {
     // Le message du relais (« 535 Authentication failed »…) est ce qui permet de corriger.
-    return { ok: false, message: `Le relais a refusé : ${erreur instanceof Error ? erreur.message : "erreur inconnue"}` };
+    return { ok: false, message: t.refus(erreur instanceof Error ? erreur.message : undefined) };
   }
-  return { ok: true, message: `E-mail envoyé à ${destinataire}. Regarde aussi les indésirables.` };
+  return { ok: true, message: t.envoye(destinataire) };
 }
 
 /** Les clés Turnstile du captcha. La clé secrète laissée vide garde celle enregistrée. */
 export async function definirCaptcha(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.reglages.captcha;
   const siteKey = String(donnees.get("siteKey") ?? "").trim();
   const secretKey = String(donnees.get("secretKey") ?? "").trim();
-  if (!siteKey || siteKey.length > 200 || secretKey.length > 200) return { ok: false, message: "Clé du site obligatoire, 200 caractères au plus." };
+  if (!siteKey || siteKey.length > CLE_CAPTCHA_MAX || secretKey.length > CLE_CAPTCHA_MAX) return { ok: false, message: t.cleObligatoire(CLE_CAPTCHA_MAX) };
   definirConfigCaptcha(siteKey, secretKey || undefined);
   revalidatePath("/admin/reglages");
   revalidatePath("/admin/comptes");
-  return { ok: true, message: "Clés enregistrées." };
+  return { ok: true, message: t.enregistre };
 }
 
 export async function oublierCaptcha(): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.reglages;
   effacerConfigCaptcha();
   revalidatePath("/admin/reglages");
   revalidatePath("/admin/comptes");
-  return { ok: true, message: "Réglage effacé : le site reprend la configuration du serveur." };
+  return { ok: true, message: t.efface };
 }
 
 /**
@@ -339,12 +369,13 @@ export async function oublierCaptcha(): Promise<Resultat> {
  */
 export async function definirScraper(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.reglages;
   const devId = String(donnees.get("devId") ?? "").trim();
   const devPassword = String(donnees.get("devPassword") ?? "");
   const ssId = String(donnees.get("ssId") ?? "").trim();
   const ssPassword = String(donnees.get("ssPassword") ?? "");
   if ([devId, devPassword, ssId, ssPassword].some((valeur) => valeur.length > 200)) {
-    return { ok: false, message: "Une des valeurs est trop longue." };
+    return { ok: false, message: t.valeurTropLongue };
   }
   definirConfigScraper({
     devId,
@@ -355,17 +386,16 @@ export async function definirScraper(_etat: unknown, donnees: FormData): Promise
   revalidatePath("/admin/reglages");
   return {
     ok: true,
-    message: devId
-      ? "Compte enregistré. Lance « Compléter les fiches » depuis Bibliothèque."
-      : "Enregistré, mais sans identifiant développeur ScreenScraper ne répondra pas : seules les jaquettes libretro seront cherchées.",
+    message: devId ? t.scraper.enregistre : t.scraper.sansIdentifiant,
   };
 }
 
 export async function oublierScraper(): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.reglages.scraper;
   effacerConfigScraper();
   revalidatePath("/admin/reglages");
-  return { ok: true, message: "Compte effacé." };
+  return { ok: true, message: t.efface };
 }
 
 /**
@@ -374,13 +404,14 @@ export async function oublierScraper(): Promise<Resultat> {
  */
 export async function definirMargeCableLink(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.reglages.link;
   const marge = Number(donnees.get("marge"));
   if (!Number.isInteger(marge) || marge < MARGE_MIN || marge > MARGE_MAX) {
-    return { ok: false, message: `La marge doit être un entier entre ${MARGE_MIN} et ${MARGE_MAX} %.` };
+    return { ok: false, message: t.marge(MARGE_MIN, MARGE_MAX) };
   }
   definirMargeLink(marge);
   revalidatePath("/admin/reglages");
-  return { ok: true, message: "Marge enregistrée : la limite s'applique dès maintenant." };
+  return { ok: true, message: t.enregistree };
 }
 
 /**
@@ -390,56 +421,51 @@ export async function definirMargeCableLink(_etat: unknown, donnees: FormData): 
  */
 export async function definirInscriptions(ouvertes: boolean): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.invitations;
   if (ouvertes && !inscriptionsOuvrables()) {
-    return {
-      ok: false,
-      message: "Impossible d'ouvrir : il faut un serveur de mail et un captcha configurés.",
-    };
+    return { ok: false, message: t.ouvertureImpossible };
   }
   definirInscriptionsOuvertes(ouvertes);
   revalidatePath("/admin/comptes");
   revalidatePath("/connexion");
   revalidatePath("/inscription");
-  return {
-    ok: true,
-    message: ouvertes
-      ? "Inscriptions ouvertes : la page de connexion propose de créer un compte."
-      : "Inscriptions fermées : seuls les liens d'invitation créent des comptes.",
-  };
+  return { ok: true, message: ouvertes ? t.ouvertes : t.fermees };
 }
 
 export async function revoquerInvitation(id: string): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.invitations;
   const fait = await revoquerLienInscription(id);
   revalidatePath("/admin/comptes");
-  return fait
-    ? { ok: true, message: "Lien révoqué : il ne créera plus de compte." }
-    : { ok: false, message: "Ce lien était déjà révoqué, ou n'existe pas." };
+  return fait ? { ok: true, message: t.revoque } : { ok: false, message: t.dejaRevoque };
 }
 
 /** Ce que le compte voit du catalogue : normal, restreint ou testeur. */
 export async function definirModeAcces(userId: string, mode: string): Promise<Resultat> {
   await requireAdmin();
-  if (!MODES_ACCES.some((m) => m.valeur === mode)) return { ok: false, message: "Mode inconnu." };
+  const t = (await textes()).adminActions.comptes;
+  if (!MODES_ACCES.some((m) => m.valeur === mode)) return { ok: false, message: t.modeInconnu };
   const resultat = db
     .update(users)
     .set({ accessMode: mode as ModeAcces, updatedAt: new Date() })
     .where(eq(users.id, userId))
     .run();
-  if (resultat.changes === 0) return { ok: false, message: "Compte introuvable." };
+  if (resultat.changes === 0) return { ok: false, message: t.introuvable };
   revalidatePath("/admin/comptes");
-  const libelle = MODES_ACCES.find((m) => m.valeur === mode)!;
-  return { ok: true, message: `Accès ${libelle.libelle.toLowerCase()} : ${libelle.detail}.` };
+  // Une phrase entière par mode, lue dans le dictionnaire : les libellés de
+  // `MODES_ACCES` ne s'assemblent pas en phrase dans une autre langue.
+  return { ok: true, message: t.acces[mode as ModeAcces] };
 }
 
 /** Les jeux attribués à un compte restreint ou testeur : la liste cochée remplace l'ancienne. */
 export async function definirJeuxAttribues(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.comptes;
   const userId = String(donnees.get("userId") ?? "");
   const choisis = donnees.getAll("jeux").map(String);
 
   const compte = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).get();
-  if (!compte) return { ok: false, message: "Compte introuvable." };
+  if (!compte) return { ok: false, message: t.introuvable };
 
   // Seuls des identifiants de jeux existants : la liste vient d'un formulaire.
   const valides =
@@ -458,10 +484,7 @@ export async function definirJeuxAttribues(_etat: unknown, donnees: FormData): P
     }
   });
   revalidatePath("/admin/comptes");
-  return {
-    ok: true,
-    message: `${valides.length} jeu${valides.length > 1 ? "x" : ""} attribué${valides.length > 1 ? "s" : ""}.`,
-  };
+  return { ok: true, message: t.jeuxAttribues(valides.length) };
 }
 
 /**
@@ -472,12 +495,13 @@ export async function definirJeuxAttribues(_etat: unknown, donnees: FormData): P
  */
 export async function remettreAZero(userId: string): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.comptes;
   const compte = await db
     .select({ id: users.id, pseudo: users.pseudo })
     .from(users)
     .where(eq(users.id, userId))
     .get();
-  if (!compte) return { ok: false, message: "Compte introuvable." };
+  if (!compte) return { ok: false, message: t.introuvable };
 
   const touches = await jeuxTouches(userId);
 
@@ -495,7 +519,7 @@ export async function remettreAZero(userId: string): Promise<Resultat> {
 
   revalidatePath("/admin/comptes");
   revalidatePath("/admin/temps");
-  return { ok: true, message: `Compte de ${compte.pseudo} remis à zéro.` };
+  return { ok: true, message: t.remisAZero(compte.pseudo) };
 }
 
 /** Les jeux où ce compte a joué ou noté : leurs compteurs sont à refaire après son départ. */
@@ -547,8 +571,9 @@ async function effacerFichiersDeJeu(userId: string): Promise<void> {
  */
 export async function supprimerCompte(userId: string): Promise<Resultat> {
   const admin = await requireAdmin();
+  const t = (await textes()).adminActions.comptes;
   if (admin.id === userId) {
-    return { ok: false, message: "Tu ne peux pas supprimer ton propre compte." };
+    return { ok: false, message: t.surSoi.supprimer };
   }
 
   const compte = await db
@@ -556,9 +581,9 @@ export async function supprimerCompte(userId: string): Promise<Resultat> {
     .from(users)
     .where(eq(users.id, userId))
     .get();
-  if (!compte) return { ok: false, message: "Compte introuvable." };
+  if (!compte) return { ok: false, message: t.introuvable };
   if (compte.isActive) {
-    return { ok: false, message: `Désactive d'abord le compte de ${compte.pseudo} : seul un compte désactivé se supprime.` };
+    return { ok: false, message: t.desactiverDAbord(compte.pseudo) };
   }
 
   const touches = await jeuxTouches(userId);
@@ -572,13 +597,14 @@ export async function supprimerCompte(userId: string): Promise<Resultat> {
   await fs.rm(paths.data(paths.avatar(userId)), { force: true });
 
   revalidatePath("/admin", "layout");
-  return { ok: true, message: `Compte de ${compte.pseudo} supprimé, avec toutes ses données.` };
+  return { ok: true, message: t.supprime(compte.pseudo) };
 }
 
 export async function basculerActivation(userId: string): Promise<Resultat> {
   const admin = await requireAdmin();
+  const t = (await textes()).adminActions.comptes;
   if (admin.id === userId) {
-    return { ok: false, message: "Tu ne peux pas désactiver ton propre compte." };
+    return { ok: false, message: t.surSoi.desactiver };
   }
 
   const compte = await db
@@ -586,7 +612,7 @@ export async function basculerActivation(userId: string): Promise<Resultat> {
     .from(users)
     .where(eq(users.id, userId))
     .get();
-  if (!compte) return { ok: false, message: "Compte introuvable." };
+  if (!compte) return { ok: false, message: t.introuvable };
 
   const actif = !compte.isActive;
   db.update(users).set({ isActive: actif, updatedAt: new Date() }).where(eq(users.id, userId)).run();
@@ -596,13 +622,14 @@ export async function basculerActivation(userId: string): Promise<Resultat> {
   if (!actif) db.delete(sessions).where(eq(sessions.userId, userId)).run();
 
   revalidatePath("/admin");
-  return { ok: true, message: `${compte.pseudo} est maintenant ${actif ? "actif" : "désactivé"}.` };
+  return { ok: true, message: actif ? t.actif(compte.pseudo) : t.desactive(compte.pseudo) };
 }
 
 export async function basculerAdministration(userId: string): Promise<Resultat> {
   const admin = await requireAdmin();
+  const t = (await textes()).adminActions.comptes;
   if (admin.id === userId) {
-    return { ok: false, message: "Tu ne peux pas retirer tes propres droits." };
+    return { ok: false, message: t.surSoi.retirerDroits };
   }
 
   const compte = await db
@@ -610,7 +637,7 @@ export async function basculerAdministration(userId: string): Promise<Resultat> 
     .from(users)
     .where(eq(users.id, userId))
     .get();
-  if (!compte) return { ok: false, message: "Compte introuvable." };
+  if (!compte) return { ok: false, message: t.introuvable };
 
   const role = compte.role === "ADMIN" ? "USER" : "ADMIN";
   db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, userId)).run();
@@ -618,19 +645,20 @@ export async function basculerAdministration(userId: string): Promise<Resultat> 
   revalidatePath("/admin");
   return {
     ok: true,
-    message: `${compte.pseudo} ${role === "ADMIN" ? "est administrateur" : "n'est plus administrateur"}.`,
+    message: role === "ADMIN" ? t.administrateur(compte.pseudo) : t.plusAdministrateur(compte.pseudo),
   };
 }
 
 export async function reinitialiserMotDePasse(userId: string): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.comptes;
 
   const compte = await db
     .select({ pseudo: users.pseudo })
     .from(users)
     .where(eq(users.id, userId))
     .get();
-  if (!compte) return { ok: false, message: "Compte introuvable." };
+  if (!compte) return { ok: false, message: t.introuvable };
 
   const motDePasse = motDePasseAleatoire();
   db.update(users)
@@ -643,7 +671,7 @@ export async function reinitialiserMotDePasse(userId: string): Promise<Resultat>
   db.delete(sessions).where(eq(sessions.userId, userId)).run();
 
   revalidatePath("/admin");
-  return { ok: true, message: `Nouveau mot de passe pour ${compte.pseudo}.`, motDePasse };
+  return { ok: true, message: t.nouveauMotDePasse(compte.pseudo), motDePasse };
 }
 
 
@@ -660,18 +688,19 @@ export async function importerSauvegarde(
   donnees: FormData,
 ): Promise<Resultat> {
   await requireAdmin();
+  const { sauvegardes: t, comptes, bibliotheque } = (await textes()).adminActions;
 
   const userId = donnees.get("userId");
   const gameId = donnees.get("gameId");
   const fichier = donnees.get("fichier");
   if (typeof userId !== "string" || typeof gameId !== "string" || !gameId) {
-    return { ok: false, message: "Choisis un jeu." };
+    return { ok: false, message: t.choisirJeu };
   }
   if (!(fichier instanceof File) || fichier.size === 0) {
-    return { ok: false, message: "Choisis un fichier de sauvegarde." };
+    return { ok: false, message: t.choisirFichier };
   }
   if (fichier.size > TAILLE_MAX_SAUVEGARDE) {
-    return { ok: false, message: "Ce fichier est trop gros pour une sauvegarde." };
+    return { ok: false, message: t.tropGros };
   }
 
   const compte = await db
@@ -679,14 +708,14 @@ export async function importerSauvegarde(
     .from(users)
     .where(eq(users.id, userId))
     .get();
-  if (!compte) return { ok: false, message: "Compte introuvable." };
+  if (!compte) return { ok: false, message: comptes.introuvable };
 
   const jeu = await db
     .select({ title: games.title })
     .from(games)
     .where(eq(games.id, gameId))
     .get();
-  if (!jeu) return { ok: false, message: "Jeu introuvable." };
+  if (!jeu) return { ok: false, message: bibliotheque.jeuIntrouvable };
 
   const resultat = await ecrireSauvegarde(
     userId,
@@ -700,8 +729,8 @@ export async function importerSauvegarde(
     ok: true,
     message:
       resultat.etat === "inchange"
-        ? `${compte.pseudo} avait déjà exactement cette sauvegarde de ${jeu.title}.`
-        : `Sauvegarde de ${jeu.title} importée pour ${compte.pseudo}. L'éventuelle précédente est dans les copies de secours.`,
+        ? t.dejaLaMeme(compte.pseudo, jeu.title)
+        : t.importee(jeu.title, compte.pseudo),
   };
 }
 
@@ -744,9 +773,10 @@ async function lireManifeste(romPath: string): Promise<Manifest | null> {
 
 export async function basculerPublication(gameId: string): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.bibliotheque;
 
   const jeu = await jeuRetouchable(gameId);
-  if (!jeu) return { ok: false, message: "Jeu introuvable." };
+  if (!jeu) return { ok: false, message: t.jeuIntrouvable };
 
   const publie = !jeu.isPublished;
 
@@ -763,10 +793,7 @@ export async function basculerPublication(gameId: string): Promise<Resultat> {
     else retouche.publie = publie;
     await ecrireRetouche(jeu.consoleSlug, jeu.slug, retouche);
   } catch {
-    return {
-      ok: false,
-      message: "Impossible d'écrire dans le dossier des retouches sur le serveur.",
-    };
+    return { ok: false, message: t.retouchesImpossibles };
   }
 
   db.update(games)
@@ -776,10 +803,7 @@ export async function basculerPublication(gameId: string): Promise<Resultat> {
 
   revalidatePath("/admin/bibliotheque");
   revalidatePath("/", "layout");
-  return {
-    ok: true,
-    message: `${jeu.title} ${publie ? "est publié" : "est retiré du catalogue"}.`,
-  };
+  return { ok: true, message: publie ? t.publie(jeu.title) : t.retire(jeu.title) };
 }
 
 /**
@@ -795,9 +819,10 @@ export async function enregistrerRetouches(
   donnees: FormData,
 ): Promise<Resultat> {
   await requireAdmin();
+  const t = (await textes()).adminActions.bibliotheque;
 
   const jeu = await jeuRetouchable(gameId);
-  if (!jeu) return { ok: false, message: "Jeu introuvable." };
+  if (!jeu) return { ok: false, message: t.jeuIntrouvable };
 
   const saisie: Record<string, unknown> = {};
   for (const champ of CHAMPS_RETOUCHABLES) {
@@ -810,10 +835,7 @@ export async function enregistrerRetouches(
   const analyse = retoucheSchema.safeParse(saisie);
   if (!analyse.success) {
     const probleme = analyse.error.issues[0];
-    return {
-      ok: false,
-      message: `${probleme?.path.join(".") ?? "Champ"} : ${probleme?.message ?? "valeur invalide"}`,
-    };
+    return { ok: false, message: t.champInvalide(probleme?.path.join("."), probleme?.message) };
   }
 
   // On repart de la retouche existante pour ne pas effacer `publie`, qui se
@@ -830,10 +852,7 @@ export async function enregistrerRetouches(
   try {
     await ecrireRetouche(jeu.consoleSlug, jeu.slug, retouche);
   } catch {
-    return {
-      ok: false,
-      message: "Impossible d'écrire dans le dossier des retouches sur le serveur.",
-    };
+    return { ok: false, message: t.retouchesImpossibles };
   }
 
   const colonnes = manifestToColumns(
@@ -866,8 +885,6 @@ export async function enregistrerRetouches(
   return {
     ok: true,
     message:
-      nombre === 0
-        ? `${colonnes.title} suit entièrement son game.json.`
-        : `${colonnes.title} enregistré — ${nombre} champ${nombre > 1 ? "s" : ""} retouché${nombre > 1 ? "s" : ""}.`,
+      nombre === 0 ? t.suitSonManifeste(colonnes.title) : t.enregistre(colonnes.title, nombre),
   };
 }

@@ -5,20 +5,19 @@ import type { SessionUser } from "@/lib/auth/session";
 import { formatDate, formatDuree } from "@/lib/format";
 import { GameGrid } from "@/components/game-grid";
 import { favorisDe } from "@/lib/catalog";
+import { langueDeLaRequete, textes } from "@/lib/i18n/serveur";
 import { mesNotes, mesSauvegardes, tempsDeJeu } from "@/lib/mes-jeux";
 import { LigneJeu } from "./ligne-jeu";
 import { Sauvegardes } from "./sauvegardes";
 
-export const metadata: Metadata = { title: "Mes jeux" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await textes()).mesJeux.titre };
+}
 
-const ONGLETS = [
-  { cle: "temps", libelle: "Temps de jeu" },
-  { cle: "favoris", libelle: "Favoris" },
-  { cle: "notes", libelle: "Mes notes" },
-  { cle: "sauvegardes", libelle: "Sauvegardes" },
-] as const;
+/** Les onglets, dans l'ordre ; leurs libellés sont dans `t.mesJeux.onglets`. */
+const ONGLETS = ["temps", "favoris", "notes", "sauvegardes"] as const;
 
-type Onglet = (typeof ONGLETS)[number]["cle"];
+type Onglet = (typeof ONGLETS)[number];
 
 /**
  * Ce que le compte a fait sur le site, en trois volets.
@@ -32,26 +31,27 @@ export default async function MesJeuxPage({
   searchParams: Promise<{ onglet?: string }>;
 }) {
   const user = await requireUser();
+  const t = await textes();
   const { onglet: demande } = await searchParams;
-  const onglet: Onglet = ONGLETS.some((o) => o.cle === demande) ? (demande as Onglet) : "temps";
+  const onglet: Onglet = ONGLETS.some((cle) => cle === demande) ? (demande as Onglet) : "temps";
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-ink-50">Mes jeux</h1>
+      <h1 className="text-2xl font-semibold text-ink-50">{t.mesJeux.titre}</h1>
 
-      <nav className="flex gap-1 border-b border-ink-800" aria-label="Mes jeux">
-        {ONGLETS.map((o) => (
+      <nav className="flex gap-1 border-b border-ink-800" aria-label={t.mesJeux.titre}>
+        {ONGLETS.map((cle) => (
           <Link
-            key={o.cle}
-            href={o.cle === "temps" ? "/mes-jeux" : `/mes-jeux?onglet=${o.cle}`}
-            aria-current={o.cle === onglet ? "page" : undefined}
+            key={cle}
+            href={cle === "temps" ? "/mes-jeux" : `/mes-jeux?onglet=${cle}`}
+            aria-current={cle === onglet ? "page" : undefined}
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-              o.cle === onglet
+              cle === onglet
                 ? "border-accent-500 text-ink-50"
                 : "border-transparent text-ink-400 hover:text-ink-200"
             }`}
           >
-            {o.libelle}
+            {t.mesJeux.onglets[cle]}
           </Link>
         ))}
       </nav>
@@ -66,31 +66,32 @@ export default async function MesJeuxPage({
 
 async function Favoris({ visiteur }: { visiteur: SessionUser }) {
   const jeux = await favorisDe(visiteur);
-  if (jeux.length === 0) {
-    return <Vide>Aucun favori pour l&apos;instant. L&apos;étoile est sur la fiche de chaque jeu.</Vide>;
-  }
+  if (jeux.length === 0) return <Vide>{(await textes()).mesJeux.favoris.vide}</Vide>;
   return <GameGrid games={jeux} />;
 }
 
 async function Temps({ visiteur }: { visiteur: SessionUser }) {
+  const [t, langue] = await Promise.all([textes(), langueDeLaRequete()]);
   const lignes = await tempsDeJeu(visiteur);
-  if (lignes.length === 0) return <Vide>Tu n&apos;as encore lancé aucun jeu.</Vide>;
+  if (lignes.length === 0) return <Vide>{t.mesJeux.temps.vide}</Vide>;
 
   const total = lignes.reduce((somme, l) => somme + l.secondes, 0);
 
   return (
     <section className="flex flex-col gap-3">
       <p className="text-sm text-ink-400">
-        {formatDuree(total)} de jeu en tout, sur {lignes.length} jeu{lignes.length > 1 ? "x" : ""}.
+        {t.mesJeux.temps.total(formatDuree(total, langue), lignes.length)}
       </p>
       <ul className="flex flex-col divide-y divide-ink-800 overflow-hidden rounded-panel border border-ink-800">
         {lignes.map((l) => (
           <li key={l.jeu.id}>
             <LigneJeu jeu={l.jeu}>
               <span className="shrink-0 text-right">
-                <span className="block text-sm font-medium text-ink-50">{formatDuree(l.secondes)}</span>
+                <span className="block text-sm font-medium text-ink-50">
+                  {formatDuree(l.secondes, langue)}
+                </span>
                 <span className="block text-xs text-ink-700">
-                  {l.parties} partie{l.parties > 1 ? "s" : ""} · dernière le {formatDate(l.derniere, false)}
+                  {t.mesJeux.temps.parties(l.parties, formatDate(l.derniere, false, langue))}
                 </span>
               </span>
             </LigneJeu>
@@ -102,24 +103,28 @@ async function Temps({ visiteur }: { visiteur: SessionUser }) {
 }
 
 async function Notes({ visiteur }: { visiteur: SessionUser }) {
+  const [t, langue] = await Promise.all([textes(), langueDeLaRequete()]);
   const lignes = await mesNotes(visiteur);
-  if (lignes.length === 0) {
-    return <Vide>Tu n&apos;as noté aucun jeu. Les notes se donnent sur la fiche de chaque jeu.</Vide>;
-  }
+  if (lignes.length === 0) return <Vide>{t.mesJeux.notes.vide}</Vide>;
 
   return (
     <section className="flex flex-col gap-3">
-      <p className="text-sm text-ink-400">Tes jeux notés, les préférés en premier.</p>
+      <p className="text-sm text-ink-400">{t.mesJeux.notes.explication}</p>
       <ul className="flex flex-col divide-y divide-ink-800 overflow-hidden rounded-panel border border-ink-800">
         {lignes.map((l) => (
           <li key={l.jeu.id}>
             <LigneJeu jeu={l.jeu}>
               <span className="shrink-0 text-right">
-                <span className="block text-sm font-medium text-accent-400" aria-label={`${l.score} sur 5`}>
+                <span
+                  className="block text-sm font-medium text-accent-400"
+                  aria-label={t.mesJeux.notes.sur5(l.score)}
+                >
                   {"★".repeat(l.score)}
                   <span className="text-ink-800">{"★".repeat(5 - l.score)}</span>
                 </span>
-                <span className="block text-xs text-ink-700">noté le {formatDate(l.noteLe, false)}</span>
+                <span className="block text-xs text-ink-700">
+                  {t.mesJeux.notes.noteLe(formatDate(l.noteLe, false, langue))}
+                </span>
               </span>
             </LigneJeu>
           </li>

@@ -4,10 +4,13 @@ import { db } from "@/db";
 import { games, saveFiles, userGames, users } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/guard";
 import { listerLiensInscription } from "@/lib/auth/invitations";
+import { textes } from "@/lib/i18n/serveur";
 import { inscriptionsOuvertes, inscriptionsOuvrables } from "@/lib/parametres";
 import { Comptes } from "./comptes";
 
-export const metadata: Metadata = { title: "Comptes" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await textes()).adminComptes.titre };
+}
 
 export default async function ComptesPage() {
   const admin = await requireAdmin();

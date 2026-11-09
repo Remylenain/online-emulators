@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { contexteDeLActivite } from "@/lib/discord/contexte";
+import { textes } from "@/lib/i18n/serveur";
 import { ecrireSauvegarde, effacerSauvegarde, lireSauvegarde, TAILLE_MAX_SAUVEGARDE } from "@/lib/saves";
 
 /**
@@ -35,24 +36,22 @@ export async function PUT(request: Request) {
   if ("refus" in c) return c.refus;
 
   const corps = await request.arrayBuffer();
-  if (corps.byteLength === 0) return NextResponse.json({ erreur: "Sauvegarde vide." }, { status: 400 });
+  if (corps.byteLength === 0) return NextResponse.json({ erreur: (await textes()).activite.serveur.sauvegardeVide }, { status: 400 });
   if (corps.byteLength > TAILLE_MAX_SAUVEGARDE) {
-    return NextResponse.json({ erreur: "Ce fichier est trop gros pour être une sauvegarde." }, { status: 413 });
+    return NextResponse.json({ erreur: (await textes()).activite.serveur.sauvegardeTropGrosse }, { status: 413 });
   }
 
   const entete = request.headers.get("X-Revision");
   const revisionAttendue = entete === null || entete === "" ? null : Number(entete);
   if (revisionAttendue !== null && !Number.isInteger(revisionAttendue)) {
-    return NextResponse.json({ erreur: "Révision invalide." }, { status: 400 });
+    return NextResponse.json({ erreur: (await textes()).activite.serveur.revisionInvalide }, { status: 400 });
   }
 
   const resultat = await ecrireSauvegarde(c.visiteur.id, c.jeu.id, new Uint8Array(corps), revisionAttendue);
   if (resultat.etat === "conflit") {
     return NextResponse.json(
       {
-        erreur:
-          "Cette partie a été sauvegardée ailleurs depuis que tu as commencé. " +
-          "Ta sauvegarde n'a pas été écrasée.",
+        erreur: (await textes()).activite.serveur.conflit,
         revision: resultat.revision,
       },
       { status: 409 },
