@@ -1,3 +1,5 @@
+**Français** · [English](vitrine.en.md)
+
 # La vitrine : jouer sans compte
 
 Par défaut, tout le site est derrière la connexion. La **vitrine** ouvre

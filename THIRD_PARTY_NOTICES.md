@@ -1,3 +1,5 @@
+**Français** · [English](THIRD_PARTY_NOTICES.en.md)
+
 # Composants tiers
 
 Le code du projet est sous licence MIT (voir [LICENSE](LICENSE)). Il s'appuie

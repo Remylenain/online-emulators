@@ -1,3 +1,5 @@
+**Français** · [English](langues.en.md)
+
 # Les langues de l'interface
 
 Le site parle français et anglais. Le français est la langue de référence :
@@ -99,6 +101,13 @@ C'est voulu — un texte oublié ne finit pas en chaîne vide à l'écran.
 3. Si l'écran affiche un message venu du serveur, il est en français : lui
    préférer un texte du dictionnaire, choisi d'après le code de la réponse.
 4. Mettre à jour le tableau en tête de cette page.
+
+## La documentation
+
+La documentation suit la même règle que l'interface : le français est la
+référence, dans `README.md` et `docs/*.md` ; l'anglais est dans le fichier
+jumeau, `*.en.md`. Chaque fichier commence par un lien vers l'autre langue.
+Une modification se fait dans les deux.
 
 ## Ajouter une langue
 

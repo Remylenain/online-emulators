@@ -1,3 +1,5 @@
+**Français** · [English](README.md)
+
 # mGBA Splitscreen — cœur GBA du câble link
 
 Deux à quatre Game Boy Advance reliées par le câble lockstep de mGBA, dans un

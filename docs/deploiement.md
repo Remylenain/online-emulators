@@ -1,3 +1,5 @@
+**Français** · [English](deploiement.en.md)
+
 # Mise en ligne
 
 Le dépôt ne contient aucune valeur propre à une installation : pas de domaine,

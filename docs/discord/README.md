@@ -1,3 +1,5 @@
+**Français** · [English](README.en.md)
+
 # Activité Discord
 
 Un jeu du site, jouable **dans Discord** : un membre du serveur lance

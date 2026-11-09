@@ -1,3 +1,5 @@
+**Français** · [English](README.en.md)
+
 # Online Emulators
 
 Un site pour faire jouer une communauté à des jeux Game Boy, Game Boy Color
@@ -88,7 +90,7 @@ library/
 `game.json` minimal :
 
 ```json
-{ "title": "Mon rom hack", "author": "Quelqu'un", "version": "1.2", "language": "fr" }
+{ "titre": "Mon rom hack", "auteur": "Quelqu'un", "version": "1.2", "langue": "fr" }
 ```
 
 Puis :

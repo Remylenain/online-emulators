@@ -1,3 +1,5 @@
+**Français** · [English](decisions.en.md)
+
 # Décisions techniques
 
 Chaque entrée note ce qui a été choisi, sur quelles preuves, et ce qui reste à
