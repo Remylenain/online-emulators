@@ -103,14 +103,20 @@ export default function proxy(request: NextRequest) {
 
   /*
    * Vitrine allumée : sans compte, la racine montre l'accueil de la vitrine
-   * au lieu de renvoyer à la connexion. Une réécriture et non un renvoi :
-   * l'adresse reste celle du site. Avec un cookie, la racine reste le
-   * catalogue du compte.
+   * au lieu de renvoyer à la connexion. Ce filtre se contente de laisser
+   * passer ; c'est la réécriture déclarée dans `next.config.ts` qui sert
+   * `/accueil` à la racine, pour que l'adresse reste celle du site. Avec un
+   * cookie, la racine reste le catalogue du compte.
+   *
+   * Pas de `NextResponse.rewrite()` ici, et c'est vérifié : il lui faut une
+   * adresse absolue, que Next compare à sa propre origine. Derrière Apache,
+   * l'adresse vue par ce filtre est en `https://localhost:<port>`, l'origine
+   * de Next en `https://127.0.0.1:<port>` : la réécriture passait pour
+   * externe, Next tentait de joindre son propre port en HTTPS, et la racine
+   * répondait 500 — en production seulement.
    */
   if (vitrine && !jeton && pathname === "/") {
-    const accueil = request.nextUrl.clone();
-    accueil.pathname = "/accueil";
-    return NextResponse.rewrite(accueil);
+    return NextResponse.next();
   }
 
   if (correspond(PUBLIC_PATHS, pathname) || (vitrine && correspond(CHEMINS_VITRINE, pathname))) {

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { nomDuSite } from "@/lib/parametres";
 import { vitrineOuverte } from "@/lib/vitrine";
@@ -10,14 +10,14 @@ export const dynamic = "force-dynamic";
 /**
  * Coquille de la vitrine : ce qu'un visiteur sans compte voit du site quand
  * l'administrateur l'a ouverte (`src/lib/vitrine.ts`). Éteinte, ces pages
- * n'existent pas.
+ * renvoient à la connexion, comme le reste du site.
  *
  * Des liens ordinaires et non des `<Link>` : le lecteur exige un document
  * isolé (COOP/COEP), ce qu'une navigation côté client ne donne pas — on y
  * arriverait avec le document de l'accueil, servi sans ces en-têtes.
  */
 export default function InviteLayout({ children }: { children: ReactNode }) {
-  if (!vitrineOuverte()) notFound();
+  if (!vitrineOuverte()) redirect("/connexion");
 
   return (
     <div className="flex min-h-dvh flex-col">

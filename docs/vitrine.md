@@ -99,6 +99,7 @@ voyage.
 | Le réglage, les jeux ouverts aux invités | `src/lib/vitrine.ts`, `src/lib/vitrine-limites.ts` |
 | Le formulaire de l'administration | `src/app/(app)/admin/reglages/reglages.tsx`, `src/lib/admin/actions-vitrine.ts` |
 | Ce qui s'ouvre sans compte | `src/proxy.ts` (`CHEMINS_VITRINE`), `src/app/api/rom/[id]/route.ts`, `src/app/api/bezel/[id]/route.ts` |
+| L'accueil servi à la racine | la réécriture de `next.config.ts` |
 | L'accueil et le lecteur de l'invité | `src/app/(invite)/` |
 | Le stockage dans le navigateur | `src/lib/invite/stockage.ts` |
 | Le lecteur, côté invité | `src/components/player/lecteur-invite.tsx`, et `invite` dans `lecteur.tsx` |

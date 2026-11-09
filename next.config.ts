@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { SESSION_COOKIE } from "./src/lib/auth/cookie";
 
 /**
  * Le cœur mGBA compilé en WebAssembly utilise des threads, donc
@@ -68,6 +69,22 @@ const nextConfig: NextConfig = {
       // pthread démarre depuis l'URL de mgba.js.
       { source: "/mgba/:path*", headers: crossOriginIsolation },
     ];
+  },
+
+  /**
+   * La racine d'un visiteur sans compte montre l'accueil de la vitrine
+   * (`src/lib/vitrine.ts`), sans changer d'adresse. La règle ne dit rien de
+   * l'état de la vitrine : éteinte, `src/proxy.ts` a déjà renvoyé ce
+   * visiteur vers la connexion avant qu'elle ne s'applique.
+   */
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: "/", missing: [{ type: "cookie", key: SESSION_COOKIE }], destination: "/accueil" },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
   },
 
   // Les savestates et les sauvegardes transitent en corps de requête.
