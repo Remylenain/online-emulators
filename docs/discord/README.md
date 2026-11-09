@@ -180,7 +180,10 @@ Tant qu'aucune Activité n'est configurée pour un hôte, `/discord` et
 2. Sur le serveur, en root, depuis le clone du dépôt :
    `sudo ./deploiement/scripts/hote-activite.sh --domaine prism.exemple.com --mail toi@exemple.com`
    — même gabarit de vhost que le site, tout est relayé vers le même serveur
-   Next, puis certbot.
+   Next, puis certbot. Sur une instance nommée (voir
+   [deploiement.md](../deploiement.md#une-seconde-instance-sur-le-même-serveur)),
+   ajouter `--instance <nom>` : sans lui, l'hôte relaierait vers l'instance
+   par défaut.
 3. Vérifier : `https://prism.exemple.com/` doit afficher l'Activité (page
    « Cette page s'ouvre depuis Discord ») et `…/connexion` répondre
    « Introuvable ».

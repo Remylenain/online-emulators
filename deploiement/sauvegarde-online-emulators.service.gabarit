@@ -1,0 +1,14 @@
+# Sauvegarde quotidienne. Lance par le timer du meme nom.
+#
+# Gabarit : installation.sh remplace les reperes entre doubles arobases puis
+# depose le resultat sous le nom de l'instance, sauvegarde-online-emulators
+# pour l'instance par defaut, sauvegarde-online-emulators-<nom> pour une autre.
+# Le script lance est celui de l'arbre de l'instance : c'est de son propre
+# emplacement qu'il deduit quelle base sauvegarder, et ou.
+[Unit]
+Description=Sauvegarde des comptes et des sauvegardes de jeu (Online Emulators@@ETIQUETTE@@)
+After=@@NOM@@.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/@@NOM@@/deploiement/scripts/sauvegarde.sh

@@ -1,25 +1,33 @@
 # Gabarit du service applicatif : le serveur Next en mode production.
 #
-# installation.sh remplace @@PORT@@ puis depose le resultat dans
-# /etc/systemd/system/online-emulators.service.
+# installation.sh remplace les reperes entre doubles arobases (nom de
+# l'instance, utilisateur, port) puis depose le resultat dans
+# /etc/systemd/system/, sous le nom de l'instance : online-emulators.service
+# pour l'instance par defaut, online-emulators-<nom>.service pour une autre.
+# Tous les chemins derivent de ce nom, ce qui permet a plusieurs instances de
+# cohabiter sur le meme serveur sans rien partager d'autre que le code.
 #
 # Le fichier d'environnement n'est pas dans le depot : il contient le secret
 # de session, les identifiants SMTP et l'URL publique du site.
 [Unit]
-Description=Online Emulators
+Description=Online Emulators@@ETIQUETTE@@
 After=network.target
 
 [Service]
 Type=simple
-User=jeux
-Group=jeux
-WorkingDirectory=/opt/online-emulators
-EnvironmentFile=/etc/online-emulators.env
+# Un utilisateur par instance : une instance compromise ne peut lire ni la
+# base ni le fichier d'environnement d'une autre.
+User=@@UTILISATEUR@@
+Group=@@UTILISATEUR@@
+WorkingDirectory=/opt/@@NOM@@
+EnvironmentFile=/etc/@@NOM@@.env
 # -H 127.0.0.1 : sans cette option, Next ecoute sur toutes les interfaces et
 # l'application devient joignable en clair sur le port @@PORT@@, par-dessus le
 # reverse proxy et sans HTTPS.
 # Le serveur du site enveloppe Next : c'est lui qui tient la WebSocket du
 # câble link. Voir serveur.ts.
+# Le port n'est ecrit qu'ici : installation.sh et hote-activite.sh le relisent
+# sur cette ligne pour savoir quel port une instance occupe deja.
 ExecStart=/usr/bin/node --import ./outils/node/charge-ts.mjs serveur.ts -H 127.0.0.1 -p @@PORT@@
 Restart=on-failure
 RestartSec=3
@@ -38,10 +46,10 @@ ProtectControlGroups=true
 # par netlink, et sans elle l'envoi des e-mails echoue a joindre le relais SMTP.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 # Les sauvegardes des joueurs, les avatars, les miniatures et la base SQLite.
-ReadWritePaths=/var/lib/online-emulators
+ReadWritePaths=/var/lib/@@NOM@@
 # Next ecrit son cache d'images optimisees sous .next/cache, que
 # ProtectSystem=strict rendrait sinon en lecture seule.
-ReadWritePaths=/opt/online-emulators/.next/cache
+ReadWritePaths=/opt/@@NOM@@/.next/cache
 
 [Install]
 WantedBy=multi-user.target

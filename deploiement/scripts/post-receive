@@ -1,5 +1,7 @@
 #!/bin/bash
-# Hook de deploiement, installe dans /opt/online-emulators.git/hooks/.
+# Hook de deploiement, installe dans le dossier hooks/ du depot nu de chaque
+# instance : /opt/online-emulators.git pour l'instance par defaut,
+# /opt/online-emulators-<nom>.git pour une instance nommee.
 #
 # Le serveur n'a aucun acces a la forge : on pousse depuis son poste vers ce
 # depot nu, et le hook met a jour l'arbre de travail. Rien a configurer cote
@@ -9,16 +11,40 @@
 #     git push serveur main
 #
 # Tourne sous l'utilisateur qui pousse, pas en root : seul le redemarrage du
-# service passe par sudo, via la regle deposee dans /etc/sudoers.d/.
+# service et les migrations passent par sudo, via la regle deposee dans
+# /etc/sudoers.d/.
 set -uo pipefail
 
-DEPOT="/opt/online-emulators.git"
-ARBRE="/opt/online-emulators"
-ENV_FILE="/etc/online-emulators.env"
+# Un seul fichier pour toutes les instances, sans aucun chemin en dur : le hook
+# deduit son instance du depot nu dans lequel il est installe, et tout le reste
+# du nom de ce depot. C'est la convention posee par installation.sh. A faire
+# avant tout `cd` : git lance le hook par un chemin qui peut etre relatif.
+DEPOT="$(CDPATH='' cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
+NOM="$(basename "$DEPOT" .git)"
+case "$NOM" in
+    online-emulators)
+        UTILISATEUR="jeux"
+        ETIQUETTE="" ;;
+    online-emulators-?*)
+        UTILISATEUR="jeux-${NOM#online-emulators-}"
+        ETIQUETTE=", instance ${NOM#online-emulators-}" ;;
+    *)
+        NOM="" ;;
+esac
+# Lance depuis l'arbre de travail plutot que depuis sa copie dans hooks/, ou
+# depuis un depot renomme a la main, le hook ne sait pas qui il sert : mieux
+# vaut s'arreter que deployer au mauvais endroit.
+if [ -z "$NOM" ] || [ "$DEPOT" = "${DEPOT%.git}" ]; then
+    echo "ERREUR : $DEPOT n'est pas le depot nu d'une instance" >&2
+    echo "(attendu : /opt/online-emulators.git ou /opt/online-emulators-<nom>.git)." >&2
+    exit 1
+fi
+ARBRE="${DEPOT%.git}"
+ENV_FILE="/etc/$NOM.env"
 BRANCHE="main"
 
 echo
-echo "--- Deploiement d'Online Emulators ---"
+echo "--- Deploiement d'Online Emulators$ETIQUETTE ---"
 
 # Les hooks heritent de GIT_DIR : sans le vider, les commandes git suivantes
 # viseraient le depot nu au lieu de l'arbre de travail.
@@ -63,9 +89,13 @@ npm ci --include=dev --no-audit --no-fund || exit 1
 
 echo "Migrations..."
 # Sous l'identite du service, via un script dedie : le dossier de donnees
-# n'est ecrivable que par `jeux`, et SQLite a besoin d'ecrire dans le dossier
-# lui-meme pour y creer app.db-wal et app.db-shm. Voir migrer.sh.
-sudo -n -u jeux /opt/online-emulators/deploiement/scripts/migrer.sh || exit 1
+# n'est ecrivable que par l'utilisateur du service, et SQLite a besoin d'ecrire
+# dans le dossier lui-meme pour y creer app.db-wal et app.db-shm. Voir
+# migrer.sh.
+# La commande doit correspondre mot pour mot a la regle sudoers ecrite par
+# installation.sh : meme utilisateur, meme chemin absolu, aucun argument de
+# plus. Sinon sudo -n refuse, faute de pouvoir demander un mot de passe.
+sudo -n -u "$UTILISATEUR" "$ARBRE/deploiement/scripts/migrer.sh" || exit 1
 
 echo "Coeur d'emulation..."
 # mGBA n'est pas versionne : il est copie depuis node_modules vers public/.
@@ -75,23 +105,26 @@ npm run core:install || exit 1
 echo "Construction..."
 npm run build || exit 1
 
-# Le service tourne sous l'utilisateur `jeux`, qui doit lire .next ; le cache
-# doit exister avant le demarrage, ProtectSystem=strict ne le creerait pas.
+# Le service tourne sous son propre utilisateur, qui doit lire .next ; le
+# cache doit exister avant le demarrage, ProtectSystem=strict ne le creerait
+# pas.
 mkdir -p .next/cache
-chgrp -R jeux .next 2>/dev/null || true
+chgrp -R "$UTILISATEUR" .next 2>/dev/null || true
 chmod -R g+rX .next
 
 echo "Redemarrage du service..."
-sudo -n systemctl restart online-emulators || exit 1
+# Meme contrainte que pour les migrations : la regle sudoers n'autorise que
+# `systemctl restart` suivi du nom exact de l'unite de cette instance.
+sudo -n systemctl restart "$NOM" || exit 1
 sleep 2
 # Sans sudo : lire l'etat d'une unite ne demande aucun privilege. Avec sudo, il
 # faudrait que les arguments correspondent au mot pres a la regle sudoers, et
 # un simple --quiet suffisait a la faire manquer — le service redemarrait bien,
 # mais le hook annoncait un echec.
-if systemctl is-active --quiet online-emulators; then
+if systemctl is-active --quiet "$NOM"; then
     echo "--- En ligne : ${PUBLIC_URL:-adresse publique non renseignee} ---"
 else
     echo "ERREUR : le service n'a pas demarre." >&2
-    echo "Diagnostic : sudo journalctl -u online-emulators -n 40" >&2
+    echo "Diagnostic : sudo journalctl -u $NOM -n 40" >&2
     exit 1
 fi

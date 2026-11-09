@@ -2,8 +2,8 @@
 # Sauvegarde quotidienne d'Online Emulators.
 #
 # Doit tourner en root : la base et les sauvegardes de jeu appartiennent a
-# l'utilisateur systeme `jeux`. Lance par le timer systemd
-# sauvegarde-online-emulators.timer.
+# l'utilisateur systeme du service. Lance par le timer systemd de l'instance :
+# sauvegarde-online-emulators.timer, ou sauvegarde-online-emulators-<nom>.timer.
 #
 # La base n'est pas copiee avec `cp` : en mode WAL une copie brute prise
 # pendant une ecriture donne un fichier incoherent. On passe par l'API de
@@ -11,9 +11,25 @@
 # service. Les joueurs ne sont donc jamais coupes.
 set -uo pipefail
 
-BASE="/opt/online-emulators"
-ENV_FILE="/etc/online-emulators.env"
-DEST="/var/backups/online-emulators"
+# Les archives contiennent une copie de la base. Sans ce masque elles seraient
+# lisibles par tous, donc par l'utilisateur d'une autre instance du site
+# installee sur le meme serveur.
+umask 077
+
+# Aucun chemin en dur : ce script vit dans <arbre>/deploiement/scripts/, et
+# l'arbre porte le nom de son instance (/opt/online-emulators, ou
+# /opt/online-emulators-<nom>). Chaque instance sauvegarde donc sa propre base,
+# dans son propre dossier, sans rien avoir a lui passer.
+BASE="$(CDPATH='' cd -- "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" || exit 1
+NOM="$(basename "$BASE")"
+case "$NOM" in
+    online-emulators|online-emulators-?*) ;;
+    *)
+        echo "ERREUR : $BASE n'est pas l'arbre de travail d'une instance." >&2
+        exit 1 ;;
+esac
+ENV_FILE="/etc/$NOM.env"
+DEST="/var/backups/$NOM"
 RETENTION_JOURS=14
 JOURNAL="$DEST/sauvegarde.log"
 
@@ -22,9 +38,13 @@ exec >> "$JOURNAL" 2>&1
 echo "===== $(date '+%Y-%m-%d %H:%M:%S') debut ====="
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "ERREUR : doit tourner en root (fichiers appartenant a l'utilisateur jeux)." >&2
+    echo "ERREUR : doit tourner en root (fichiers appartenant a l'utilisateur du service)." >&2
     exit 1
 fi
+
+# Le dossier lui-meme, pour les archives deja presentes : creees avant ce
+# masque, elles sont lisibles par tous tant qu'on peut entrer dans le dossier.
+chmod 700 "$DEST"
 
 # DATABASE_PATH et DATA_DIR ne sont pas ecrits en dur : le fichier
 # d'environnement reste la seule source de verite pour les chemins.
@@ -41,7 +61,7 @@ set +a
 : "${DATA_DIR:?DATA_DIR absent de $ENV_FILE}"
 
 HORODATAGE="$(date '+%Y-%m-%d_%H%M')"
-ARCHIVE="$DEST/online-emulators_$HORODATAGE.tar.gz"
+ARCHIVE="$DEST/${NOM}_$HORODATAGE.tar.gz"
 TRAVAIL="$(mktemp -d)"
 trap 'rm -rf "$TRAVAIL"' EXIT
 
@@ -78,6 +98,6 @@ else
 fi
 
 echo "Purge des archives de plus de $RETENTION_JOURS jours..."
-find "$DEST" -name 'online-emulators_*.tar.gz' -mtime "+$RETENTION_JOURS" -print -delete
+find "$DEST" -name "${NOM}_*.tar.gz" -mtime "+$RETENTION_JOURS" -print -delete
 
 echo "===== $(date '+%Y-%m-%d %H:%M:%S') fin ====="

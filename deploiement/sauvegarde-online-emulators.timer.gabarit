@@ -1,0 +1,16 @@
+# Gabarit : installation.sh remplace les reperes entre doubles arobases puis
+# depose le resultat sous le nom de l'instance, a cote du service du meme nom.
+[Unit]
+Description=Sauvegarde quotidienne des donnees d'Online Emulators@@ETIQUETTE@@
+
+[Timer]
+# L'instance par defaut passe a 04:30, soit apres la sauvegarde du catalogue
+# de livres (04:15) pour ne pas faire tourner les deux archivages en meme
+# temps. Une instance nommee passe un quart d'heure plus tard, pour la meme
+# raison.
+OnCalendar=*-*-* @@HEURE_SAUVEGARDE@@
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

@@ -1,16 +1,19 @@
 # Gabarit de vhost Apache : reverse proxy vers le serveur Next.
 #
-# installation.sh remplace @@DOMAINE@@, @@MAIL_ADMIN@@ et @@PORT@@ puis depose
-# le resultat dans /etc/apache2/sites-available/. Ces valeurs sont propres a
-# une installation : elles n'ont pas leur place dans le depot.
+# installation.sh et hote-activite.sh remplacent les reperes entre doubles
+# arobases (domaine, contact, port, nom de l'instance) puis deposent le
+# resultat dans /etc/apache2/sites-available/. Ces valeurs sont propres a une
+# installation : elles n'ont pas leur place dans le depot.
 #
 # Modules requis : proxy, proxy_http, proxy_wstunnel, rewrite, headers, ssl.
 <VirtualHost *:80>
     ServerName @@DOMAINE@@
     ServerAdmin @@MAIL_ADMIN@@
 
-    ErrorLog  ${APACHE_LOG_DIR}/online-emulators-error.log
-    CustomLog ${APACHE_LOG_DIR}/online-emulators-access.log combined
+    # Un journal par instance : sur un serveur qui en heberge deux, une erreur
+    # doit pouvoir etre rattachee au bon site sans trier par nom d'hote.
+    ErrorLog  ${APACHE_LOG_DIR}/@@NOM@@-error.log
+    CustomLog ${APACHE_LOG_DIR}/@@NOM@@-access.log combined
 
     # Le challenge Let's Encrypt doit rester accessible sans auth ni proxy.
     Alias /.well-known/acme-challenge /var/www/html/.well-known/acme-challenge

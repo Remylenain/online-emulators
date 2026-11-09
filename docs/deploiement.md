@@ -12,11 +12,15 @@ serveur Debian 12 qui fait déjà tourner d'autres sites derrière Apache.
 | `/opt/online-emulators.git` | dépôt nu, cible des `git push` | le pousseur |
 | `/opt/online-emulators` | arbre de travail, construit par le hook | pousseur:jeux |
 | `/var/lib/online-emulators` | base SQLite, sauvegardes de jeu, avatars | jeux:jeux |
-| `/var/backups/online-emulators` | archives quotidiennes | root |
+| `/var/backups/online-emulators` | archives quotidiennes | root, `700` |
 | `/etc/online-emulators.env` | configuration et secrets | root:jeux, `640` |
 
 Le serveur applicatif tourne sous un utilisateur système `jeux`, sans shell ni
 répertoire personnel, et n'écoute que sur `127.0.0.1`. Apache est seul exposé.
+
+Ce sont les noms de l'instance par défaut. Le même serveur peut en porter une
+autre, dont tous les noms reçoivent un suffixe : voir
+[Une seconde instance sur le même serveur](#une-seconde-instance-sur-le-même-serveur).
 
 ## Prérequis
 
@@ -40,7 +44,8 @@ sudo ./deploiement/scripts/installation.sh \
 
 Options : `--port` (3100 par défaut), `--bibliotheque` pour placer les jeux
 ailleurs que dans `/var/lib/online-emulators/library`, `--pousseur` si le compte
-qui poussera n'est pas celui qui lance `sudo`.
+qui poussera n'est pas celui qui lance `sudo`, `--instance` pour installer une
+instance de plus à côté de la première (voir plus bas).
 
 Le script est **idempotent** : on peut le relancer après une modification des
 gabarits. Une exception : le vhost HTTPS (`<domaine>-le-ssl.conf`) est généré
@@ -76,6 +81,17 @@ demande pas** `sudo` :
 install -m 755 /opt/online-emulators/deploiement/scripts/post-receive \
                /opt/online-emulators.git/hooks/post-receive
 ```
+
+Le fichier est le même pour toutes les instances et ne contient aucun chemin :
+une fois copié, il déduit son instance du nom du dépôt nu dans lequel il se
+trouve (`/opt/online-emulators.git`, ou `/opt/online-emulators-<nom>.git`), et
+de là l'arbre de travail, le fichier d'environnement, le service et
+l'utilisateur. Il refuse donc de tourner depuis un autre endroit.
+
+**Un hook copié avant l'arrivée des instances n'a pas à être remplacé.** Il
+porte en dur les noms de l'instance par défaut, qui n'ont pas changé, et le
+`migrer.sh` qu'il appelle retrouve seul son instance. Le rafraîchir par la
+commande ci-dessus reste possible, et ne change rien à ce qu'il fait.
 
 Les migrations sont appliquées sous l'identité du service, par
 `deploiement/scripts/migrer.sh` via `sudo`. Le hook, lui, tourne sous le compte
@@ -295,7 +311,9 @@ machine ou de cœur d'émulation.
 ## Sauvegardes
 
 Le timer `sauvegarde-online-emulators.timer` tourne chaque nuit à 04:30 et garde
-14 jours d'archives dans `/var/backups/online-emulators`.
+14 jours d'archives dans `/var/backups/online-emulators`. Le dossier n'est
+lisible que par root : une archive contient une copie de la base, donc les
+comptes.
 
 La base n'est pas copiée avec `cp` : en mode WAL, une copie brute prise pendant
 une écriture donne un fichier incohérent. Le script passe par l'API de
@@ -310,6 +328,153 @@ sudo tail -20 /var/backups/online-emulators/sauvegarde.log
 Les archives restent sur le même disque que les données : elles protègent d'une
 fausse manœuvre ou d'une migration ratée, pas d'une panne du serveur. Les
 recopier ailleurs reste à faire.
+
+## Une seconde instance sur le même serveur
+
+Le cas visé : une bibliothèque privée, réservée à quelques comptes, et à côté
+un site public réduit à une poignée de jeux — une vitrine. Les deux font
+tourner le même code, sur le même serveur, sans partager la moindre donnée :
+ce qui est publié sur l'un n'existe pas sur l'autre, et un compte de l'un
+n'ouvre rien sur l'autre.
+
+Ouvrir les jeux de cette seconde instance aux visiteurs sans compte est un
+réglage de son administration, une fois installée : voir
+[vitrine.md](vitrine.md).
+
+### Installer
+
+Le nom d'hôte de la seconde instance doit déjà pointer vers le serveur. Puis,
+depuis le même clone que pour la première :
+
+```sh
+cd ~/online-emulators
+sudo ./deploiement/scripts/installation.sh \
+    --instance vitrine \
+    --port 3101 \
+    --domaine vitrine.exemple.com \
+    --mail admin@exemple.com
+```
+
+`--instance` prend un nom court, en minuscules, chiffres et tirets. Il rend
+`--port` obligatoire : il n'y a pas de port par défaut qui ne soit déjà celui
+d'une autre instance, et le script refuse un port qu'une autre occupe. Il
+refuse aussi un `--domaine` déjà servi par un autre site. `--bibliotheque`
+reste disponible pour ranger les jeux de cette instance ailleurs que dans
+`/var/lib/online-emulators-vitrine/library`.
+
+Tout ce que l'installation met en place porte alors le nom de l'instance :
+
+| Instance par défaut | Instance `vitrine` |
+| --- | --- |
+| utilisateur `jeux` | utilisateur `jeux-vitrine` |
+| `/opt/online-emulators.git` | `/opt/online-emulators-vitrine.git` |
+| `/opt/online-emulators` | `/opt/online-emulators-vitrine` |
+| `/var/lib/online-emulators` | `/var/lib/online-emulators-vitrine` |
+| `/var/backups/online-emulators` | `/var/backups/online-emulators-vitrine` |
+| `/etc/online-emulators.env` | `/etc/online-emulators-vitrine.env` |
+| `/etc/sudoers.d/online-emulators` | `/etc/sudoers.d/online-emulators-vitrine` |
+| service `online-emulators` | service `online-emulators-vitrine` |
+| `sauvegarde-online-emulators.timer`, 04:30 | `sauvegarde-online-emulators-vitrine.timer`, 04:45 |
+| journaux Apache `online-emulators-*.log` | journaux Apache `online-emulators-vitrine-*.log` |
+
+**Sans `--instance`, rien ne change de nom** : relancer `installation.sh` sur
+la première instance ne déplace rien, et installer la seconde ne touche à
+aucun fichier de la première.
+
+### Pousser
+
+Chaque instance a son dépôt nu, donc sa remote :
+
+```sh
+git remote add serveur-vitrine ssh://<serveur>/opt/online-emulators-vitrine.git
+git push serveur-vitrine main
+```
+
+### Ce qui est partagé, ce qui ne l'est pas
+
+Partagé : le **code** (le même dépôt, poussé deux fois), **Apache** et son
+certbot, **Node**, et le compte qui pousse.
+
+Propre à chaque instance : la **base**, donc les **comptes** et les réglages
+saisis dans l'administration, le dossier de **données** (sauvegardes de jeu,
+avatars, jaquettes), la **bibliothèque** de jeux, le **secret de session** — un
+cookie de l'une ne vaut rien sur l'autre —, le relais SMTP et le captcha, les
+archives de sauvegarde, et l'**utilisateur système** qui fait tourner le
+service.
+
+Ce dernier point est ce qui cloisonne vraiment. Un site public est plus exposé
+qu'un site privé : s'il est compromis, son processus tourne sous
+`jeux-vitrine`, qui n'appartient pas au groupe `jeux` et ne peut donc lire ni
+`/etc/online-emulators.env`, ni `/var/lib/online-emulators`, ni
+`/opt/online-emulators`, ni les archives de `/var/backups/online-emulators`.
+Trois limites à connaître :
+
+- Le cloisonnement porte sur les **fichiers**, pas sur le réseau local : un
+  processus de l'une peut toujours s'adresser en HTTP au port de l'autre sur
+  `127.0.0.1`, comme n'importe quel visiteur le fait à travers Apache.
+- Une bibliothèque rangée hors de `/var/lib` (dans `/home`, par exemple) est
+  protégée par ses propres droits, pas par l'installation : si elle est lisible
+  par tous, elle l'est par l'utilisateur de l'autre instance. À l'inverse,
+  celle de la vitrine doit rester lisible par `jeux-vitrine`.
+- Le compte qui pousse appartient aux deux groupes — il lui faut lire les deux
+  fichiers d'environnement pour construire — et les dépôts nus, qui ne
+  contiennent que le code, sont lisibles par tous sur le serveur.
+
+### Mettre à jour les deux
+
+Un push par dépôt nu. Chacun ne déploie que son instance : l'autre continue
+de tourner sur la version qu'elle avait, sans coupure.
+
+```sh
+git push serveur main            # la première instance
+git push serveur-vitrine main    # la seconde
+```
+
+Rien n'oblige à les garder au même commit, mais les laisser diverger
+longtemps, c'est entretenir deux versions du site.
+
+### Au quotidien
+
+Les commandes de ce document valent pour une instance nommée, en y remplaçant
+trois choses : l'arbre de travail, l'utilisateur et le fichier d'environnement.
+
+```sh
+cd /opt/online-emulators-vitrine
+sudo -u jeux-vitrine node --env-file=/etc/online-emulators-vitrine.env \
+    scripts/create-user.ts --pseudo Untel --email untel@exemple.com --admin
+
+sudo systemctl status online-emulators-vitrine
+sudo journalctl -u online-emulators-vitrine -f
+sudo systemctl start sauvegarde-online-emulators-vitrine.service
+sudo tail -40 /var/log/apache2/online-emulators-vitrine-error.log
+```
+
+Un nom d'hôte d'Activité Discord appartient à l'instance dont
+l'administration le déclare. `hote-activite.sh` le relaie vers la première
+instance à moins qu'on lui en nomme une autre, dont il relit alors le port
+dans l'unité systemd :
+
+```sh
+sudo ./deploiement/scripts/hote-activite.sh --instance vitrine \
+    --domaine prism.exemple.com --mail admin@exemple.com
+```
+
+### Sur un serveur déjà installé
+
+Ajouter une instance ne demande rien à la première : ni réinstallation, ni
+remplacement de son hook, ni modification de sa règle `sudoers`. Une seule
+précaution, **avant** d'installer la seconde : fermer le dossier des archives
+de la première, que les premières versions de l'installation laissaient lisible
+par tous.
+
+```sh
+sudo chmod 700 /var/backups/online-emulators
+```
+
+Sans cela, l'utilisateur de la nouvelle instance pourrait y lire une copie de
+la base de l'autre. Le script de sauvegarde le fait désormais de lui-même à
+chaque passage, et `installation.sh` aussi quand on le relance ; la commande
+ci-dessus évite seulement d'attendre.
 
 ## HSTS
 
