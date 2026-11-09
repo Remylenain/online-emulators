@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/components/langue";
 import { keyLabel } from "@/lib/consoles";
 
 /**
@@ -78,14 +79,16 @@ export function ChoixVitesse({
   /** Ce que donne la touche tenue, pour l'infobulle. */
   vitesseTouche?: number;
 }) {
+  const t = useT();
+
   return (
     <select
       value={valeur}
       onChange={(evenement) => surChoix(Number(evenement.target.value))}
-      aria-label="Vitesse de jeu"
+      aria-label={t.partie.vitesse.libelle}
       title={
         toucheAcceleration
-          ? `Maintiens ${keyLabel(toucheAcceleration)} pour passer en ×${vitesseTouche} le temps d'un instant`
+          ? t.partie.vitesse.toucheATenir(keyLabel(toucheAcceleration, t.commandes.clavier), vitesseTouche)
           : undefined
       }
       className={`rounded-lg border bg-ink-950 px-3 py-1.5 text-sm transition-colors ${
@@ -96,7 +99,7 @@ export function ChoixVitesse({
     >
       {VITESSES.map((multiplicateur) => (
         <option key={multiplicateur} value={multiplicateur}>
-          {multiplicateur === 1 ? "Vitesse ×1" : `Accéléré ×${multiplicateur}`}
+          {multiplicateur === 1 ? t.partie.vitesse.normale : t.partie.vitesse.acceleree(multiplicateur)}
         </option>
       ))}
     </select>
@@ -115,10 +118,12 @@ export function Volume({
   surChangement: (pourcentage: number) => void;
   surMuet: () => void;
 }) {
+  const t = useT();
+
   return (
     <div className="flex items-center gap-2">
       <Commande onClick={surMuet} actif={muet}>
-        {muet ? "Son coupé" : "Son"}
+        {muet ? t.partie.son.coupe : t.partie.son.actif}
       </Commande>
       <input
         type="range"
@@ -128,10 +133,10 @@ export function Volume({
         value={valeur}
         onChange={(evenement) => surChangement(Number(evenement.target.value))}
         disabled={muet}
-        aria-label="Volume"
+        aria-label={t.partie.son.volume}
         className="w-24 accent-accent-500 disabled:opacity-40"
       />
-      <span className="w-10 font-mono text-xs text-ink-400">{muet ? 0 : valeur} %</span>
+      <span className="w-10 font-mono text-xs text-ink-400">{t.partie.son.pourcentage(muet ? 0 : valeur)}</span>
     </div>
   );
 }

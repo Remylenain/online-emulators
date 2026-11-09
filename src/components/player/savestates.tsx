@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLangue, useT } from "@/components/langue";
+import { REGION } from "@/lib/i18n/langues";
 
 export type EtatResume = {
   emplacement: number;
@@ -80,6 +82,7 @@ export function Savestates({
   /** Montrer la série automatique ; l'Activité Discord n'en tient pas. */
   autos?: boolean;
 }) {
+  const t = useT();
   const acces = useMemo(() => accesDonne ?? accesDuSite(gameId), [accesDonne, gameId]);
   const requete = acces.requete ?? fetch;
   const [etats, setEtats] = useState<EtatResume[]>([]);
@@ -136,7 +139,7 @@ export function Savestates({
     setMessage(null);
     try {
       if (!(await envoyer(emplacement, auto))) {
-        setMessage("La capture a échoué.");
+        setMessage(t.partie.etats.erreurs.capture);
         return;
       }
       setVersion((v) => v + 1);
@@ -153,11 +156,11 @@ export function Savestates({
     try {
       const reponse = await requete(acces.emplacement(cle), { cache: "no-store", headers: acces.entetes });
       if (!reponse.ok) {
-        setMessage("Cette reprise est introuvable.");
+        setMessage(t.partie.etats.erreurs.introuvable);
         return;
       }
       if (!surLire(new Uint8Array(await reponse.arrayBuffer()))) {
-        setMessage("Le cœur a refusé cette reprise.");
+        setMessage(t.partie.etats.erreurs.refusee);
       }
     } finally {
       setOccupe(null);
@@ -178,8 +181,8 @@ export function Savestates({
   return (
     <div className="flex flex-col gap-6">
       <Serie
-        titre="Mes points de reprise"
-        explication="Cinq emplacements que tu remplis quand tu veux."
+        titre={t.partie.etats.titre}
+        explication={t.partie.etats.explication}
         auto={false}
         etats={etats}
         occupe={occupe}
@@ -192,8 +195,8 @@ export function Savestates({
 
       {autos && (
         <Serie
-          titre="Reprises automatiques"
-          explication="Une toutes les deux minutes, en roulement sur cinq emplacements : de quoi revenir dix minutes en arrière."
+          titre={t.partie.etats.titreAutos}
+          explication={t.partie.etats.explicationAutos}
           auto
           etats={etats}
           occupe={occupe}
@@ -235,6 +238,9 @@ function Serie({
   surReprendre: (emplacement: number, auto: boolean) => void;
   surEffacer?: (emplacement: number, auto: boolean) => void;
 }) {
+  const t = useT();
+  const region = REGION[useLangue()];
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold text-ink-200">
@@ -259,13 +265,13 @@ function Serie({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={acces.vignette(segment(emplacement, auto), version)}
-                    alt={`Aperçu de l'emplacement ${emplacement}`}
+                    alt={t.partie.etats.apercu(emplacement)}
                     className="size-full object-contain"
                     style={{ imageRendering: "pixelated" }}
                   />
                 ) : (
                   <span className="flex size-full items-center justify-center text-xs text-ink-700">
-                    vide
+                    {t.partie.etats.vide}
                   </span>
                 )}
               </div>
@@ -274,7 +280,7 @@ function Serie({
                 {emplacement}
                 {existant && (
                   <span className="ml-1 text-ink-700">
-                    {new Date(existant.creeLe).toLocaleString("fr-FR", {
+                    {new Date(existant.creeLe).toLocaleString(region, {
                       day: "2-digit",
                       month: "2-digit",
                       hour: "2-digit",
@@ -290,7 +296,7 @@ function Serie({
                     onClick={() => surCapturer(emplacement, auto)}
                     disabled={enCours}
                   >
-                    {existant ? "Remplacer" : "Capturer"}
+                    {existant ? t.partie.etats.remplacer : t.partie.etats.capturer}
                   </PetitBouton>
                 )}
                 {existant && (
@@ -298,7 +304,7 @@ function Serie({
                     onClick={() => surReprendre(emplacement, auto)}
                     disabled={enCours}
                   >
-                    Reprendre
+                    {t.partie.etats.reprendre}
                   </PetitBouton>
                 )}
                 {existant && surEffacer && (
@@ -307,7 +313,7 @@ function Serie({
                     disabled={enCours}
                     discret
                   >
-                    Effacer
+                    {t.partie.etats.effacer}
                   </PetitBouton>
                 )}
               </div>

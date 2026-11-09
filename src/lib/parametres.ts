@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 import { env } from "@/lib/env";
+import { estLangue, LANGUE_DE_REFERENCE, type Langue } from "@/lib/i18n/langues";
 
 /**
  * Réglages du site que l'administrateur change depuis l'interface.
@@ -205,4 +206,20 @@ export function definirIdentite(nom: string, description: string, application = 
   ecrireParametre(NOM_DU_SITE, nom.trim());
   ecrireParametre(DESCRIPTION_DU_SITE, description.trim());
   ecrireParametre(NOM_APPLICATION, application.trim());
+}
+
+/**
+ * La langue par défaut du site : celle d'un visiteur qui n'en a pas choisi
+ * et dont le navigateur n'en demande aucune que le site parle. Le reste du
+ * choix de la langue est dans `src/lib/i18n/serveur.ts`.
+ */
+const LANGUE_DU_SITE = "langue_du_site";
+
+export function langueDuSite(): Langue {
+  const reglee = lireParametre(LANGUE_DU_SITE);
+  return estLangue(reglee) ? reglee : LANGUE_DE_REFERENCE;
+}
+
+export function definirLangueDuSite(langue: Langue): void {
+  ecrireParametre(LANGUE_DU_SITE, langue);
 }

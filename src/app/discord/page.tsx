@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Activite } from "@/components/discord/activite";
+import { FournisseurLangue } from "@/components/langue";
 import { configPourHote, hoteDeLaRequete } from "@/lib/discord/applications";
 import { discordEssaiLocal } from "@/lib/env";
 
@@ -36,5 +37,17 @@ export default async function PageDiscord() {
   const application = configPourHote(hoteDeLaRequete(await headers()));
   if (!application) notFound();
 
-  return <Activite clientId={application.clientId} essaiLocal={discordEssaiLocal} />;
+  /*
+   * En français, quel que soit le navigateur : les écrans propres à
+   * l'Activité ne sont pas encore traduits, alors que les panneaux qu'elle
+   * partage avec le lecteur du site le sont. Sans ce fournisseur, un joueur
+   * anglophone verrait les deux langues mêlées.
+   */
+  return (
+    <FournisseurLangue langue="fr">
+      <div lang="fr">
+        <Activite clientId={application.clientId} essaiLocal={discordEssaiLocal} />
+      </div>
+    </FournisseurLangue>
+  );
 }

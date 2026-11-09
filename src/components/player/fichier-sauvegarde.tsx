@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useT } from "@/components/langue";
 import { nomDeFichier } from "@/lib/format";
 
 /**
@@ -54,6 +55,7 @@ export function FichierSauvegarde({
   /** Appelé une fois le fichier importé, juste avant le rechargement. */
   surImport?: () => void;
 }) {
+  const t = useT();
   const champ = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
@@ -61,18 +63,12 @@ export function FichierSauvegarde({
   async function telecharger() {
     if (surTelecharger) {
       setMessage(
-        (await surTelecharger())
-          ? "Sauvegarde téléchargée. Garde ce fichier : c'est ta partie."
-          : "Il n'y a pas encore de sauvegarde à télécharger.",
+        (await surTelecharger()) ? t.partie.fichier.telechargeeAGarder : t.partie.fichier.rienATelecharger,
       );
       return;
     }
     const taille = telechargerSauvegarde(titre, lireSauvegarde());
-    setMessage(
-      taille === null
-        ? "Il n'y a pas encore de sauvegarde à télécharger."
-        : `Sauvegarde téléchargée (${taille} octets).`,
-    );
+    setMessage(taille === null ? t.partie.fichier.rienATelecharger : t.partie.fichier.telechargee(taille));
   }
 
   async function importer(fichier: File) {
@@ -80,25 +76,22 @@ export function FichierSauvegarde({
 
     const donnees = new Uint8Array(await fichier.arrayBuffer());
     if (donnees.length === 0) {
-      setMessage("Ce fichier est vide.");
+      setMessage(t.partie.fichier.fichierVide);
       return;
     }
     if (!TAILLES_CONNUES.includes(donnees.length)) {
       // Averti plutôt que refusé : certains émulateurs ajoutent un en-tête ou
       // complètent le fichier, et la sauvegarde peut rester valable.
-      setMessage(
-        `Taille inhabituelle pour une sauvegarde (${donnees.length} octets). ` +
-          "Si le jeu ne la reconnaît pas, c'est sans doute de là que ça vient.",
-      );
+      setMessage(t.partie.fichier.tailleInhabituelle(donnees.length));
     }
 
     const actuelle = lireSauvegarde();
     const avertissement =
       actuelle && actuelle.length > 0
         ? local
-          ? "Cela remplacera ta partie en cours, sans copie de secours : télécharge-la d'abord si tu veux la garder. Continuer ?"
-          : "Cela remplacera ta partie en cours. L'ancienne version est gardée en secours. Continuer ?"
-        : "Importer cette sauvegarde ?";
+          ? t.partie.fichier.confirmer.remplacerLocale
+          : t.partie.fichier.confirmer.remplacer
+        : t.partie.fichier.confirmer.importer;
     if (!window.confirm(avertissement)) return;
 
     setOccupe(true);
@@ -111,7 +104,7 @@ export function FichierSauvegarde({
         body: donnees,
       });
       if (!reponse.ok) {
-        setMessage(local ? "Le navigateur a refusé cette sauvegarde." : "Le serveur a refusé cette sauvegarde.");
+        setMessage(local ? t.partie.fichier.refuseeLocale : t.partie.fichier.refusee);
         return;
       }
       surImport?.();
@@ -130,11 +123,9 @@ export function FichierSauvegarde({
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-sm font-semibold text-ink-200">
-        Fichier de sauvegarde
+        {t.partie.fichier.titre}
         <span className="ml-2 font-normal text-ink-700">
-          {local
-            ? "Ta partie n'est que dans ce navigateur : télécharge-la pour la garder ou continuer ailleurs, importe-la pour la reprendre."
-            : "Pour reprendre une partie venue d'ailleurs, ou emporter la tienne."}
+          {local ? t.partie.fichier.explicationLocale : t.partie.fichier.explication}
         </span>
       </h2>
 
@@ -146,7 +137,7 @@ export function FichierSauvegarde({
           onClick={() => void telecharger()}
           className="rounded-lg border border-ink-700 px-3 py-1.5 text-sm text-ink-200 transition-colors hover:border-ink-400 hover:text-ink-50"
         >
-          Télécharger
+          {t.partie.fichier.telecharger}
         </button>
 
         <button
@@ -155,7 +146,7 @@ export function FichierSauvegarde({
           onClick={() => champ.current?.click()}
           className="rounded-lg border border-ink-700 px-3 py-1.5 text-sm text-ink-200 transition-colors hover:border-ink-400 hover:text-ink-50 disabled:opacity-40"
         >
-          {occupe ? "Import en cours…" : "Remplacer par un fichier"}
+          {occupe ? t.partie.fichier.importEnCours : t.partie.fichier.remplacer}
         </button>
 
         <input

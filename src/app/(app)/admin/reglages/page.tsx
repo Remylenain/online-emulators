@@ -9,6 +9,7 @@ import {
   configMail,
   configScraper,
   descriptionDuSite,
+  langueDuSite,
   lireParametre,
   nomDuSite,
 } from "@/lib/parametres";
@@ -38,6 +39,7 @@ export default async function ReglagesPage() {
       nom={nomDuSite()}
       description={descriptionDuSite()}
       application={lireParametre("nom_application") ?? ""}
+      langue={langueDuSite()}
       capacite={etatCapacite()}
       vitrine={vitrine()}
       jeux={jeux}

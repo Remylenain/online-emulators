@@ -3,10 +3,13 @@ import { notFound, redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { bezels } from "@/db/schema";
+import { FournisseurLangue } from "@/components/langue";
 import { LecteurInvite } from "@/components/player/lecteur-invite";
 import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
 import { findConsole } from "@/lib/consoles";
+import { langueDuCode } from "@/lib/i18n/langues";
+import { langueChoisie, langueDeLaRequete } from "@/lib/i18n/serveur";
 import { jeuInviteParSlug } from "@/lib/vitrine";
 
 type Params = { console: string; slug: string };
@@ -47,7 +50,17 @@ export default async function PartieInvite({ params }: { params: Promise<Params>
     .orderBy(asc(bezels.sortOrder))
     .all();
 
+  /*
+   * La langue du lecteur : celle que le visiteur a choisie s'il en a choisi
+   * une, sinon celle du jeu qu'il lance — un bouton « Play in English » mène
+   * à un lecteur en anglais, quel que soit le navigateur —, sinon celle de
+   * la requête. Seul le lecteur est concerné : l'en-tête de la page garde la
+   * langue du visiteur.
+   */
+  const langue = (await langueChoisie()) ?? langueDuCode(game.language) ?? (await langueDeLaRequete());
+
   return (
+    <FournisseurLangue langue={langue}>
     <LecteurInvite
       jeu={{
         id: game.id,
@@ -75,5 +88,6 @@ export default async function PartieInvite({ params }: { params: Promise<Params>
         ecran: { x: ligne.screenX, y: ligne.screenY, largeur: ligne.screenW, hauteur: ligne.screenH },
       }))}
     />
+    </FournisseurLangue>
   );
 }

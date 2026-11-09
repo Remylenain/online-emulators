@@ -45,6 +45,11 @@ case referme tout.
 Le titre et la phrase affichés au-dessus des boutons sont le nom du site et sa
 phrase d'accueil, réglés juste au-dessus, dans « Identité du site ».
 
+Le lecteur d'un invité s'affiche dans la langue du jeu lancé : un bouton qui
+lance un jeu déclaré en anglais mène à un lecteur en anglais. Le reste suit la
+langue du visiteur, qu'il peut changer dans l'en-tête — voir
+[langues.md](langues.md).
+
 ### Sur une instance neuve
 
 Dans l'ordre : déposer les jeux dans la bibliothèque de l'instance, lancer le
@@ -121,9 +126,10 @@ voyage.
 - Pas de passage automatique d'invité à compte : pour garder sa partie en
   créant un compte, on télécharge sa sauvegarde puis on l'importe une fois
   connecté.
-- L'interface n'existe qu'en français, quel que soit le libellé du bouton :
-  la phrase sous les boutons, le lecteur et ses rappels. Seuls le nom du site,
-  sa phrase d'accueil et les libellés se choisissent.
+- Le nom du site, sa phrase d'accueil et les libellés des boutons ne se
+  traduisent pas : ils s'affichent tels que l'administrateur les a écrits.
+  Tout le reste de la vitrine et du lecteur existe en français et en anglais —
+  voir [langues.md](langues.md).
 - Les pages restent marquées `noindex` : la vitrine est ouverte, pas
   référencée.
 

@@ -1,24 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/components/langue";
 import type { ResultatTouches } from "@/lib/keymap/actions";
 import { ACTIONS, type ButtonName, type Touche } from "@/lib/consoles";
-import { boutonsSansEntree, enumerer } from "@/lib/keymap/disposition";
-import { entreesActives, libelleManette, manetteBranchee, type IdentiteManette } from "@/lib/manette";
-
-const LIBELLES: Record<Touche, string> = {
-  A: "A",
-  B: "B",
-  START: "Start",
-  SELECT: "Select",
-  UP: "Haut",
-  DOWN: "Bas",
-  LEFT: "Gauche",
-  RIGHT: "Droite",
-  L: "L",
-  R: "R",
-  FAST: "Accélérer (maintenir)",
-};
+import { boutonsSansEntree } from "@/lib/keymap/disposition";
+import {
+  entreesActives,
+  libelleManette,
+  manetteBranchee,
+  MANETTE_SANS_NOM,
+  type IdentiteManette,
+} from "@/lib/manette";
 
 /**
  * Configuration de la manette, sur le même principe que le clavier : on
@@ -45,6 +38,7 @@ export function ManetteConfig({
   changer: (disposition: Record<Touche, string>) => Promise<ResultatTouches>;
   retablir: () => Promise<ResultatTouches>;
 }) {
+  const t = useT();
   const [enAttente, setEnAttente] = useState<Touche | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [actives, setActives] = useState<string[]>([]);
@@ -96,7 +90,7 @@ export function ManetteConfig({
           setEnAttente(null);
           setMessage(null);
           void changer(suivante as Record<Touche, string>).then((resultat) => {
-            if (!resultat.ok) setMessage(resultat.message ?? "Enregistrement refusé.");
+            if (!resultat.ok) setMessage(resultat.message ?? t.commandes.enregistrementRefuse);
           });
           return;
         }
@@ -114,12 +108,12 @@ export function ManetteConfig({
       cancelAnimationFrame(demande);
       window.removeEventListener("keydown", echap);
     };
-  }, [enAttente, disposition, changer]);
+  }, [enAttente, disposition, changer, t]);
 
   async function surRetablir() {
     setMessage(null);
     const resultat = await retablir();
-    if (!resultat.ok) setMessage(resultat.message ?? "Opération refusée.");
+    if (!resultat.ok) setMessage(resultat.message ?? t.commandes.retablissementRefuse);
   }
 
   const affiches = [...boutons, ...ACTIONS];
@@ -129,31 +123,30 @@ export function ManetteConfig({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold text-ink-200">
-        Manette
+        {t.commandes.manette.titre}
         <span className="ml-2 font-normal text-ink-700">
-          {branchee
-            ? "Touche un bouton ci-dessous, puis appuie sur l'entrée voulue de la manette."
-            : "Branche une manette (USB ou Bluetooth) et appuie sur un de ses boutons pour qu'elle soit vue."}
+          {branchee ? t.commandes.manette.explication : t.commandes.manette.aBrancher}
         </span>
       </h2>
 
       {identite && (
         <p className="text-xs text-ink-400">
-          <span className="text-ink-200">{identite.id}</span> —{" "}
-          {identite.standard
-            ? "reconnue par le navigateur, numérotation standard. Le réglage ci-dessous est enregistré sur ton compte, pour toutes les consoles."
-            : "numérotation propre à cette manette sur ce type d'appareil : le réglage ci-dessous est enregistré sur ton compte pour elle, et ne change rien pour tes autres manettes."}
+          <span className="text-ink-200">
+            {identite.id === MANETTE_SANS_NOM ? t.commandes.manette.sansNom : identite.id}
+          </span>{" "}
+          — {identite.standard ? t.commandes.manette.standard : t.commandes.manette.numerotationPropre}
           {actives.length > 0 && (
             <span className="ml-2 font-mono text-accent-400">
-              {actives.map((entree) => `${entree} (${libelleManette(entree, standard)})`).join(" · ")}
+              {actives
+                .map((entree) => `${entree} (${libelleManette(entree, standard, t.commandes.entrees)})`)
+                .join(" · ")}
             </span>
           )}
         </p>
       )}
       {aRegler && (
         <p className="rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-100">
-          Le navigateur ne reconnaît pas cette manette : ses boutons ne sont pas là où on les attend.
-          Attribue-les une fois, un par un — c&apos;est l&apos;affaire d&apos;une minute.
+          {t.commandes.manette.aRegler}
         </p>
       )}
 
@@ -162,10 +155,7 @@ export function ManetteConfig({
           role="alert"
           className="rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-100"
         >
-          {enumerer(depourvus.map((bouton) => LIBELLES[bouton]))}{" "}
-          {depourvus.length > 1 ? "n'ont plus de bouton" : "n'a plus de bouton"} sur la manette : le
-          sien est passé à un autre. Touche-{depourvus.length > 1 ? "les" : "le"} ci-dessous pour{" "}
-          {depourvus.length > 1 ? "leur" : "lui"} en donner un.
+          {t.commandes.manette.sansBouton(depourvus.map((bouton) => t.commandes.boutons[bouton]))}
         </p>
       )}
 
@@ -196,23 +186,27 @@ export function ManetteConfig({
                         : "border-amber-600 bg-amber-950/40 hover:border-amber-400"
                 }`}
               >
-                <span className="text-xs text-ink-400">{LIBELLES[bouton]}</span>
+                <span className="text-xs text-ink-400">{t.commandes.boutons[bouton]}</span>
                 <span className={`text-sm ${attend ? "text-accent-400" : "text-ink-50"}`}>
-                  {attend ? "…" : entree ? libelleManette(entree, standard) : "aucune"}
+                  {attend
+                    ? "…"
+                    : entree
+                      ? libelleManette(entree, standard, t.commandes.entrees)
+                      : t.commandes.manette.aucune}
                 </span>
               </button>
             </li>
           );
         })}
       </ul>
-      <p className="text-xs text-ink-700">Le stick gauche fait toujours la croix, en plus de ce qui est réglé ici.</p>
+      <p className="text-xs text-ink-700">{t.commandes.manette.stickGauche}</p>
 
       <button
         type="button"
         onClick={() => void surRetablir()}
         className="self-start text-xs text-ink-700 underline-offset-4 hover:text-ink-200 hover:underline"
       >
-        Rétablir la manette par défaut
+        {t.commandes.manette.retablir}
       </button>
     </section>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useT } from "@/components/langue";
 import type { Bouton } from "@/lib/emulator/adapter";
 
 /**
@@ -326,6 +327,7 @@ function CroixDirectionnelle({
   /** Largeur de la croix ; la hauteur suit, elle reste carrée. */
   taille: string;
 }) {
+  const t = useT();
   const cases: Array<{ boutons: Bouton[]; classe: string; signe?: string } | null> = [
     { boutons: ["UP", "LEFT"], classe: "rounded-tl-xl" },
     { boutons: ["UP"], classe: "rounded-t-xl", signe: "▲" },
@@ -347,7 +349,9 @@ function CroixDirectionnelle({
           <button
             key={index}
             type="button"
-            aria-label={caseDirection.boutons.join(" et ")}
+            aria-label={t.commandes.tactile.directions(
+              caseDirection.boutons.map((bouton) => t.commandes.boutons[bouton]),
+            )}
             {...proprietes(caseDirection.boutons)}
             className={`flex items-center justify-center text-sm transition-colors ${
               caseDirection.classe

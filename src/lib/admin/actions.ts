@@ -31,6 +31,7 @@ import {
   definirConfigMail,
   definirConfigScraper,
   definirIdentite,
+  definirLangueDuSite,
   definirInscriptionsOuvertes,
   effacerConfigCaptcha,
   effacerConfigMail,
@@ -38,6 +39,7 @@ import {
   inscriptionsOuvrables,
   mailActif,
 } from "@/lib/parametres";
+import { estLangue } from "@/lib/i18n/langues";
 import { sendMail } from "@/lib/mail";
 import {
   manifestSchema,
@@ -253,7 +255,10 @@ export async function definirNomDuSite(_etat: unknown, donnees: FormData): Promi
   if (application.length > 40) {
     return { ok: false, message: "Le nom de l'application ne peut pas dépasser 40 caractères." };
   }
+  const langue = String(donnees.get("langue") ?? "");
+  if (!estLangue(langue)) return { ok: false, message: "Langue inconnue." };
   definirIdentite(nom, description, application);
+  definirLangueDuSite(langue);
   revalidatePath("/", "layout");
   return { ok: true, message: "Réglages enregistrés." };
 }

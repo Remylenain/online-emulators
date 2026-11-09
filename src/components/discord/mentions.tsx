@@ -18,7 +18,7 @@ export function PageMentions({
   children: ReactNode;
 }) {
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-5 py-10 text-[0.95rem] leading-relaxed text-ink-200 [&_a]:text-accent-400 [&_a]:underline [&_a]:underline-offset-4 [&_h2]:mt-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-ink-50 [&_li]:mt-1.5 [&_section]:flex [&_section]:flex-col [&_section]:gap-2 [&_strong]:font-semibold [&_strong]:text-ink-50 [&_ul]:list-disc [&_ul]:pl-5">
+    <main lang="fr" className="mx-auto flex max-w-2xl flex-col gap-6 px-5 py-10 text-[0.95rem] leading-relaxed text-ink-200 [&_a]:text-accent-400 [&_a]:underline [&_a]:underline-offset-4 [&_h2]:mt-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-ink-50 [&_li]:mt-1.5 [&_section]:flex [&_section]:flex-col [&_section]:gap-2 [&_strong]:font-semibold [&_strong]:text-ink-50 [&_ul]:list-disc [&_ul]:pl-5">
       <header className="flex flex-col gap-1 border-b border-ink-800 pb-5">
         <h1 className="text-2xl font-semibold text-ink-50">{titre}</h1>
         <p className="text-sm text-ink-400">

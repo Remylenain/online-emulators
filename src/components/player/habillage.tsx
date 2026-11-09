@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/components/langue";
+
 /**
  * Habillage d'écran : l'image d'une console dessinée autour du jeu.
  *
@@ -28,6 +30,8 @@ export function ChoixHabillage({
   choisi: string | null;
   surChoix: (id: string | null) => void;
 }) {
+  const t = useT();
+
   if (habillages.length === 0) return null;
 
   const vignette = (actif: boolean) =>
@@ -39,7 +43,7 @@ export function ChoixHabillage({
 
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold text-ink-50">Habillage</h2>
+      <h2 className="text-sm font-semibold text-ink-50">{t.partie.habillage.titre}</h2>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -47,7 +51,7 @@ export function ChoixHabillage({
           aria-pressed={choisi === null}
           className={`${vignette(choisi === null)} bg-black text-ink-400`}
         >
-          Aucun
+          {t.partie.habillage.aucun}
         </button>
         {habillages.map((habillage) => (
           <button

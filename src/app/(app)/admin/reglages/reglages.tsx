@@ -15,6 +15,7 @@ import {
 } from "@/lib/admin/actions";
 import { definirLaVitrine } from "@/lib/admin/actions-vitrine";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
+import { LANGUES, NOM_DES_LANGUES, type Langue } from "@/lib/i18n/langues";
 import type { EtatCapacite } from "@/lib/link/capacite";
 import { ENTREES_MAX, LIBELLE_MAX, type Vitrine as ReglageVitrine } from "@/lib/vitrine-limites";
 
@@ -22,6 +23,7 @@ export function Reglages({
   nom,
   description,
   application,
+  langue,
   capacite,
   vitrine,
   jeux,
@@ -34,6 +36,8 @@ export function Reglages({
   description: string;
   /** Nom sous l'icône une fois le site installé sur un téléphone ; vide = nom du site. */
   application: string;
+  /** La langue d'un visiteur qui n'en a pas choisi et dont le navigateur n'en demande aucune connue. */
+  langue: Langue;
   capacite: EtatCapacite;
   vitrine: ReglageVitrine;
   jeux: JeuDeVitrine[];
@@ -67,6 +71,24 @@ export function Reglages({
             hint="Sous l'icône, quand le site est ajouté à l'écran d'accueil d'un téléphone. Vide : le nom du site. Un téléphone n'affiche qu'une douzaine de caractères."
           >
             <Input id="application" name="application" defaultValue={application} maxLength={40} placeholder={nom} />
+          </Field>
+          <Field
+            label="Langue par défaut"
+            htmlFor="langue"
+            hint="Chaque visiteur voit le site dans la langue de son navigateur, ou dans celle qu'il choisit. Celle-ci sert pour les autres. L'administration reste en français."
+          >
+            <select
+              id="langue"
+              name="langue"
+              defaultValue={langue}
+              className="w-full rounded-lg border border-ink-700 bg-ink-950 px-3 py-2 text-sm text-ink-50"
+            >
+              {LANGUES.map((code) => (
+                <option key={code} value={code}>
+                  {NOM_DES_LANGUES[code]}
+                </option>
+              ))}
+            </select>
           </Field>
           <Button type="submit" disabled={enCours} className="self-start">
             {enCours ? "Enregistrement…" : "Enregistrer"}

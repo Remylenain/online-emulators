@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { useT } from "@/components/langue";
 import { lireReglagesInvite, type ReglagesInvite } from "@/lib/invite/stockage";
 import type { Habillage } from "./habillage";
 import { Lecteur, type ConsoleLecteur, type JeuLecteur } from "./lecteur";
@@ -43,6 +44,7 @@ export function LecteurInvite({
   console: ConsoleLecteur;
   habillages: Habillage[];
 }) {
+  const t = useT();
   // `null` au rendu serveur et à l'hydratation, les réglages ensuite.
   const reglages = useSyncExternalStore(
     sansAbonnement,
@@ -51,7 +53,7 @@ export function LecteurInvite({
   );
 
   if (!reglages) {
-    return <p className="py-10 text-center text-sm text-ink-400">Préparation…</p>;
+    return <p className="py-10 text-center text-sm text-ink-400">{t.commun.preparation}</p>;
   }
 
   // Comme pour un compte : sans choix, le premier habillage ; un choix qui ne

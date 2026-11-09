@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { FournisseurLangue } from "@/components/langue";
+import { langueDeLaRequete } from "@/lib/i18n/serveur";
 import { descriptionDuSite, nomDuSite } from "@/lib/parametres";
 import "./globals.css";
 
@@ -30,10 +32,19 @@ export const viewport: Viewport = {
   themeColor: "#13161f",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/**
+ * La langue se décide ici, une fois par requête, et descend par le
+ * fournisseur : `lang` pour le navigateur et les lecteurs d'écran, les textes
+ * pour les composants. Les écrans qui ne lisent pas encore les dictionnaires
+ * restent en français, quelle que soit cette langue (voir `docs/langues.md`).
+ */
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const langue = await langueDeLaRequete();
   return (
-    <html lang="fr">
-      <body className="min-h-dvh font-sans antialiased">{children}</body>
+    <html lang={langue}>
+      <body className="min-h-dvh font-sans antialiased">
+        <FournisseurLangue langue={langue}>{children}</FournisseurLangue>
+      </body>
     </html>
   );
 }

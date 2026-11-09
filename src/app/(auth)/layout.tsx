@@ -1,11 +1,17 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { dictionnaire } from "@/lib/i18n/dictionnaires";
+import { langueDeLaRequete } from "@/lib/i18n/serveur";
 import { descriptionDuSite, nomDuSite } from "@/lib/parametres";
 import { vitrineOuverte } from "@/lib/vitrine";
 
-export default function AuthLayout({ children }: { children: ReactNode }) {
+export default async function AuthLayout({ children }: { children: ReactNode }) {
+  const langue = await langueDeLaRequete();
+  const t = dictionnaire(langue);
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-8 px-5 py-12">
+    // `lang="fr"` : ces pages ne sont pas encore traduites, alors que la racine
+    // annonce la langue du visiteur. Un lecteur d'écran doit lire du français.
+    <div lang="fr" className="flex min-h-dvh flex-col items-center justify-center gap-8 px-5 py-12">
       <header className="flex flex-col items-center gap-2 text-center">
         <Link href="/" className="text-2xl font-semibold tracking-tight text-ink-50">
           {nomDuSite()}
@@ -19,8 +25,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         // La vitrine est ouverte : on peut jouer sans passer par ici. Un lien
         // ordinaire, parce que le lecteur exige un document chargé pour de bon.
         <footer className="text-xs text-ink-400">
-          <a href="/accueil" className="underline-offset-4 hover:text-ink-200 hover:underline">
-            Jouer sans compte
+          <a href="/accueil" lang={langue} className="underline-offset-4 hover:text-ink-200 hover:underline">
+            {t.vitrine.jouerSansCompte}
           </a>
         </footer>
       ) : (

@@ -134,15 +134,28 @@ export const DEFAULT_KEYMAP: Record<Touche, string> = {
   FAST: "ShiftLeft",
 };
 
-/** Libellé lisible d'une touche, pour l'écran de configuration. */
-export function keyLabel(touche: string): string {
-  if (touche.length === 1) return touche.toUpperCase();
-  if (touche.startsWith("Numpad")) return `Pavé ${touche.slice(6)}`;
-  const labels: Record<string, string> = {
-    ArrowUp: "↑",
-    ArrowDown: "↓",
-    ArrowLeft: "←",
-    ArrowRight: "→",
+/** Les flèches se dessinent : elles se lisent pareil dans toutes les langues. */
+const FLECHES_CLAVIER: Record<string, string> = {
+  ArrowUp: "↑",
+  ArrowDown: "↓",
+  ArrowLeft: "←",
+  ArrowRight: "→",
+};
+
+/**
+ * Les noms des touches sans caractère, en français : ce que `keyLabel` rend
+ * quand on ne lui dit rien.
+ *
+ * Les autres langues donnent une table de même forme, que `keyLabel` reçoit en
+ * paramètre (`t.commandes.clavier`, voir `src/lib/i18n/`). Le français reste
+ * ici plutôt que dans son dictionnaire, qui le reprend tel quel, parce que ce
+ * module **ne doit rien importer** : `scripts/seed.ts` et
+ * `scripts/scan-library.ts` le chargent par Node seul, sans le résolveur du
+ * projet, et un import sans extension — celui des dictionnaires — les ferait
+ * échouer au lancement, sans que le compilateur le voie.
+ */
+export const LIBELLES_CLAVIER = {
+  touches: {
     Enter: "Entrée",
     Space: "Espace",
     ShiftLeft: "Maj gauche",
@@ -154,6 +167,20 @@ export function keyLabel(touche: string): string {
     Backspace: "Retour arrière",
     Tab: "Tab",
     Escape: "Échap",
-  };
-  return labels[touche] ?? touche;
+  },
+  /** Une touche du pavé numérique, par ce qui suit « Numpad » dans son code : « Pavé 7 ». */
+  pave: (touche: string) => `Pavé ${touche}`,
+};
+export type LibellesClavier = typeof LIBELLES_CLAVIER;
+
+/**
+ * Libellé lisible d'une touche, pour l'écran de configuration. En français
+ * sans second paramètre ; dans une autre langue avec les libellés de son
+ * dictionnaire.
+ */
+export function keyLabel(touche: string, libelles: LibellesClavier = LIBELLES_CLAVIER): string {
+  if (touche.length === 1) return touche.toUpperCase();
+  if (touche.startsWith("Numpad")) return libelles.pave(touche.slice(6));
+  const nommees: Record<string, string | undefined> = libelles.touches;
+  return FLECHES_CLAVIER[touche] ?? nommees[touche] ?? touche;
 }

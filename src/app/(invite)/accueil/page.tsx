@@ -1,3 +1,4 @@
+import { textes } from "@/lib/i18n/serveur";
 import { descriptionDuSite, nomDuSite } from "@/lib/parametres";
 import { boutonsDeLaVitrine } from "@/lib/vitrine";
 
@@ -8,6 +9,7 @@ import { boutonsDeLaVitrine } from "@/lib/vitrine";
  */
 export default async function AccueilVitrine() {
   const boutons = await boutonsDeLaVitrine();
+  const t = await textes();
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center gap-10 py-10 text-center sm:py-16">
@@ -30,7 +32,7 @@ export default async function AccueilVitrine() {
       </div>
 
       <p className="max-w-md text-sm text-ink-400">
-        Aucun compte à créer : le jeu se lance dans ton navigateur, et ta partie y reste.
+        {t.vitrine.sansCompte}
       </p>
     </div>
   );

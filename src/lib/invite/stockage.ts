@@ -345,10 +345,9 @@ function ecrire(cle: string, texte: string | null): ResultatTouches {
     else localStorage.setItem(cle, texte);
     return { ok: true };
   } catch {
-    return {
-      ok: false,
-      message: "Le navigateur a refusé d'enregistrer ce réglage : il vaut pour cette partie seulement.",
-    };
+    // Sans message : l'écran de réglage dit, dans la langue du joueur, que
+    // le navigateur a refusé et que le réglage ne vaut que pour cette partie.
+    return { ok: false };
   }
 }
 

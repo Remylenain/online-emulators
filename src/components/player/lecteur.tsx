@@ -10,6 +10,7 @@ import { Touches } from "./touches";
 import { useManette } from "./use-manette";
 import { INTERVALLE_AUTO, Savestates, type AccesEtats } from "./savestates";
 import { ChoixVitesse, Commande, lireVolumeRetenu, retenirVolume, Volume } from "./commandes";
+import { Accentue, useLangue, useT } from "@/components/langue";
 import { EmulateurMgba } from "@/lib/emulator/mgba";
 import { choisirHabillage } from "@/lib/bezel/actions";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/lib/invite/stockage";
 import type { Bouton, Emulateur } from "@/lib/emulator/adapter";
 import { BUTTONS, toucheDeEvenement, type ButtonName, type Touche } from "@/lib/consoles";
+import { REGION } from "@/lib/i18n/langues";
 
 const BOUTONS_SIMPLES = [...BUTTONS.common] as ButtonName[];
 const BOUTONS_AVEC_GACHETTES = [...BUTTONS.common, ...BUTTONS.shoulder] as ButtonName[];
@@ -126,6 +128,8 @@ export function Lecteur({
    * le reste du lecteur ignore la différence.
    */
   const requete: typeof fetch = invite ? requeteInvite : fetch;
+  const t = useT();
+  const langue = useLangue();
   /**
    * La disposition vit dans l'état du composant : une touche réattribuée doit
    * agir immédiatement, sans recharger la page ni redemander au serveur.
@@ -148,7 +152,7 @@ export function Lecteur({
   const demarrage = useRef(false);
 
   const [etat, setEtat] = useState<Etat>("chargement");
-  const [progression, setProgression] = useState("Préparation…");
+  const [progression, setProgression] = useState(t.commun.preparation);
   const [erreur, setErreur] = useState<string | null>(null);
   const [vitesse, setVitesse] = useState(1);
   const vitesseRef = useRef(1);
@@ -254,17 +258,20 @@ export function Lecteur({
         });
 
         if (reponse.status === 409) {
-          const corps = await reponse.json();
-          setSauvegarde({ etat: "conflit", message: corps.erreur });
+          // Le texte du conflit vient du dictionnaire et non de la réponse :
+          // celle du serveur est en français, quelle que soit la langue.
+          setSauvegarde({
+            etat: "conflit",
+            message: invite ? t.lecteur.sauvegarde.conflitLocal : t.lecteur.sauvegarde.conflit,
+          });
           return;
         }
         if (!reponse.ok) {
           setSauvegarde({
             etat: "echec",
             message: invite
-              ? "Le navigateur a refusé d'enregistrer ta partie (stockage plein, ou désactivé). " +
-                "Télécharge ta sauvegarde ci-dessous pour ne pas la perdre."
-              : `Enregistrement refusé (${reponse.status}).`,
+              ? t.lecteur.sauvegarde.refuseeLocale
+              : t.lecteur.sauvegarde.refusee(reponse.status),
           });
           return;
         }
@@ -276,11 +283,11 @@ export function Lecteur({
       } catch {
         setSauvegarde({
           etat: "echec",
-          message: "Le serveur n'a pas répondu. La partie continue, réessai au prochain changement.",
+          message: t.lecteur.sauvegarde.sansReponse,
         });
       }
     },
-    [urlSauvegarde, requete, invite],
+    [urlSauvegarde, requete, invite, t],
   );
 
   /**
@@ -431,14 +438,10 @@ export function Lecteur({
             window.location.replace(url.toString());
             return;
           }
-          throw new Error(
-            "Ce navigateur ne permet pas l'isolation cross-origin, que le cœur " +
-              "d'émulation exige. Essaie un autre navigateur, ou désactive une " +
-              "extension qui modifierait les en-têtes des pages.",
-          );
+          throw new Error(t.lecteur.erreurs.isolation);
         }
 
-        setProgression("Récupération de ta partie…");
+        setProgression(t.lecteur.chargement.partie);
         // La sauvegarde d'abord : elle doit être en place avant le chargement
         // du jeu, le cœur la lisant à l'ouverture.
         let ancienne: Uint8Array | null = null;
@@ -450,7 +453,7 @@ export function Lecteur({
         }
         if (invite) demanderPersistance();
 
-        setProgression(`Téléchargement du jeu (${(jeu.taille / 1048576).toFixed(0)} Mio)…`);
+        setProgression(t.lecteur.chargement.jeu((jeu.taille / 1048576).toFixed(0)));
         /**
          * L'empreinte fait partie de l'adresse, et c'est ce qui rend la mise
          * en cache sûre : une ROM corrigée change d'empreinte, donc d'adresse,
@@ -458,10 +461,10 @@ export function Lecteur({
          * l'ancienne version pendant des jours — l'adresse, elle, ne bouge pas.
          */
         const reponse = await fetch(`/api/rom/${jeu.id}?v=${jeu.empreinte}`);
-        if (!reponse.ok) throw new Error(`Jeu indisponible (${reponse.status}).`);
+        if (!reponse.ok) throw new Error(t.lecteur.erreurs.jeuIndisponible(reponse.status));
         const rom = new Uint8Array(await reponse.arrayBuffer());
 
-        setProgression("Démarrage de la console…");
+        setProgression(t.lecteur.chargement.console);
         const emulateur = new EmulateurMgba();
         await emulateur.demarrer({
           canvas,
@@ -475,7 +478,7 @@ export function Lecteur({
             }, DELAI_SAUVEGARDE);
           },
           surPlantage: () => {
-            setErreur("Le cœur d'émulation s'est arrêté. Recharge la page pour reprendre.");
+            setErreur(t.lecteur.erreurs.coeurArrete);
             setEtat("erreur");
           },
         });
@@ -490,7 +493,7 @@ export function Lecteur({
 
         setEtat("en-jeu");
       } catch (e) {
-        setErreur(e instanceof Error ? e.message : "Démarrage impossible.");
+        setErreur(e instanceof Error ? e.message : t.lecteur.erreurs.demarrage);
         setEtat("erreur");
       }
     })();
@@ -867,7 +870,7 @@ export function Lecteur({
   const commandes = (
     <div className="flex flex-wrap items-center justify-center gap-2">
       <Commande onClick={basculerPause}>
-        {etat === "en-pause" ? "Reprendre" : "Pause"}
+        {etat === "en-pause" ? t.lecteur.reprendre : t.lecteur.pause}
       </Commande>
       {/*
         « Redémarrer la console » et non « Réinitialiser » : le jeu repart de
@@ -876,7 +879,7 @@ export function Lecteur({
         vierge — ce serait effacer la sauvegarde, et aucun bouton du site ne
         doit pouvoir le faire par malentendu.
       */}
-      <Commande onClick={reinitialiser}>Redémarrer la console</Commande>
+      <Commande onClick={reinitialiser}>{t.lecteur.redemarrer}</Commande>
       {/*
         « Envoyer au serveur » et non « Enregistrer » : ce bouton ne sauvegarde
         pas la partie, il transmet la sauvegarde du jeu. Dire « Enregistrer »
@@ -884,7 +887,7 @@ export function Lecteur({
         promettait donc une reprise qu'il ne tenait pas.
       */}
       {/* Un invité n'a pas de serveur où envoyer : sa partie s'enregistre sur place. */}
-      {!invite && <Commande onClick={() => void envoyerSauvegarde(true)}>Envoyer au serveur</Commande>}
+      {!invite && <Commande onClick={() => void envoyerSauvegarde(true)}>{t.lecteur.envoyerAuServeur}</Commande>}
       <ChoixVitesse
         valeur={vitesse}
         accelere={accelere}
@@ -1012,7 +1015,7 @@ export function Lecteur({
           onClick={() => setMenuOuvert(true)}
           className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200"
         >
-          Menu
+          {t.lecteur.menu}
         </button>
         {/*
           Accéléré d'un tapotement, sans ouvrir le menu : un bouton qui bascule,
@@ -1034,7 +1037,7 @@ export function Lecteur({
           onClick={surQuitter}
           className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200"
         >
-          Quitter
+          {t.lecteur.quitter}
         </a>
       </>
     );
@@ -1053,6 +1056,7 @@ export function Lecteur({
      */
     return (
       <div
+        lang={langue}
         className={`fixed left-0 top-0 z-50 flex flex-col bg-ink-950 ${
           visible ? "" : "h-dvh w-full"
         }`}
@@ -1139,7 +1143,7 @@ export function Lecteur({
         {menuOuvert && (
           <div className="absolute inset-0 z-10 flex flex-col bg-ink-950/95 backdrop-blur">
             <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
-              <span className="text-sm font-semibold text-ink-50">Menu</span>
+              <span className="text-sm font-semibold text-ink-50">{t.lecteur.menu}</span>
               <span className="flex gap-2">
                 {/*
                   Le plein écran se prend tout seul au premier appui
@@ -1158,8 +1162,8 @@ export function Lecteur({
                       className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200"
                     >
                       {typeof document !== "undefined" && document.fullscreenElement
-                        ? "Quitter le plein écran"
-                        : "Plein écran"}
+                        ? t.lecteur.quitterPleinEcran
+                        : t.lecteur.pleinEcran}
                     </button>
                   )}
                 <button
@@ -1167,7 +1171,7 @@ export function Lecteur({
                   onClick={() => setMenuOuvert(false)}
                   className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs text-ink-200"
                 >
-                  Fermer
+                  {t.lecteur.fermer}
                 </button>
               </span>
             </div>
@@ -1182,7 +1186,7 @@ export function Lecteur({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div lang={langue} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-semibold text-ink-50">{jeu.titre}</h1>
         <span className="text-xs text-ink-700">{consoleInfo.nom}</span>
@@ -1196,7 +1200,7 @@ export function Lecteur({
           onClick={surQuitter}
           className="ml-auto text-sm text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
         >
-          Quitter
+          {t.lecteur.quitter}
         </a>
       </div>
 
@@ -1283,6 +1287,8 @@ function AvantDePartir({
   surRester: () => void;
 }) {
   const bouton = "rounded-lg border px-3 py-2 text-sm transition-colors";
+  const t = useT().lecteur.depart;
+  const quitter = useT().lecteur.quitter;
   return (
     <div
       role="dialog"
@@ -1292,23 +1298,16 @@ function AvantDePartir({
     >
       <div className="flex w-full max-w-md flex-col gap-4 rounded-panel border border-ink-700 bg-ink-900 p-5">
         <h2 id="avant-de-partir" className="text-base font-semibold text-ink-50">
-          {emportee ? "Sauvegarde téléchargée" : "Avant de partir"}
+          {emportee ? t.titreEmportee : t.titre}
         </h2>
         {emportee ? (
-          <p className="text-sm text-ink-200">
-            Garde ce fichier : c&apos;est ta partie. Pour la reprendre ici ou dans un autre navigateur,
-            lance le jeu puis choisis « Remplacer par un fichier ».
-          </p>
+          <p className="text-sm text-ink-200">{t.emportee}</p>
         ) : (
           <>
             <p className="text-sm text-ink-200">
-              Tu joues sans compte : ta partie n&apos;est enregistrée que <strong>dans ce navigateur</strong>,
-              sur aucun serveur. Elle disparaît si tu vides ses données, et ne te suit pas sur un autre
-              appareil.
+              <Accentue texte={t.explication} />
             </p>
-            <p className="text-sm text-ink-200">
-              Télécharge ta sauvegarde pour en garder une copie, ou pour continuer ailleurs.
-            </p>
+            <p className="text-sm text-ink-200">{t.conseil}</p>
           </>
         )}
         <div className="flex flex-wrap gap-2">
@@ -1318,7 +1317,7 @@ function AvantDePartir({
               onClick={surEmporter}
               className={`${bouton} border-accent-600 bg-accent-600/15 text-accent-400 hover:bg-accent-600/25`}
             >
-              Télécharger ma sauvegarde
+              {t.telecharger}
             </button>
           )}
           <button
@@ -1326,14 +1325,14 @@ function AvantDePartir({
             onClick={surPartir}
             className={`${bouton} border-ink-700 text-ink-200 hover:border-ink-400 hover:text-ink-50`}
           >
-            {emportee ? "Quitter" : "Quitter sans télécharger"}
+            {emportee ? quitter : t.quitterSans}
           </button>
           <button
             type="button"
             onClick={surRester}
             className={`${bouton} border-transparent text-ink-400 hover:text-ink-50`}
           >
-            Rester
+            {t.rester}
           </button>
         </div>
       </div>
@@ -1359,38 +1358,29 @@ function EtatDeSauvegarde({
   local?: boolean;
   surForcer: () => void;
 }) {
-  if (etat.etat === "inconnu" && local) {
-    return (
-      <p className="mx-auto max-w-prose text-center text-xs text-ink-700">
-        La sauvegarde du jeu — celle que tu fais <em>dans</em> le jeu — est gardée dans ce
-        navigateur, sur aucun serveur. Pour en avoir une copie ou continuer ailleurs, télécharge-la
-        ci-dessous.
-      </p>
-    );
-  }
+  const t = useT().lecteur.sauvegarde;
+  const langue = useLangue();
 
   if (etat.etat === "inconnu") {
     return (
       <p className="mx-auto max-w-prose text-center text-xs text-ink-700">
-        La sauvegarde du jeu — celle que tu fais <em>dans</em> le jeu — remonte
-        toute seule sur le serveur, et quand tu quittes. Pour reprendre
-        n&apos;importe quand, utilise plutôt un point de reprise ci-dessous.
+        <Accentue texte={local ? t.explicationLocale : t.explication} balise="em" />
       </p>
     );
   }
 
   if (etat.etat === "envoi") {
-    return <p className="text-center text-xs text-ink-400">Enregistrement…</p>;
+    return <p className="text-center text-xs text-ink-400">{t.envoi}</p>;
   }
 
   if (etat.etat === "enregistree") {
-    const heure = etat.quand.toLocaleTimeString("fr-FR", {
+    const heure = etat.quand.toLocaleTimeString(REGION[langue], {
       hour: "2-digit",
       minute: "2-digit",
     });
     return (
       <p className="text-center text-xs text-accent-400">
-        {local ? `Partie enregistrée dans ce navigateur à ${heure}` : `Partie enregistrée à ${heure}`}
+        {local ? t.enregistreeLocale(heure) : t.enregistree(heure)}
       </p>
     );
   }
@@ -1412,7 +1402,7 @@ function EtatDeSauvegarde({
           onClick={surForcer}
           className="rounded-md border border-red-700 px-3 py-1 text-red-100 transition-colors hover:bg-red-900/50"
         >
-          Garder cette partie-ci et remplacer l&apos;autre
+          {t.garderCelleCi}
         </button>
       )}
     </div>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/components/langue";
 import { enregistrerTouches, retablirTouches, type Enregistreur } from "@/lib/keymap/actions";
-import { boutonsSansEntree, enumerer } from "@/lib/keymap/disposition";
+import { boutonsSansEntree } from "@/lib/keymap/disposition";
 import {
   ACTIONS,
   DEFAULT_KEYMAP,
@@ -11,20 +12,6 @@ import {
   type ButtonName,
   type Touche,
 } from "@/lib/consoles";
-
-const LIBELLES: Record<Touche, string> = {
-  A: "A",
-  B: "B",
-  START: "Start",
-  SELECT: "Select",
-  UP: "Haut",
-  DOWN: "Bas",
-  LEFT: "Gauche",
-  RIGHT: "Droite",
-  L: "L",
-  R: "R",
-  FAST: "Accélérer (maintenir)",
-};
 
 /**
  * Configuration des touches, pour le clavier.
@@ -58,6 +45,7 @@ export function Touches({
   /** Invité : les touches restent dans le navigateur, et le texte le dit. */
   local?: boolean;
 }) {
+  const t = useT();
   const [enAttente, setEnAttente] = useState<Touche | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -96,18 +84,27 @@ export function Touches({
       surChangement(suivantes as Record<Touche, string>);
 
       const resultat = await enregistreur.touches(consoleSlug, suivantes);
-      if (!resultat.ok) setMessage(resultat.message ?? "Enregistrement refusé.");
+      if (!resultat.ok) {
+        // L'enregistreur d'un invité n'a qu'un refus à annoncer, celui du
+        // navigateur, et il l'annonce en français : le dictionnaire le dit
+        // dans la langue du joueur. Le serveur, lui, garde le dernier mot.
+        setMessage(
+          local ? t.commandes.touches.refuseLocal : (resultat.message ?? t.commandes.enregistrementRefuse),
+        );
+      }
     }
 
     window.addEventListener("keydown", surFrappe, { capture: true });
     return () => window.removeEventListener("keydown", surFrappe, { capture: true });
-  }, [enAttente, touches, consoleSlug, surChangement, enregistreur]);
+  }, [enAttente, touches, consoleSlug, surChangement, enregistreur, local, t]);
 
   async function retablir() {
     setMessage(null);
     surChangement({ ...DEFAULT_KEYMAP });
     const resultat = await enregistreur.retablirTouches(consoleSlug);
-    if (!resultat.ok) setMessage(resultat.message ?? "Opération refusée.");
+    if (!resultat.ok) {
+      setMessage(local ? t.commandes.touches.refuseLocal : (resultat.message ?? t.commandes.retablissementRefuse));
+    }
   }
 
   const affiches = [...boutons, ...ACTIONS];
@@ -116,12 +113,9 @@ export function Touches({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold text-ink-200">
-        Touches
+        {t.commandes.touches.titre}
         <span className="ml-2 font-normal text-ink-700">
-          Clique sur une touche, puis appuie sur celle que tu veux. Échap annule.{" "}
-          {local
-            ? "Tes touches sont gardées dans ce navigateur."
-            : "Tes touches sont enregistrées sur ton compte, pour toutes les consoles."}
+          {local ? t.commandes.touches.explicationLocale : t.commandes.touches.explication}
         </span>
       </h2>
 
@@ -130,9 +124,7 @@ export function Touches({
           role="alert"
           className="rounded-lg border border-amber-700/60 bg-amber-950/40 px-3 py-2 text-xs text-amber-100"
         >
-          {enumerer(depourvus.map((bouton) => LIBELLES[bouton]))}{" "}
-          {depourvus.length > 1 ? "n'ont plus de touche" : "n'a plus de touche"} : sa touche est passée
-          à un autre bouton. Clique dessus pour {depourvus.length > 1 ? "leur" : "lui"} en donner une.
+          {t.commandes.touches.sansTouche(depourvus.map((bouton) => t.commandes.boutons[bouton]))}
         </p>
       )}
 
@@ -160,13 +152,13 @@ export function Touches({
                       : "border-amber-600 bg-amber-950/40 hover:border-amber-400"
                 }`}
               >
-                <span className="text-xs text-ink-400">{LIBELLES[bouton]}</span>
+                <span className="text-xs text-ink-400">{t.commandes.boutons[bouton]}</span>
                 <span
                   className={`font-mono text-sm ${
                     attend ? "text-accent-400" : touche ? "text-ink-50" : "text-amber-200"
                   }`}
                 >
-                  {attend ? "…" : touche ? keyLabel(touche) : "aucune"}
+                  {attend ? "…" : touche ? keyLabel(touche, t.commandes.clavier) : t.commandes.touches.aucune}
                 </span>
               </button>
             </li>
@@ -179,7 +171,7 @@ export function Touches({
         onClick={() => void retablir()}
         className="self-start text-xs text-ink-700 underline-offset-4 hover:text-ink-200 hover:underline"
       >
-        Rétablir les touches par défaut
+        {t.commandes.touches.retablir}
       </button>
     </section>
   );

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { ChoixLangue } from "@/components/langue";
+import { textes } from "@/lib/i18n/serveur";
 import { nomDuSite } from "@/lib/parametres";
 import { vitrineOuverte } from "@/lib/vitrine";
 
@@ -16,8 +18,9 @@ export const dynamic = "force-dynamic";
  * isolé (COOP/COEP), ce qu'une navigation côté client ne donne pas — on y
  * arriverait avec le document de l'accueil, servi sans ces en-têtes.
  */
-export default function InviteLayout({ children }: { children: ReactNode }) {
+export default async function InviteLayout({ children }: { children: ReactNode }) {
   if (!vitrineOuverte()) redirect("/connexion");
+  const t = await textes();
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -27,17 +30,18 @@ export default function InviteLayout({ children }: { children: ReactNode }) {
           <a href="/" className="font-semibold tracking-tight text-ink-50">
             {nomDuSite()}
           </a>
+          <ChoixLangue className="ml-auto" />
           <a
             href="/connexion"
-            className="ml-auto rounded-md px-2.5 py-1.5 text-sm text-ink-400 transition-colors hover:bg-ink-800 hover:text-ink-50"
+            className="rounded-md px-2.5 py-1.5 text-sm text-ink-400 transition-colors hover:bg-ink-800 hover:text-ink-50"
           >
-            Se connecter
+            {t.commun.seConnecter}
           </a>
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-8">{children}</main>
       <footer className="border-t border-ink-800 px-5 py-6 text-center text-xs text-ink-700">
-        Sans compte, ta partie reste dans ce navigateur : télécharge ta sauvegarde pour la garder.
+        {t.vitrine.piedDePage}
       </footer>
     </div>
   );
