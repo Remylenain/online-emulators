@@ -130,12 +130,12 @@ by root, which the service could no longer write to afterwards.
 
 ### Configure the SMTP relay
 
-The simplest way is to do it from the site: **Administration → Réglages
-(Settings) → Envoi d'e-mails (Email sending)**, with a button to send yourself
-a test message. What is entered there takes precedence over the environment
-file and takes effect immediately, without a restart. The environment file,
-described below, remains the option for when you would rather not store
-anything of the kind in the database.
+The simplest way is to do it from the site: **Administration → Settings →
+Outgoing email**, with a button to send yourself a test message. What is
+entered there takes precedence over the environment file and takes effect
+immediately, without a restart. The environment file, described below, remains
+the option for when you would rather not store anything of the kind in the
+database.
 
 As long as `SMTP_HOST` is empty, password reset links are written to the
 service's log instead of being sent — so the feature is unusable by players.
@@ -159,7 +159,7 @@ Then `sudo systemctl restart online-emulators`.
 ### Enable the captcha
 
 Same choice as for the relay: both keys are entered in
-**Administration → Réglages → Captcha**, or in the environment file.
+**Administration → Settings → Captcha**, or in the environment file.
 
 The forgotten-password form accepts a Cloudflare Turnstile captcha. As long as
 `TURNSTILE_SECRET_KEY` is empty, it is bypassed. Filling in both keys from the
@@ -233,12 +233,12 @@ missing ROM, ambiguous ROM, dead symbolic link, or invalid `game.json`.
 
 A commercial game stored in the library (`"officiel": true` in its
 `game.json`, which is what `scripts/importer-roms.ts --officiel` does) has
-neither description nor cover. **Administration → Bibliothèque (Library) →
-Compléter les fiches (Fill in the entries)** goes and fetches them, without
-overwriting anything that already exists, then reruns the scan:
+neither description nor cover. **Administration → Library →
+Fill in the entries** goes and fetches them, without overwriting anything that
+already exists, then reruns the scan:
 
 - from **ScreenScraper** (screenscraper.fr) if an account is entered in
-  Administration → Réglages — the ROM is recognised by its hash, and the
+  Administration → Settings — the ROM is recognised by its hash, and the
   description comes in French when one exists. On top of the member account,
   the API requires "developer" credentials, which ScreenScraper issues on
   request;
@@ -254,10 +254,10 @@ overwriting anything that already exists, then reruns the scan:
   you know under which name to look for it elsewhere.
 
 Both the scan and the filling-in of entries can be limited to one console: the
-menu next to the two buttons ("Sur toutes les consoles" (On all consoles), or a
-single one) follows the list's filter. After adding a game, rescanning only its
-console takes a few seconds instead of several minutes; the games of the other
-consoles are neither rescanned nor unpublished. From the command line:
+menu next to the two buttons ("On all consoles", or a single one) follows the
+list's filter. After adding a game, rescanning only its console takes a few
+seconds instead of several minutes; the games of the other consoles are
+neither rescanned nor unpublished. From the command line:
 `--console gbc` on `scripts/scan-library.ts` and `scripts/scraper.ts`.
 
 What is found goes into `DATA_DIR/retouches` (description, year) and
@@ -285,13 +285,13 @@ A game that is already in the library keeps everything it has: the
 `gamelist.xml` only adds what is missing. `--essai` shows what would be done
 without writing anything; the scan then publishes the result.
 
-**Exporting the site's entries.** Administration → Bibliothèque → "Exporter
-les fiches" (Export the entries) downloads a zip archive: per console, a
-`gamelist.xml` and an `images/` folder, both keyed to the name of the original
-ROM file (the one the library's link points to). By default only ROM hacks are
-included — official games can be found in any scraper. A `LISEZ-MOI.txt` in
-the archive says where to put the files depending on the frontend. No ROM is
-ever in the archive.
+**Exporting the site's entries.** Administration → Library →
+"Export the entries" downloads a zip archive: per console, a `gamelist.xml`
+and an `images/` folder, both keyed to the name of the original ROM file (the
+one the library's link points to). By default only ROM hacks are included —
+official games can be found in any scraper. A `README.txt` in the archive says
+where to put the files depending on the frontend. No ROM is ever in the
+archive.
 
 ### Limit the number of link cable rooms
 
@@ -309,7 +309,7 @@ The script starts a GB/GBC room and then a GBA room on a game from the
 library, for about fifteen seconds each, without touching the saves, and
 records the measured cost in the settings: the limit applies immediately. The
 share of the processor left to the link cable (65% by default) is set in
-Administration → Réglages, which also shows how many rooms are still possible
+Administration → Settings, which also shows how many rooms are still possible
 right now. Redo this after a change of machine or of emulation core.
 
 ## Backups

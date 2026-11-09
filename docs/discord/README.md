@@ -257,8 +257,9 @@ D'après les pages d'aide de Discord (novembre 2026) :
    Stripe.
 2. Les **pages légales** : coller dans General Information les deux adresses
    que donne la « Marche à suivre » de l'application —
-   `https://<hôte>/discord/confidentialite` (Privacy Policy URL) et
-   `https://<hôte>/discord/conditions` (Terms of Service URL).
+   `https://<hôte>/discord/confidentialite?lang=en` (Privacy Policy URL) et
+   `https://<hôte>/discord/conditions?lang=en` (Terms of Service URL) — la
+   version anglaise, celle que lira Discord.
 3. L'onglet **App Verification** liste les conditions ; quand toutes sont
    remplies, le bouton « Verify App ».
 
@@ -291,8 +292,10 @@ le portail, et ses conditions développeur exigent la première.
   reprises et ses réglages.
 - Elle ne dit pas combien de temps le serveur web garde son journal : cela
   dépend de l'hébergement, pas du site.
-- Les textes sont en français, et valent pour n'importe quel jeu : ils ne
-  disent rien des droits sur celui que l'Activité sert.
+- Les textes existent en français et en anglais, chacun à son adresse
+  (`?lang=fr`, `?lang=en`) ; le français fait référence. Ils valent pour
+  n'importe quel jeu : ils ne disent rien des droits sur celui que l'Activité
+  sert.
 
 ## Jouer à deux
 

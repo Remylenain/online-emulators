@@ -34,11 +34,9 @@ everything into a single one.
 
 ## Turning it on
 
-Administration → Réglages (Settings) → **Vitrine : jouer sans compte**
-(Showcase: play without an account).
+Administration → Settings → **Showcase: play without an account**.
 
-- Tick “Ouvrir ces jeux aux visiteurs sans compte” (Open these games to
-  visitors without an account).
+- Tick “Open these games to visitors without an account”.
 - Up to four buttons: a label (“Jouer en français”, “Play in English”…) and
   the game it launches. Empty label: the game's title.
 - A game must be **published** to be offered. Unpublishing it also removes
@@ -48,7 +46,7 @@ The setting takes effect within a few seconds, without a restart. Unticking
 the box closes everything again.
 
 The title and the line displayed above the buttons are the site's name and
-its welcome line, set just above, in “Identité du site” (Site identity).
+its tagline, set just above, in “Site identity”.
 
 A guest's player is displayed in the language of the game being launched: a
 button that launches a game declared as English leads to an English player.
@@ -58,7 +56,7 @@ header — see [langues.en.md](langues.en.md).
 ### On a fresh instance
 
 In order: drop the games into the instance's library, run the scan
-(Administration → Bibliothèque (Library), or the command in
+(Administration → Library, or the command in
 [deploiement.en.md](deploiement.en.md#publish-the-games-you-added))
 so that they are published, then turn the showcase on. The form refuses a
 game that is not published, and a showcase with no game.
@@ -128,7 +126,7 @@ Save states cannot be exported: only the save file travels.
 - No automatic move from guest to account: to keep your progress when
   creating an account, you download your save, then import it once signed
   in.
-- The site's name, its welcome line and the button labels are not
+- The site's name, its tagline and the button labels are not
   translated: they are displayed as the administrator wrote them. Everything
   else in the showcase and the player exists in French and in English — see
   [langues.en.md](langues.en.md).

@@ -3,8 +3,8 @@
 # Discord Activity
 
 One of the site's games, playable **inside Discord**: a server member launches
-the Activity, presses "Jouer" (Play), and their progress is kept for their
-Discord account. No sign-up, no password, nothing to install.
+the Activity, presses "Play", and their progress is kept for their Discord
+account. No sign-up, no password, nothing to install.
 
 This page is for whoever hosts the site and wants to offer a game — their ROM
 hack, their translation — in their own Discord server.
@@ -64,7 +64,7 @@ The path of a launch:
    rules (`src/lib/acces.ts`) apply to this account.
 6. The page receives a signed token, valid for twelve hours, which it sends
    back in a header. No cookie: in a third-party frame, browsers refuse them.
-7. The player presses "Jouer" — a gesture is needed for the browser to let
+7. The player presses "Play" — a gesture is needed for the browser to let
    sound start. The ROM and the save arrive, the game starts. Every time the
    game writes its save, it goes off to the server.
 
@@ -80,9 +80,9 @@ memory at start), which runs in any page. See
 ## Setting it up: the complete walkthrough
 
 Everything there is to do at Discord, then in the site, then on the server.
-The same walkthrough is shown in the administration (Discord tab, "Lire le pas
-à pas" (Read the walkthrough)); the two are maintained together. Tab names are
-those of the portal as of late 2026; Discord sometimes moves them, the concepts
+The same walkthrough is shown in the administration (Discord tab,
+"Read the walkthrough"); the two are maintained together. Tab names are those
+of the portal as of late 2026; Discord sometimes moves them, the concepts
 stay.
 
 ### 0. Before you start
@@ -103,8 +103,8 @@ stay.
    name is the one players will see in the launcher — the name of the game,
    for example.
 2. **General Information** tab: copy the **Application ID** (18 or
-   19 digits); this is the "Identifiant d'application" (application ID). Add
-   an icon and a description, shown in the activity launcher.
+   19 digits); the site asks for it under the same name. Add an icon and a description,
+   shown in the activity launcher.
 3. Don't copy the **Public Key**: it isn't used here, and mistaking it for
    the secret gives `invalid_client`.
 
@@ -135,21 +135,20 @@ stay.
 
 ### 5. Declare the Activity in the site
 
-**Discord** tab of the administration → *Nouvelle application* (New
-application): a name, the hostname, the game served, the application ID and
-the Client Secret, and if needed the lock (server ID and bot token). Then
-**Essayer auprès de Discord** (Test against Discord): the credentials must be
-accepted before going any further. **Marche à suivre** (Step-by-step) recalls,
-for this application, what remains to be copied into the portal.
+**Discord** tab of the administration → *New application*: a name, the
+hostname, the game served, the application ID and the Client Secret, and if
+needed the lock (server ID and bot token). Then **Test against Discord**: the
+credentials must be accepted before going any further. **Step-by-step**
+recalls, for this application, what remains to be copied into the portal.
 
-The form also has a **Mot d'accueil** (welcome message; shown at every launch
-under the game's title: an introduction, an instruction for testers), and the
-application's card has **Astuces** (tips) to add one by one: word of the day,
-advice, reminder. The home screen shows one at random, and the pause menu
-cycles through all of them.
+The form also has a **Welcome message** (shown at every launch under the
+game's title: an introduction, an instruction for testers), and the
+application's card has **Tips** to add one by one: word of the day, advice,
+reminder. The home screen shows one at random, and the pause menu cycles
+through all of them.
 
-Finally **Proposée par** (Offered by) and **Contact**: a name or a pseudonym,
-and a way to reach you. They are displayed on the Activity's legal pages (see
+Finally **Offered by** and **Contact**: a name or a pseudonym, and a way to
+reach you. They are displayed on the Activity's legal pages (see
 "The legal pages") and are not written anywhere in the repository.
 
 The **hostname** is either:
@@ -195,9 +194,9 @@ As long as no Activity is configured for a host, `/discord` and
    [deploiement.en.md](../deploiement.en.md#a-second-instance-on-the-same-server)),
    add `--instance <name>`: without it, the host would relay to the default
    instance.
-3. Check: `https://prism.exemple.com/` must display the Activity (the "Cette
-   page s'ouvre depuis Discord" (This page opens from Discord) page) and
-   `…/connexion` must answer "Introuvable" (Not found).
+3. Check: `https://prism.exemple.com/` must display the Activity (the
+   "This page opens from Discord" page) and `…/connexion` must answer
+   "Introuvable" (Not found).
 
 ### 7. Launch it in Discord
 
@@ -229,9 +228,9 @@ As long as no Activity is configured for a host, `/discord` and
   browser to see which.
 - `invalid_client` in the server log: wrong ID, or the Public Key put in
   place of the secret. `invalid_grant`: expired code, relaunch the Activity.
-- "Cette Activité ne se joue que dans son serveur Discord" (This Activity can
-  only be played in its own Discord server): the lock is refusing; check the
-  server ID and the bot token with "Essayer auprès de Discord".
+- "This Activity can only be played in its own Discord server": the lock is
+  refusing; check the server ID and the bot token with
+  "Test against Discord".
 - The application doesn't appear in the launcher: platform not ticked in
   Activities → Settings; server of 25 members or more; account that is neither
   the owner, nor on the team, nor a tester.
@@ -251,9 +250,10 @@ According to Discord's help pages (November 2026):
    General Information → transfer the application to the team). It is the
    team owner's identity that Discord has checked, by Stripe.
 2. The **legal pages**: paste into General Information the two addresses
-   given by the application's "Marche à suivre" —
-   `https://<host>/discord/confidentialite` (Privacy Policy URL) and
-   `https://<host>/discord/conditions` (Terms of Service URL).
+   given by the application's "Step-by-step" —
+   `https://<host>/discord/confidentialite?lang=en` (Privacy Policy URL) and
+   `https://<host>/discord/conditions?lang=en` (Terms of Service URL) — the
+   English version, the one Discord will read.
 3. The **App Verification** tab lists the requirements; when all are met,
    the "Verify App" button.
 
@@ -273,20 +273,21 @@ Each Activity serves, on its hostname, a **privacy policy**
 Discord asks for their addresses in the portal, and its developer terms
 require the former.
 
-- They name the game, and what the administrator entered in "Proposée par"
+- They name the game, and what the administrator entered in "Offered by"
   and "Contact". Without those two fields, they refer to the people in charge
   of the Discord server where the Activity is launched. Nothing in them names
   the site hosting the Activity.
 - The privacy policy **describes what the code does**: what it receives from
   Discord, what it stores, what it logs. Whoever changes one rereads the
   other, and updates `MISE_A_JOUR` in `src/lib/discord/mentions.ts`.
-- It promises deletion of an account on request: that is the "Supprimer"
-  (Delete) button of the Comptes (Accounts) tab, which removes the account,
+- It promises deletion of an account on request: that is the
+  "Delete permanently" button of the Accounts tab, which removes the account,
   its progress, its save states and its settings.
 - It doesn't say how long the web server keeps its log: that depends on the
   hosting, not on the site.
-- The texts are in French, and hold for any game: they say nothing about the
-  rights to the one the Activity serves.
+- The texts exist in French and in English, each at its own address
+  (`?lang=fr`, `?lang=en`); the French is the reference. They hold for any
+  game: they say nothing about the rights to the one the Activity serves.
 
 ## Two-player mode
 
@@ -301,17 +302,16 @@ token in place of the cookie.
   the same voice channel shares a Discord *instance*; the session derives an
   opaque key from it (`cleInstance`), and the server opens one link cable room
   per instance: private, with no code, invisible from the site. The first to
-  choose "Jouer à deux" (Two-player) opens it, the second takes a seat in it,
-  those who come after watch (five at most).
+  choose "Play two-player" opens it, the second takes a seat in it, those who
+  come after watch (five at most).
 - **Each player's progress is their account's**, read at the start and
   written back at the end, as on the site: a game started alone continues in
   two-player.
-- **Places are counted.** The server measures what a room costs (Réglages →
-  Câble link, that is Settings → Link cable) and refuses beyond that. In
-  Discord, rather than refusing, the instance takes a place in a queue
-  (`src/lib/link/file.ts`); the screen tells its position, and the room opens
-  when its turn comes. An instance that closes its page leaves the queue
-  within twenty seconds.
+- **Places are counted.** The server measures what a room costs (Settings →
+  Link cable) and refuses beyond that. In Discord, rather than refusing, the
+  instance takes a place in a queue (`src/lib/link/file.ts`); the screen tells
+  its position, and the room opens when its turn comes. An instance that
+  closes its page leaves the queue within twenty seconds.
 - **GB, GBC and GBA**: the same cores as the site's link cable.
 - Without a per-server lock, the instance key is the only door: whoever knows
   it can take a seat in the room. It only travels between the page and the
@@ -323,11 +323,11 @@ voice channel.
 
 ## A player's progress: taking it away, bringing their own in
 
-On the home screen, "Télécharger ma partie" (Download my progress) gives the
-save file (`.sav`, the format of the site's player, readable by mGBA or a real
-cartridge) and "Remplacer par un fichier" (Replace with a file) imports one,
-after confirmation; the server keeps the previous versions. It is the same
-progress as on the site, carried by the account.
+On the home screen, "Download my progress" gives the save file (`.sav`, the
+format of the site's player, readable by mGBA or a real cartridge) and
+"Replace with a file" imports one, after confirmation; the server keeps the
+previous versions. It is the same progress as on the site, carried by the
+account.
 
 What is imported ends up in an emulation core — on the player's side in solo,
 **on the server** in two-player. What contains it: a save is cartridge memory
@@ -339,9 +339,9 @@ cartridge plus a clock footer — for the site as for the Activity. The worst
 case is a room that goes down, or a tampered save that bothers the other
 player.
 
-"Repartir de zéro" (Start from scratch) sets the progress aside in the same
-way: it joins the previous versions (the site knows how to restore it), and
-the next "Jouer" starts like the first time. The save states stay.
+"Start from scratch" sets the progress aside in the same way: it joins the
+previous versions (the site knows how to restore it), and the next "Play"
+starts like the first time. The save states stay.
 
 Unverified: that the Discord client lets the iframe trigger a download. The
 fallback is the site, same account, same progress.
@@ -363,19 +363,19 @@ menu:
 
 ## Keys and controller
 
-The "Touches et manette" (Keys and controller) button on the home screen opens
-the same screens as the site's player. They save to the Discord account
-through `/api/discord/touches` (token in a header); a setting made in the
-Activity applies on the site, and vice versa. Unverified: that Discord lets an
+The "Keys and controller" button on the home screen opens the same screens as
+the site's player. They save to the Discord account through
+`/api/discord/touches` (token in a header); a setting made in the Activity
+applies on the site, and vice versa. Unverified: that Discord lets an
 Activity's iframe use the Gamepad API.
 
 ## Locking the Activity to one server
 
 By default, the Activity can be played anywhere Discord agrees to launch it.
-To restrict it to **a single server**: in the administration, tick *Réserver
-l'Activité à un seul serveur Discord* (Restrict the Activity to a single
-Discord server), with the server ID (right-click → Copy ID, developer mode
-enabled) and the bot token (Bot tab of the portal). As a fallback, in `.env`:
+To restrict it to **a single server**: in the administration, tick
+*Restrict the Activity to a single Discord server*, with the server ID
+(right-click → Copy ID, developer mode enabled) and the bot token (Bot tab of
+the portal). As a fallback, in `.env`:
 
 ```
 DISCORD_SERVEUR="…"     # the server's ID

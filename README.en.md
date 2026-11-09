@@ -43,7 +43,7 @@ only what you have the right to share.
   day over thirty days, which the player can restore, and a zip export of
   all their saves.
 - **Catalog** by console, search, sorting by rating or popularity, ratings,
-  play time per game and per account, a “Mes jeux” (My games) page.
+  play time per game and per account, a “My games” page.
 - **Administration**: accounts, library, play time, site name.
 
 ## Five-minute install
@@ -128,8 +128,8 @@ in [.env.example](.env.example). The two optional features:
   protects the reset request. Without a key, the captcha is bypassed, which
   is fine locally only.
 
-The site's name and its welcome line are changed in Administration →
-Réglages (Settings).
+The site's name and its tagline are changed in Administration →
+Settings.
 
 ## Commands
 
@@ -145,7 +145,7 @@ Réglages (Settings).
 | `npm run link:capacite -- --appliquer` | measure what a link cable room costs the server, and cap the number of rooms accordingly |
 | `npm run typecheck` | TypeScript check |
 | `npm run lint` | ESLint, Next and TypeScript rules |
-| `node --env-file=.env scripts/scraper.ts` | fill in the entries of official games (description, year, cover); also available as a single button in Administration → Bibliothèque (Library) |
+| `node --env-file=.env scripts/scraper.ts` | fill in the entries of official games (description, year, cover); also available as a single button in Administration → Library |
 
 ## Tech stack
 
