@@ -391,8 +391,13 @@ of `/launch`. Nothing is stored in the site: Discord is the only source
 - The site talks to Discord with the bot token if there is one, otherwise with
   the application's ID and secret.
 - A change can take a few minutes to reach players.
-- Unverified in Discord's documentation: which channel types the command can
-  be typed in.
+- The Activity can also be launched from a text channel, through the App
+  Launcher in the message bar: no need to be in a voice channel. Discord then
+  posts a message in the channel announcing the game, from which other members
+  can join. Observed in use; Discord's documentation does not say which
+  channel types.
+- The server lock and the restricted roles apply the same way, whatever the
+  channel.
 
 ## Locking the Activity to one server
 

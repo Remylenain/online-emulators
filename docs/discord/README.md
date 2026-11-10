@@ -398,8 +398,13 @@ est la seule source (`src/lib/discord/commande.ts`).
 - Le site s'adresse à Discord avec le jeton de bot s'il y en a un, sinon avec
   l'identifiant et le secret de l'application.
 - Un changement peut mettre quelques minutes à apparaître chez les joueurs.
-- Non vérifié dans la documentation de Discord : dans quels types de salons
-  la commande peut être tapée.
+- L'Activité se lance aussi depuis un salon textuel, par le lanceur
+  d'applications de la barre de message : pas besoin d'être dans un salon
+  vocal. Discord poste alors dans le salon un message qui annonce la partie,
+  d'où les autres membres peuvent la rejoindre. Constaté à l'usage ; la
+  documentation de Discord ne dit pas dans quels types de salons.
+- Le verrou de serveur et les rôles réservés s'appliquent de la même façon,
+  quel que soit le salon.
 
 ## Verrouiller l'Activité sur un serveur
 
