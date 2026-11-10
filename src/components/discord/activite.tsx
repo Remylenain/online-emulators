@@ -580,7 +580,8 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   /**
    * Téléphone couché, en partie : l'écran prend la hauteur, la croix et les
    * boutons se rangent sur les côtés, et la barre du bas s'efface — elle
-   * revient avec le menu de pause.
+   * revient avec le menu de pause. La pause et la vitesse passent sous la
+   * croix.
    */
   const couche = manetteTactile && paysage;
   const debout = manetteTactile && !paysage;
@@ -795,8 +796,20 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
               gachettes={session.jeu.console === "gba"}
               surBouton={surBouton}
               paysage={couche}
+              // Couché, la barre du bas est effacée : la pause et la vitesse,
+              // qu'on change en pleine partie, se rangent sous la croix. Le
+              // son reste dans la barre, qui revient avec le menu de pause.
               basGauche={
-                <Commande onClick={() => ouvrirPanneau("pause")}>{t.activite.pause.ouvrir}</Commande>
+                <>
+                  <Commande onClick={() => ouvrirPanneau("pause")}>{t.activite.pause.ouvrir}</Commande>
+                  <ChoixVitesse
+                    valeur={vitesse}
+                    accelere={accelere}
+                    surChoix={changerVitesse}
+                    toucheAcceleration={null}
+                    court
+                  />
+                </>
               }
             />
           </div>
