@@ -1,0 +1,1 @@
+ALTER TABLE `discord_apps` ADD `public_key` text DEFAULT '' NOT NULL;

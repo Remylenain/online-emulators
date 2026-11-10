@@ -23,6 +23,8 @@ export type Mentions = {
   verrou: boolean;
   /** L'Activité est réservée à certains rôles du serveur : la page dit ce qu'elle en lit. */
   roles: boolean;
+  /** La commande se tape dans un salon : Discord signale alors au site qui la tape, et où. */
+  commande: boolean;
 };
 
 /**
@@ -58,6 +60,7 @@ export async function mentionsDeLaRequete(): Promise<Mentions> {
     contact: mentions.contact,
     verrou: mentions.verrou,
     roles: mentions.roles,
+    commande: mentions.commande,
   };
 }
 

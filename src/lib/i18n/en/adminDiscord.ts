@@ -98,23 +98,39 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
   },
   commande: {
     titre: "Launch command",
-    explication: "What players type in a channel to launch the Activity.",
+    explication: "What launches the Activity from a channel.",
     voir: "Show the command",
     chargement: "Reading the command…",
     fermer: "Close",
     consigne:
-      "Discord creates this command for every Activity, under the name “launch”. It shows up in the App Launcher " +
-      "and can be typed in any channel, voice or not. An application has only one.",
+      "Discord creates this command for every Activity, under the name “launch”. It is the Activity's button in " +
+      "the App Launcher, in any channel, voice or not. An application has only one.",
     nom: "Name",
     aideNom: "Lowercase, with no space or slash: letters, digits, hyphens. 32 characters at most.",
     description: "Description",
-    aideDescription: "Shown next to the command when a player types it.",
+    aideDescription: "Shown under the command's name.",
     renommer: "Rename the command",
     traduite:
       "Discord still shows this command under a translated name, depending on each player's language — “/lancer” in " +
       "French. Click “Rename the command” to make the name below apply in every language.",
     delai: "A change can take a few minutes to reach players; restarting Discord speeds it up.",
     relire: "Read the command again",
+    tapee: {
+      titre: "Typing it in a channel",
+      inactive: (nom: string) =>
+        `For now the command is only in the App Launcher: typing /${nom} in a channel offers nothing. The site can ` +
+        "add a command of the same name that can be typed, and answer it by launching the Activity. Discord will " +
+        "notify the site each time, at an address on this site.",
+      active: (nom: string) =>
+        `Players can type /${nom} in a channel: Discord notifies the site, which launches the Activity. ` +
+        "Renaming the command renames this one too.",
+      sansJeton:
+        "The application's bot token is needed for the command to be typed: it is what lets Discord be told where " +
+        `to send its notifications. It is entered along with the lock, with “${MODIFIER}”, on the application's card.`,
+      activer: (nom: string) => `Allow typing /${nom}`,
+      desactiver: "Stop allowing it to be typed",
+      enCours: "Discord is checking…",
+    },
   },
   astuces: {
     accueil: "Welcome message:",
@@ -406,6 +422,24 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
     commandeNomInvalide: "The name is invalid: lowercase letters, digits and hyphens, no spaces, 32 characters at most.",
     commandeDescriptionInvalide: (max: number) => `The description must be 1 to ${max} characters long.`,
     commandeRenommee: (nom: string) => `The command is now called /${nom}.`,
+    commandeTapeeSansJeton:
+      "The application's bot token is needed: it is what lets Discord be told where to send its interactions.",
+    commandeTapeeAdressePrise:
+      "This application already sends its interactions to another address (Interactions Endpoint URL, in the portal): " +
+      "a bot handles them. The site does not replace it — clear that field in the portal if that is no longer the case.",
+    commandeTapeeAutresCommandes: (nombre: number) =>
+      (nombre === 1
+        ? "This application already has another command"
+        : `This application already has ${nombre} other commands`) +
+      ": a bot most likely answers them. Plugging the site in would take everything that bot receives; nothing was changed.",
+    commandeTapeeAdresseRefusee: (detail?: string, adresse?: string) =>
+      "Discord could not verify the site's address" +
+      (adresse ? ` (${adresse})` : "") +
+      ". It must answer from the internet, over HTTPS, under the application's host name." +
+      (detail ? ` Discord says: ${detail}` : ""),
+    commandeTapeeActivee: (nom: string) =>
+      `/${nom} can now be typed in a channel. Discord may take a few minutes to offer it; restarting Discord speeds it up.`,
+    commandeTapeeDesactivee: "The command can no longer be typed. It stays in the App Launcher.",
     astuceVide: "The tip is empty.",
     astuceTropLongue: (maximum: number) => `A tip can be at most ${maximum} characters long.`,
     astuceAjoutee: "Tip added.",

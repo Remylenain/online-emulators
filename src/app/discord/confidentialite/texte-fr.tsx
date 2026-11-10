@@ -50,6 +50,13 @@ export function TexteConfidentialiteFr({ mentions }: { mentions: Mentions }) {
               — et n&apos;y regarde que tes rôles. La réponse n&apos;est pas conservée.
             </li>
           )}
+          {mentions.commande && (
+            <li>
+              L&apos;Activité se lance aussi par une commande tapée dans un salon. Discord prévient alors le serveur
+              de l&apos;Activité que tu l&apos;as tapée, en lui disant qui tu es et dans quel salon. Le serveur
+              répond seulement d&apos;ouvrir l&apos;Activité : il ne lit pas ces informations et ne les conserve pas.
+            </li>
+          )}
         </ul>
       </section>
 

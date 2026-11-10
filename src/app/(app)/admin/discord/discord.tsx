@@ -5,10 +5,14 @@ import { useT } from "@/components/langue";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 import {
   ajouterAstuceDiscord,
+  activerCommandeTapee,
+  type CommandeDiscord,
   commandeDiscord,
   definirRolesDiscord,
+  desactiverCommandeTapee,
   enregistrerApplication,
   essayerApplicationDiscord,
+  type EtatCommandeTapee,
   renommerCommandeDiscord,
   rolesDiscord,
   type RolesDiscord,
@@ -210,9 +214,19 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
   const [connue, setConnue] = useState<string | null>(null);
   /** Des noms traduits masquent encore le nom : il faut renommer pour l'imposer partout. */
   const [traduite, setTraduite] = useState(false);
+  /** La commande se tape-t-elle ? `null` tant que Discord n'a pas répondu. */
+  const [tapee, setTapee] = useState<EtatCommandeTapee | null>(null);
   const [retour, setRetour] = useState<Resultat | null>(null);
   const [enCours, demarrer] = useTransition();
   const t = useT().adminDiscord.commande;
+
+  const retenir = (lue: Extract<CommandeDiscord, { ok: true }>) => {
+    setNom(lue.nom);
+    setDescription(lue.description);
+    setConnue(lue.nom);
+    setTraduite(lue.traduite);
+    setTapee(lue.tapee);
+  };
 
   const lire = () =>
     demarrer(async () => {
@@ -221,13 +235,19 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
       setOuvert(true);
       if (reponse.ok) {
         setErreur(null);
-        setNom(reponse.nom);
-        setDescription(reponse.description);
-        setConnue(reponse.nom);
-        setTraduite(reponse.traduite);
+        retenir(reponse);
       } else {
         setErreur(reponse.message);
       }
+    });
+
+  /** Activer ou défaire la commande tapée, puis relire ce que Discord en a retenu. */
+  const brancher = (action: (id: string) => Promise<Resultat>) =>
+    demarrer(async () => {
+      const resultat = await action(application.id);
+      setRetour(resultat);
+      const relue = await commandeDiscord(application.id);
+      if (relue.ok) retenir(relue);
     });
 
   return (
@@ -272,12 +292,7 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
               // Ce que Discord a retenu, pas ce qui a été tapé : on relit.
               if (resultat.ok) {
                 const relue = await commandeDiscord(application.id);
-                if (relue.ok) {
-                  setNom(relue.nom);
-                  setDescription(relue.description);
-                  setConnue(relue.nom);
-                  setTraduite(relue.traduite);
-                }
+                if (relue.ok) retenir(relue);
               }
             });
           }}
@@ -313,6 +328,30 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
             {t.renommer}
           </Button>
         </form>
+      )}
+
+      {ouvert && !erreur && tapee && connue && (
+        <div className="flex flex-col gap-2 border-t border-ink-800 pt-3">
+          <h5 className="text-sm font-semibold text-ink-200">{t.tapee.titre}</h5>
+          <p className="text-xs text-ink-400">
+            {tapee === "active"
+              ? t.tapee.active(connue)
+              : tapee === "inactive"
+                ? t.tapee.inactive(connue)
+                : t.tapee.sansJeton}
+          </p>
+          {tapee !== "sans-jeton" && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={enCours}
+              onClick={() => brancher(tapee === "active" ? desactiverCommandeTapee : activerCommandeTapee)}
+              className="self-start"
+            >
+              {enCours ? t.tapee.enCours : tapee === "active" ? t.tapee.desactiver : t.tapee.activer(connue)}
+            </Button>
+          )}
+        </div>
       )}
 
       {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}

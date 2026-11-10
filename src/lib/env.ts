@@ -53,6 +53,17 @@ const schema = z.object({
     .string()
     .regex(/^(\d{17,20}(\s*,\s*\d{17,20})*)?$/, "DISCORD_ROLES est une liste d'identifiants de rôles, séparés par des virgules")
     .default(""),
+  /**
+   * Facultatif : la clé publique de l'application (« Public Key », onglet
+   * General Information). Avec elle, le site répond aux interactions de
+   * Discord, pour qu'une commande tapée dans un salon lance l'Activité. Une
+   * application déclarée dans l'administration n'en a pas besoin : sa clé y
+   * est lue auprès de Discord.
+   */
+  DISCORD_CLE_PUBLIQUE: z
+    .string()
+    .regex(/^([0-9a-fA-F]{64})?$/, "DISCORD_CLE_PUBLIQUE est une clé de 64 caractères hexadécimaux")
+    .default(""),
   /** « 1 » : ouvre `/discord` hors de Discord, pour l'essayer. Jamais en production. */
   DISCORD_ESSAI_LOCAL: z.string().default(""),
 });

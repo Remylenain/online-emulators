@@ -374,14 +374,20 @@ Activity's iframe use the Gamepad API.
 ## The launch command
 
 As soon as an application enables Activities, Discord creates an entry point
-command for it, named `launch`. It shows up in the App Launcher, and can be
-typed in a channel like any other command: Discord launches the Activity
-itself, and the site has nothing to receive. Since every Activity carries that
-same default name, renaming it makes it easier to find.
+command for it, named `launch`. It is the Activity's button in the App
+Launcher: Discord launches the Activity itself, and the site has nothing to
+receive. Since every Activity carries that same default name, renaming it
+makes it easier to find.
+
+**It cannot be typed.** The list that opens when you type “/” in a channel
+does not offer it, and writing it out in full launches nothing — observed on a
+real application, renamed, with no permission restriction. Discord's
+documentation files it under “UI-based” commands, next to the context-menu
+ones. For a player to type `/prism`, see “Typing it in a channel” below.
 
 On the application's card, **Launch command → Show the command** reads its
-name and description from Discord, and lets you change them — `/prism` instead
-of `/launch`. Nothing is stored in the site: Discord is the only source
+name and description from Discord, and lets you change them — `prism` instead
+of `launch`. The name is not stored in the site: Discord is the only source
 (`src/lib/discord/commande.ts`).
 
 - An application has only one entry point command: you rename it, you do not
@@ -402,6 +408,55 @@ of `/launch`. Nothing is stored in the site: Discord is the only source
   channel types.
 - The server lock and the restricted roles apply the same way, whatever the
   channel.
+
+### Typing it in a channel
+
+For `/prism` to be typed in a channel, like the commands of Discord's own
+Activities, a second command is needed — an ordinary one this time, with the
+same name. Discord does not launch it by itself: each time a player types it,
+Discord notifies the application at the address it declared (*Interactions
+Endpoint URL*) and waits for its answer. The site answers “launch the
+Activity” (`LAUNCH_ACTIVITY`), and Discord opens it as it would from the App
+Launcher.
+
+In the same panel, **Typing it in a channel → Allow typing /prism** does the
+three things required, in this order:
+
+1. read the application's public key from Discord and store it
+   (`discord_apps.public_key`) — the site uses it to check that what it
+   receives really comes from Discord;
+2. declare the address `https://<application's host>/api/discord/interactions`
+   to Discord. Discord tries it on the spot, with one properly signed request
+   and one badly signed: the site must therefore be reachable from the
+   internet, over HTTPS;
+3. create the command, with the entry point command's name and description.
+
+**Stop allowing it to be typed** undoes all three, in reverse order. Renaming
+the command renames both.
+
+- The **bot token** is required: Discord allows neither reading the key nor
+  declaring the address with the ID and secret. It is entered along with the
+  lock; once the typed command is enabled, lifting the lock no longer erases
+  it.
+- The site refuses to plug into an application that already has an
+  interactions address, or other commands: a bot handles them, and declaring
+  an address would divert everything that bot receives to the site.
+- The route (`src/app/api/discord/interactions`) reads only the targeted
+  application and the interaction type from Discord's message. Discord
+  attaches who typed the command and in which channel: none of it is read,
+  kept or logged. The Activity's privacy page says so as soon as the typed
+  command is enabled.
+- The player's rights — lock, roles — are not checked at that point, but when
+  the Activity opens, as for a launch from the App Launcher.
+- A wrong signature gets a 401. Discord sends some on purpose from time to
+  time, and removes the address of an application that would accept them.
+- For an Activity configured through the environment, without the
+  administration: `DISCORD_CLE_PUBLIQUE` (“Public Key”, *General Information*
+  tab), then the address and the command by hand, in the portal and through
+  the API.
+- Tried against a fake Discord that signs real requests; not yet against the
+  real one. The “/” list can take a few minutes to offer the command, and
+  restarting Discord speeds it up.
 
 ## Locking the Activity to one server
 
@@ -530,6 +585,7 @@ by some route other than the portal.
 | OAuth, token, account, game, lock, per-host applications | `src/lib/discord/` |
 | Restricted roles | `src/lib/discord/roles.ts` |
 | Launch command | `src/lib/discord/commande.ts` |
+| Typed command: interactions received from Discord | `src/lib/discord/interactions.ts`, `src/app/api/discord/interactions/route.ts` |
 | Legal pages (privacy, terms) | `src/app/discord/confidentialite/`, `src/app/discord/conditions/`, `src/components/discord/mentions.tsx`, `src/lib/discord/mentions.ts` |
 | The administration's Discord tab | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost and certificate for an Activity host | `deploiement/scripts/hote-activite.sh` |

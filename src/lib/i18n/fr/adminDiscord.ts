@@ -149,22 +149,24 @@ export const adminDiscord = {
   },
   /**
    * La commande de lancement : celle que Discord crée pour toute Activité,
-   * `/launch` par défaut. La renommer la rend plus parlante — `/prism`.
+   * `launch` par défaut. La renommer la rend plus parlante — `prism`. Elle
+   * ne s'affiche que dans le lanceur d'applications : pour qu'elle se tape,
+   * le site y ajoute une commande du même nom, à laquelle il répond lui-même.
    */
   commande: {
     titre: "Commande de lancement",
-    explication: "Ce que les joueurs tapent dans un salon pour lancer l'Activité.",
+    explication: "Ce qui lance l'Activité depuis un salon.",
     voir: "Voir la commande",
     chargement: "Lecture de la commande…",
     fermer: "Fermer",
     /** Au-dessus du formulaire : d'où vient cette commande, et où elle sert. */
     consigne:
-      "Discord crée cette commande pour toute Activité, sous le nom « launch ». Elle apparaît dans le lanceur " +
-      "d'applications et se tape dans n'importe quel salon, vocal ou non. Une application n'en a qu'une.",
+      "Discord crée cette commande pour toute Activité, sous le nom « launch ». C'est le bouton de l'Activité dans " +
+      "le lanceur d'applications, dans n'importe quel salon, vocal ou non. Une application n'en a qu'une.",
     nom: "Nom",
     aideNom: "En minuscules, sans espace ni barre oblique : lettres, chiffres, tirets. 32 caractères au plus.",
     description: "Description",
-    aideDescription: "Affichée à côté de la commande quand un joueur la tape.",
+    aideDescription: "Affichée sous le nom de la commande.",
     renommer: "Renommer la commande",
     /**
      * La commande par défaut porte un nom par langue (« lancer » en français) :
@@ -176,6 +178,27 @@ export const adminDiscord = {
     /** Discord met un moment à répandre un changement de commande. */
     delai: "Un changement peut mettre quelques minutes à apparaître chez les joueurs ; relancer Discord l'accélère.",
     relire: "Relire la commande",
+    /**
+     * La commande tapée : ce qui fait que `/prism` s'écrit dans un salon. Le
+     * bouton du lanceur, lui, ne se tape pas.
+     */
+    tapee: {
+      titre: "La taper dans un salon",
+      /** `nom` : le nom de la commande, sans la barre oblique. */
+      inactive: (nom: string) =>
+        `Pour l'instant, la commande n'est que dans le lanceur d'applications : taper /${nom} dans un salon ne ` +
+        "propose rien. Le site peut y ajouter une commande du même nom, qui se tape, et à laquelle il répond en " +
+        "lançant l'Activité. Discord la lui signalera à chaque fois, à une adresse de ce site.",
+      active: (nom: string) =>
+        `Les joueurs peuvent taper /${nom} dans un salon : Discord prévient le site, qui lance l'Activité. ` +
+        "Renommer la commande renomme aussi celle-ci.",
+      sansJeton:
+        "Il faut le jeton de bot de l'application pour qu'elle se tape : c'est avec lui que Discord laisse déclarer " +
+        `où le prévenir. Il se saisit avec le verrou, par « ${MODIFIER} », sur la carte de l'application.`,
+      activer: (nom: string) => `Permettre de taper /${nom}`,
+      desactiver: "Ne plus permettre de la taper",
+      enCours: "Discord vérifie…",
+    },
   },
   astuces: {
     /** Suivi du mot d'accueil lui-même ; la ponctuation est celle de la langue. */
@@ -495,6 +518,25 @@ export const adminDiscord = {
       "Le nom est invalide : des minuscules, des chiffres et des tirets, sans espace, 32 caractères au plus.",
     commandeDescriptionInvalide: (max: number) => `La description fait entre 1 et ${max} caractères.`,
     commandeRenommee: (nom: string) => `La commande s'appelle maintenant /${nom}.`,
+    commandeTapeeSansJeton:
+      "Il faut le jeton de bot de l'application : c'est avec lui que Discord laisse déclarer où envoyer ses interactions.",
+    commandeTapeeAdressePrise:
+      "Cette application envoie déjà ses interactions à une autre adresse (Interactions Endpoint URL, dans le portail) : " +
+      "un bot s'en occupe. Le site ne la remplace pas — vide ce champ dans le portail si ce n'est plus le cas.",
+    commandeTapeeAutresCommandes: (nombre: number) =>
+      (nombre === 1
+        ? "Cette application a déjà une autre commande"
+        : `Cette application a déjà ${nombre} autres commandes`) +
+      " : un bot y répond sans doute. Brancher le site lui prendrait tout ce qu'il reçoit ; rien n'a été changé.",
+    /** `adresse` : celle que Discord n'a pas pu joindre. `detail` : ce qu'il en dit, en anglais. */
+    commandeTapeeAdresseRefusee: (detail?: string, adresse?: string) =>
+      "Discord n'a pas pu vérifier l'adresse du site" +
+      (adresse ? ` (${adresse})` : "") +
+      ". Elle doit répondre depuis internet, en HTTPS, sous le nom d'hôte de l'application." +
+      (detail ? ` Discord dit : ${detail}` : ""),
+    commandeTapeeActivee: (nom: string) =>
+      `/${nom} se tape maintenant dans un salon. Discord peut mettre quelques minutes à la proposer ; relancer Discord l'accélère.`,
+    commandeTapeeDesactivee: "La commande ne se tape plus. Elle reste dans le lanceur d'applications.",
     astuceVide: "L'astuce est vide.",
     astuceTropLongue: (maximum: number) => `Une astuce fait au plus ${maximum} caractères.`,
     astuceAjoutee: "Astuce ajoutée.",

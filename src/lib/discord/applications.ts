@@ -71,6 +71,8 @@ export type MentionsActivite = {
   verrou: boolean;
   /** Avec des rôles réservés, il l'interroge aussi sur les rôles du joueur. */
   roles: boolean;
+  /** La commande se tape dans un salon : Discord prévient alors le site de qui la tape, et où. */
+  commande: boolean;
 };
 
 export function mentionsPourHote(hote: string): MentionsActivite | null {
@@ -81,6 +83,7 @@ export function mentionsPourHote(hote: string): MentionsActivite | null {
       contact: discordApps.contact,
       guildId: discordApps.guildId,
       roles: discordApps.roles,
+      clePublique: discordApps.publicKey,
     })
     .from(discordApps)
     .where(eq(discordApps.host, hoteNormalise(hote)))
@@ -93,11 +96,19 @@ export function mentionsPourHote(hote: string): MentionsActivite | null {
       contact: ligne.contact,
       verrou,
       roles: verrou && lireRoles(ligne.roles).length > 0,
+      commande: ligne.clePublique !== "",
     };
   }
   const repli = depuisEnvironnement();
   return repli
-    ? { gameId: repli.gameId, editeur: "", contact: "", verrou: repli.guildId !== "", roles: repli.roles.length > 0 }
+    ? {
+        gameId: repli.gameId,
+        editeur: "",
+        contact: "",
+        verrou: repli.guildId !== "",
+        roles: repli.roles.length > 0,
+        commande: env.DISCORD_CLE_PUBLIQUE !== "",
+      }
     : null;
 }
 
@@ -248,11 +259,19 @@ export function modifierApplication(id: string, champs: ChampsApplication): void
   // Des rôles ne valent que pour un serveur : changer de serveur, ou lever le
   // verrou, les oublie. Les garder réserverait l'Activité à des rôles qui
   // n'existent pas ailleurs, donc à personne.
-  const avant = db.select({ guildId: discordApps.guildId }).from(discordApps).where(eq(discordApps.id, id)).get();
+  const avant = db
+    .select({ guildId: discordApps.guildId, clientId: discordApps.clientId })
+    .from(discordApps)
+    .where(eq(discordApps.id, id))
+    .get();
   const serveurChange = avant !== undefined && avant.guildId !== champs.guildId.trim();
+  // La clé publique est celle d'une application Discord : en désigner une
+  // autre l'oublie, plutôt que de vérifier ses interactions avec la clé d'avant.
+  const applicationChange = avant !== undefined && avant.clientId !== champs.clientId.trim();
   db.update(discordApps)
     .set({
       ...(serveurChange ? { roles: "" } : {}),
+      ...(applicationChange ? { publicKey: "" } : {}),
       name: champs.name.trim(),
       host: hoteNormalise(champs.host),
       clientId: champs.clientId.trim(),
@@ -275,6 +294,43 @@ export function definirRoles(id: string, roles: string[]): void {
     .set({ roles: roles.length > 0 ? JSON.stringify(roles) : "", updatedAt: new Date() })
     .where(eq(discordApps.id, id))
     .run();
+}
+
+/**
+ * Ce qu'il faut pour brancher la commande tapée d'une application : l'hôte où
+ * Discord enverra ses interactions, et la clé déjà enregistrée, s'il y en a une.
+ */
+export function interactionsParId(id: string): { hote: string; clePublique: string } | null {
+  const ligne = db
+    .select({ hote: discordApps.host, clePublique: discordApps.publicKey })
+    .from(discordApps)
+    .where(eq(discordApps.id, id))
+    .get();
+  return ligne ?? null;
+}
+
+/** La clé avec laquelle Discord signe ses interactions ; vide : le site n'en attend plus. */
+export function definirClePublique(id: string, cle: string): void {
+  db.update(discordApps).set({ publicKey: cle.toLowerCase(), updatedAt: new Date() }).where(eq(discordApps.id, id)).run();
+}
+
+/**
+ * Les clés avec lesquelles vérifier une interaction reçue de Discord : celle
+ * de l'application qu'il dit viser, et à défaut toutes celles qu'on connaît.
+ * L'identifiant vient d'un corps pas encore vérifié : il ne fait que choisir
+ * quelle clé essayer, et c'est la signature qui décide.
+ */
+export function clesPubliques(application: string | null): string[] {
+  const lignes = db
+    .select({ clientId: discordApps.clientId, cle: discordApps.publicKey })
+    .from(discordApps)
+    .all()
+    .filter((ligne) => ligne.cle !== "");
+  if (env.DISCORD_CLE_PUBLIQUE && env.DISCORD_CLIENT_ID) {
+    lignes.push({ clientId: env.DISCORD_CLIENT_ID, cle: env.DISCORD_CLE_PUBLIQUE });
+  }
+  const visees = lignes.filter((ligne) => ligne.clientId === application);
+  return [...new Set((visees.length > 0 ? visees : lignes).map((ligne) => ligne.cle))];
 }
 
 export function supprimerApplication(id: string): void {

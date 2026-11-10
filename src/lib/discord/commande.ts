@@ -1,21 +1,31 @@
 /**
- * La commande qui lance l'Activité : `/launch` par défaut, ou le nom que
- * l'administrateur lui donne — `/prism`, par exemple.
+ * Les commandes qui lancent l'Activité. Il y en a deux, de natures
+ * différentes, et c'est toute la subtilité.
  *
- * Dès qu'une application active les Activités, Discord lui crée une commande
- * d'entrée, une seule, qu'il lance lui-même : le site n'a rien à recevoir ni
- * à répondre. Elle apparaît dans le lanceur d'applications, et se tape dans
- * un salon comme n'importe quelle commande. Ce module ne fait que la lire et
- * la renommer, par l'API de Discord.
+ * **La commande d'entrée.** Dès qu'une application active les Activités,
+ * Discord lui en crée une, une seule, nommée `launch`, qu'il lance lui-même :
+ * le site n'a rien à recevoir ni à répondre. Elle ne s'affiche que dans le
+ * **lanceur d'applications** — c'est son bouton. Elle ne se tape pas : la
+ * liste qui s'ouvre quand on tape « / » ne la propose pas, quel que soit son
+ * nom. Constaté sur une vraie application, après l'avoir renommée.
  *
- * Discord est la seule source : rien n'est enregistré ici. Comme
- * `./instance.ts`, ce module ne lit pas la configuration et n'importe rien
- * du site.
+ * **La commande tapée.** Pour qu'un joueur écrive `/prism` dans un salon, il
+ * faut une commande ordinaire, du même nom. Celle-là, Discord ne la lance pas
+ * tout seul : il demande à l'application quoi répondre, à l'adresse qu'elle
+ * lui a déclarée, et le site répond « lance l'Activité »
+ * (`./interactions.ts`). Elle est facultative, et demande le jeton de bot :
+ * c'est avec lui seul que Discord laisse lire la clé de l'application et
+ * déclarer cette adresse.
+ *
+ * Ce module ne fait que parler à l'API de Discord. Comme `./instance.ts`, il
+ * ne lit pas la configuration et n'importe rien du site.
  */
 const API = "https://discord.com/api";
 
 /** Le type des commandes d'entrée d'une Activité (`PRIMARY_ENTRY_POINT`). */
 const COMMANDE_D_ENTREE = 4;
+/** Le type des commandes qui se tapent (`CHAT_INPUT`). */
+const COMMANDE_TAPEE = 1;
 
 export type AccesCommandes = {
   application: string;
@@ -41,9 +51,31 @@ export type CommandeDEntree = {
 export const FORME_NOM_COMMANDE = /^[-_\p{Ll}\p{N}]{1,32}$/u;
 export const DESCRIPTION_COMMANDE_MAX = 100;
 
+/** Une commande qui se tape, telle que Discord la connaît. */
+export type CommandeTapee = { id: string; nom: string };
+
+/** Les commandes d'une application, vues d'ici. */
+export type Commandes = {
+  commande: CommandeDEntree;
+  /** Les commandes qui se tapent. Une seule quand c'est le site qui l'a créée. */
+  tapees: CommandeTapee[];
+  /**
+   * Tout ce qui n'est pas la commande d'entrée, commandes tapées comprises.
+   * S'il y en a alors que le site n'en a créé aucune, un bot s'en occupe
+   * ailleurs — et il ne faut pas lui prendre ses interactions.
+   */
+  autres: number;
+};
+
 export type Refus = {
   ok: false;
-  motif: "identifiants-refuses" | "sans-commande" | "refusee" | "discord-injoignable";
+  motif:
+    | "identifiants-refuses"
+    | "sans-commande"
+    | "refusee"
+    | "discord-injoignable"
+    /** Discord n'a pas pu vérifier l'adresse des interactions qu'on lui déclarait. */
+    | "adresse-refusee";
   /** Ce que Discord en dit, quand il le dit : c'est lui qui sait ce qui ne va pas dans un nom. */
   detail?: string;
 };
@@ -89,9 +121,7 @@ function detailDe(corps: unknown): string | undefined {
   return typeof message === "string" && message ? message.slice(0, 200) : undefined;
 }
 
-export async function commandeDEntree(
-  acces: AccesCommandes,
-): Promise<{ ok: true; commande: CommandeDEntree } | Refus> {
+export async function commandeDEntree(acces: AccesCommandes): Promise<({ ok: true } & Commandes) | Refus> {
   try {
     const qui = await autorisation(acces);
     if (!qui) return { ok: false, motif: "identifiants-refuses" };
@@ -103,8 +133,13 @@ export async function commandeDEntree(
     if (reponse.status === 401 || reponse.status === 403) return { ok: false, motif: "identifiants-refuses" };
     const corps: unknown = await reponse.json().catch(() => null);
     if (!reponse.ok || !Array.isArray(corps)) return { ok: false, motif: "discord-injoignable" };
-    const commande = lire((corps as Brute[]).find((c) => c.type === COMMANDE_D_ENTREE));
-    return commande ? { ok: true, commande } : { ok: false, motif: "sans-commande" };
+    const toutes = corps as Brute[];
+    const commande = lire(toutes.find((c) => c.type === COMMANDE_D_ENTREE));
+    if (!commande) return { ok: false, motif: "sans-commande" };
+    const tapees = toutes
+      .filter((c) => c.type === COMMANDE_TAPEE)
+      .flatMap((c) => (typeof c.id === "string" && typeof c.name === "string" ? [{ id: c.id, nom: c.name }] : []));
+    return { ok: true, commande, tapees, autres: toutes.filter((c) => c.type !== COMMANDE_D_ENTREE).length };
   } catch {
     return { ok: false, motif: "discord-injoignable" };
   }
@@ -115,6 +150,9 @@ export async function commandeDEntree(
  * descriptions traduits de la commande par défaut sont effacés du même coup.
  * Sans cela, un Discord en français continue d'afficher « /lancer », et le
  * nouveau nom n'apparaît nulle part — constaté sur une vraie application.
+ *
+ * La commande tapée, si le site en a créé une, suit : les deux portent le
+ * même nom, pour que le bouton du lanceur et ce qu'on tape disent pareil.
  */
 export async function renommerCommandeDEntree(
   acces: AccesCommandes,
@@ -138,8 +176,127 @@ export async function renommerCommandeDEntree(
     // La réponse d'une modification ne dit rien des traductions : elles
     // viennent d'être effacées, on le note sans la relire.
     const lue = reponse.ok ? lire(corps as Brute) : null;
-    const commande = lue ? { ...lue, traduite: false } : null;
-    return commande ? { ok: true, commande } : { ok: false, motif: "discord-injoignable", detail: detailDe(corps) };
+    if (!lue) return { ok: false, motif: "discord-injoignable", detail: detailDe(corps) };
+    const [tapee, ...autresTapees] = actuelle.tapees;
+    if (tapee && autresTapees.length === 0) {
+      const suivie = await fetch(`${API}/applications/${acces.application}/commands/${tapee.id}`, {
+        method: "PATCH",
+        headers: { Authorization: qui, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nom, description }),
+        cache: "no-store",
+      });
+      if (!suivie.ok) {
+        const pourquoi: unknown = await suivie.json().catch(() => null);
+        return { ok: false, motif: "refusee", detail: detailDe(pourquoi) };
+      }
+    }
+    return { ok: true, commande: { ...lue, traduite: false } };
+  } catch {
+    return { ok: false, motif: "discord-injoignable" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// La commande tapée
+// ---------------------------------------------------------------------------
+
+/** Ce que Discord sait de l'application et qui sert ici : sa clé, et où il envoie ses interactions. */
+export type Branchement = { clePublique: string; adresseInteractions: string | null };
+
+/**
+ * Lit l'application auprès de Discord. Avec le jeton de bot, seul : un jeton
+ * obtenu par l'identifiant et le secret n'ouvre pas cette lecture.
+ */
+export async function branchement(jetonBot: string): Promise<({ ok: true } & Branchement) | Refus> {
+  try {
+    const reponse = await fetch(`${API}/applications/@me`, {
+      headers: { Authorization: `Bot ${jetonBot}` },
+      cache: "no-store",
+    });
+    if (reponse.status === 401 || reponse.status === 403) return { ok: false, motif: "identifiants-refuses" };
+    const corps = (await reponse.json().catch(() => null)) as {
+      verify_key?: unknown;
+      interactions_endpoint_url?: unknown;
+    } | null;
+    if (!reponse.ok || typeof corps?.verify_key !== "string") return { ok: false, motif: "discord-injoignable" };
+    const adresse = corps.interactions_endpoint_url;
+    return {
+      ok: true,
+      clePublique: corps.verify_key,
+      adresseInteractions: typeof adresse === "string" && adresse ? adresse : null,
+    };
+  } catch {
+    return { ok: false, motif: "discord-injoignable" };
+  }
+}
+
+/**
+ * Déclare à Discord où envoyer ses interactions, ou le lui fait oublier
+ * (`null`). Discord essaie l'adresse sur-le-champ, avec une requête bien
+ * signée et une autre mal signée : le site doit déjà connaître la clé de
+ * l'application, et être joignable depuis internet.
+ */
+export async function declarerAdresseInteractions(
+  jetonBot: string,
+  adresse: string | null,
+): Promise<{ ok: true } | Refus> {
+  try {
+    const reponse = await fetch(`${API}/applications/@me`, {
+      method: "PATCH",
+      headers: { Authorization: `Bot ${jetonBot}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ interactions_endpoint_url: adresse }),
+      cache: "no-store",
+    });
+    if (reponse.ok) return { ok: true };
+    if (reponse.status === 401 || reponse.status === 403) return { ok: false, motif: "identifiants-refuses" };
+    const corps: unknown = await reponse.json().catch(() => null);
+    return reponse.status === 400
+      ? { ok: false, motif: "adresse-refusee", detail: detailDe(corps) }
+      : { ok: false, motif: "discord-injoignable", detail: detailDe(corps) };
+  } catch {
+    return { ok: false, motif: "discord-injoignable" };
+  }
+}
+
+/** Crée la commande qui se tape. Sans option : elle lance l'Activité, rien d'autre. */
+export async function creerCommandeTapee(
+  acces: AccesCommandes,
+  nom: string,
+  description: string,
+): Promise<{ ok: true } | Refus> {
+  try {
+    const qui = await autorisation(acces);
+    if (!qui) return { ok: false, motif: "identifiants-refuses" };
+    const reponse = await fetch(`${API}/applications/${acces.application}/commands`, {
+      method: "POST",
+      headers: { Authorization: qui, "Content-Type": "application/json" },
+      body: JSON.stringify({ type: COMMANDE_TAPEE, name: nom, description }),
+      cache: "no-store",
+    });
+    if (reponse.ok) return { ok: true };
+    if (reponse.status === 401 || reponse.status === 403) return { ok: false, motif: "identifiants-refuses" };
+    const corps: unknown = await reponse.json().catch(() => null);
+    return reponse.status === 400
+      ? { ok: false, motif: "refusee", detail: detailDe(corps) }
+      : { ok: false, motif: "discord-injoignable", detail: detailDe(corps) };
+  } catch {
+    return { ok: false, motif: "discord-injoignable" };
+  }
+}
+
+export async function supprimerCommande(acces: AccesCommandes, id: string): Promise<{ ok: true } | Refus> {
+  try {
+    const qui = await autorisation(acces);
+    if (!qui) return { ok: false, motif: "identifiants-refuses" };
+    const reponse = await fetch(`${API}/applications/${acces.application}/commands/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: qui },
+      cache: "no-store",
+    });
+    // Déjà disparue : c'est ce qu'on voulait.
+    if (reponse.ok || reponse.status === 404) return { ok: true };
+    if (reponse.status === 401 || reponse.status === 403) return { ok: false, motif: "identifiants-refuses" };
+    return { ok: false, motif: "discord-injoignable" };
   } catch {
     return { ok: false, motif: "discord-injoignable" };
   }

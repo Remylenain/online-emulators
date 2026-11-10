@@ -9,19 +9,25 @@ import {
   ajouterAstuce,
   configParId,
   creerApplication,
+  definirClePublique,
   definirRoles,
   hoteDejaPris,
   hoteDuSite,
   hoteNormalise,
+  interactionsParId,
   modifierApplication,
   supprimerApplication,
   supprimerAstuce,
 } from "@/lib/discord/applications";
 import {
+  branchement,
   commandeDEntree,
+  creerCommandeTapee,
+  declarerAdresseInteractions,
   DESCRIPTION_COMMANDE_MAX,
   FORME_NOM_COMMANDE,
   renommerCommandeDEntree,
+  supprimerCommande,
   type Refus as RefusCommande,
 } from "@/lib/discord/commande";
 import { essayerApplication, type EssaiApplication } from "@/lib/discord/essai";
@@ -110,8 +116,9 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
       clientId,
       ...(clientSecret ? { clientSecret } : {}),
       guildId,
-      // Lever le verrou retire aussi le jeton : il ne servait qu'à lui.
-      ...(botToken ? { botToken } : guildId ? {} : { botToken: "" }),
+      // Lever le verrou retire aussi le jeton, s'il ne servait qu'à lui : la
+      // commande tapée en a besoin pour se renommer et se défaire.
+      ...(botToken ? { botToken } : guildId || interactionsParId(id)?.clePublique ? {} : { botToken: "" }),
       gameId,
       welcome,
       publisher,
@@ -220,10 +227,31 @@ export async function definirRolesDiscord(id: string, roles: string[]): Promise<
   return { ok: true, message: uniques.length > 0 ? t.rolesReserves(uniques.length) : t.rolesOuverts };
 }
 
+/**
+ * Où en est la commande tapée : branchée sur le site, pas encore, ou hors de
+ * portée — sans jeton de bot, Discord ne laisse pas la brancher.
+ */
+export type EtatCommandeTapee = "active" | "inactive" | "sans-jeton";
+
 /** Ce que l'écran de la commande de lancement reçoit de Discord. */
 export type CommandeDiscord =
-  | { ok: true; nom: string; description: string; /** Des noms traduits masquent encore ce nom. */ traduite: boolean }
+  | {
+      ok: true;
+      nom: string;
+      description: string;
+      /** Des noms traduits masquent encore ce nom. */
+      traduite: boolean;
+      tapee: EtatCommandeTapee;
+    }
   | { ok: false; message: string };
+
+/**
+ * L'adresse où Discord envoie ses interactions pour cette application : sur
+ * son propre hôte, celui par lequel ses joueurs l'atteignent déjà.
+ */
+function adresseDesInteractions(hote: string): string {
+  return `https://${hote}/api/discord/interactions`;
+}
 
 function refusDeCommande(
   refus: RefusCommande,
@@ -236,6 +264,8 @@ function refusDeCommande(
       return { ok: false, message: t.commandeAbsente };
     case "refusee":
       return { ok: false, message: t.commandeRefusee(refus.detail) };
+    case "adresse-refusee":
+      return { ok: false, message: t.commandeTapeeAdresseRefusee(refus.detail) };
     default:
       return { ok: false, message: t.commandeInjoignable };
   }
@@ -252,9 +282,29 @@ export async function commandeDiscord(id: string): Promise<CommandeDiscord> {
     secret: application.clientSecret,
     jetonBot: application.botToken,
   });
-  return lue.ok
-    ? { ok: true, nom: lue.commande.nom, description: lue.commande.description, traduite: lue.commande.traduite }
-    : refusDeCommande(lue, t);
+  if (!lue.ok) return refusDeCommande(lue, t);
+
+  let tapee: EtatCommandeTapee = "sans-jeton";
+  const enregistre = interactionsParId(id);
+  if (application.botToken && enregistre) {
+    const chezDiscord = await branchement(application.botToken);
+    if (!chezDiscord.ok) return refusDeCommande(chezDiscord, t);
+    // Les trois à la fois, sans quoi taper la commande ne mène nulle part :
+    // Discord envoie ici, le site sait vérifier, et la commande existe.
+    tapee =
+      chezDiscord.adresseInteractions === adresseDesInteractions(enregistre.hote) &&
+      enregistre.clePublique === chezDiscord.clePublique.toLowerCase() &&
+      lue.tapees.length > 0
+        ? "active"
+        : "inactive";
+  }
+  return {
+    ok: true,
+    nom: lue.commande.nom,
+    description: lue.commande.description,
+    traduite: lue.commande.traduite,
+    tapee,
+  };
 }
 
 /** Renomme la commande qui lance l'Activité : `/prism` au lieu de `/launch`. */
@@ -276,4 +326,84 @@ export async function renommerCommandeDiscord(id: string, nom: string, descripti
     phrase,
   );
   return faite.ok ? { ok: true, message: t.commandeRenommee(faite.commande.nom) } : refusDeCommande(faite, t);
+}
+
+/**
+ * Fait de la commande de lancement une commande qui se tape : `/prism` dans
+ * un salon, comme `/wordle`.
+ *
+ * Trois gestes, dans cet ordre, parce que Discord essaie l'adresse au moment
+ * où on la lui déclare : retenir la clé de l'application, déclarer l'adresse,
+ * créer la commande. Une application dont un bot traite déjà les commandes
+ * est laissée telle quelle — lui déclarer une adresse détournerait vers le
+ * site tout ce que ce bot reçoit.
+ */
+export async function activerCommandeTapee(id: string): Promise<Resultat> {
+  await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
+  const application = configParId(id);
+  const enregistre = interactionsParId(id);
+  if (!application || !enregistre) return { ok: false, message: t.applicationDisparue };
+  if (!application.botToken) return { ok: false, message: t.commandeTapeeSansJeton };
+  const acces = { application: application.clientId, secret: application.clientSecret, jetonBot: application.botToken };
+
+  const commandes = await commandeDEntree(acces);
+  if (!commandes.ok) return refusDeCommande(commandes, t);
+  const chezDiscord = await branchement(application.botToken);
+  if (!chezDiscord.ok) return refusDeCommande(chezDiscord, t);
+
+  const adresse = adresseDesInteractions(enregistre.hote);
+  const dejaIci = chezDiscord.adresseInteractions === adresse;
+  if (chezDiscord.adresseInteractions && !dejaIci) return { ok: false, message: t.commandeTapeeAdressePrise };
+  if (!dejaIci && commandes.autres > 0) return { ok: false, message: t.commandeTapeeAutresCommandes(commandes.autres) };
+
+  definirClePublique(id, chezDiscord.clePublique);
+  if (!dejaIci) {
+    const declaree = await declarerAdresseInteractions(application.botToken, adresse);
+    if (!declaree.ok) {
+      // Comme avant : sans adresse déclarée, cette clé ne vérifierait rien.
+      definirClePublique(id, enregistre.clePublique);
+      return declaree.motif === "adresse-refusee"
+        ? { ok: false, message: t.commandeTapeeAdresseRefusee(declaree.detail, adresse) }
+        : refusDeCommande(declaree, t);
+    }
+  }
+  if (commandes.tapees.length === 0) {
+    const creee = await creerCommandeTapee(acces, commandes.commande.nom, commandes.commande.description);
+    if (!creee.ok) return refusDeCommande(creee, t);
+  }
+  revalidatePath("/admin/discord");
+  return { ok: true, message: t.commandeTapeeActivee(commandes.commande.nom) };
+}
+
+/**
+ * Défait ce que `activerCommandeTapee` a fait, dans l'ordre inverse. La
+ * commande d'entrée, celle du lanceur, n'est pas touchée.
+ */
+export async function desactiverCommandeTapee(id: string): Promise<Resultat> {
+  await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
+  const application = configParId(id);
+  const enregistre = interactionsParId(id);
+  if (!application || !enregistre) return { ok: false, message: t.applicationDisparue };
+  if (!application.botToken) return { ok: false, message: t.commandeTapeeSansJeton };
+  const acces = { application: application.clientId, secret: application.clientSecret, jetonBot: application.botToken };
+
+  const chezDiscord = await branchement(application.botToken);
+  if (!chezDiscord.ok) return refusDeCommande(chezDiscord, t);
+  // Rien n'est retiré chez Discord si ses interactions ne viennent pas ici :
+  // ces commandes-là seraient celles d'un autre.
+  if (chezDiscord.adresseInteractions === adresseDesInteractions(enregistre.hote)) {
+    const commandes = await commandeDEntree(acces);
+    if (!commandes.ok) return refusDeCommande(commandes, t);
+    for (const commande of commandes.tapees) {
+      const retiree = await supprimerCommande(acces, commande.id);
+      if (!retiree.ok) return refusDeCommande(retiree, t);
+    }
+    const oubliee = await declarerAdresseInteractions(application.botToken, null);
+    if (!oubliee.ok) return refusDeCommande(oubliee, t);
+  }
+  definirClePublique(id, "");
+  revalidatePath("/admin/discord");
+  return { ok: true, message: t.commandeTapeeDesactivee };
 }

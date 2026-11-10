@@ -141,6 +141,13 @@
       "when": 1794298429584,
       "tag": "0019_roles_discord",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1794308508614,
+      "tag": "0020_commande_tapee_discord",
+      "breakpoints": true
     }
   ]
 }

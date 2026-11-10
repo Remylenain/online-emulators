@@ -556,6 +556,14 @@ export const discordApps = sqliteTable(
      */
     publisher: text("publisher").notNull().default(""),
     contact: text("contact").notNull().default(""),
+    /**
+     * La clé publique de l'application, en hexadécimal : celle avec laquelle
+     * Discord signe les interactions qu'il envoie au site, quand la commande
+     * se tape dans un salon (`src/lib/discord/interactions.ts`). Lue auprès
+     * de Discord à l'activation ; vide : le site n'attend aucune interaction
+     * de cette application. Publique, comme son nom le dit — rien de secret.
+     */
+    publicKey: text("public_key").notNull().default(""),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
   },

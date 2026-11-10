@@ -49,6 +49,13 @@ export function TexteConfidentialiteEn({ mentions }: { mentions: Mentions }) {
               looks only at your roles. The answer is not kept.
             </li>
           )}
+          {mentions.commande && (
+            <li>
+              The Activity can also be launched with a command typed in a channel. Discord then notifies the
+              Activity&apos;s server that you typed it, telling it who you are and in which channel. The server only
+              answers that the Activity should open: it does not read this information and does not keep it.
+            </li>
+          )}
         </ul>
       </section>
 

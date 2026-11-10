@@ -381,15 +381,22 @@ Gamepad à l'iframe d'une Activité.
 ## La commande de lancement
 
 Dès qu'une application active les Activités, Discord lui crée une commande
-d'entrée, nommée `launch`. Elle apparaît dans le lanceur d'applications, et se
-tape dans un salon comme n'importe quelle commande : c'est Discord qui lance
-l'Activité, le site n'a rien à recevoir. Toutes les Activités portant ce même
-nom par défaut, la renommer la rend plus facile à trouver.
+d'entrée, nommée `launch`. C'est le bouton de l'Activité dans le lanceur
+d'applications : Discord la lance lui-même, le site n'a rien à recevoir.
+Toutes les Activités portant ce même nom par défaut, la renommer la rend plus
+facile à trouver.
+
+**Elle ne se tape pas.** La liste qui s'ouvre quand on tape « / » dans un
+salon ne la propose pas, et l'écrire en entier ne lance rien — constaté sur
+une vraie application, renommée, sans restriction de permissions. La
+documentation de Discord la range d'ailleurs parmi les commandes « d'interface »,
+à côté de celles des menus contextuels. Pour qu'un joueur tape `/prism`, voir
+« La taper dans un salon », plus bas.
 
 Sur la carte de l'application, **Commande de lancement → Voir la commande**
 lit son nom et sa description auprès de Discord, et permet de les changer —
-`/prism` au lieu de `/launch`. Rien n'est enregistré dans le site : Discord
-est la seule source (`src/lib/discord/commande.ts`).
+`prism` au lieu de `launch`. Le nom n'est pas enregistré dans le site :
+Discord est la seule source (`src/lib/discord/commande.ts`).
 
 - Une application n'a qu'une commande d'entrée : on la renomme, on n'en
   ajoute pas.
@@ -409,6 +416,51 @@ est la seule source (`src/lib/discord/commande.ts`).
   documentation de Discord ne dit pas dans quels types de salons.
 - Le verrou de serveur et les rôles réservés s'appliquent de la même façon,
   quel que soit le salon.
+
+### La taper dans un salon
+
+Pour que `/prism` s'écrive dans un salon, comme les commandes des Activités
+de Discord lui-même, il faut une seconde commande, ordinaire celle-là, du même
+nom. Discord ne la lance pas tout seul : à chaque fois qu'un joueur la tape,
+il le signale à l'application, à l'adresse qu'elle lui a déclarée
+(*Interactions Endpoint URL*), et attend sa réponse. Le site répond « lance
+l'Activité » (`LAUNCH_ACTIVITY`), et Discord l'ouvre comme depuis le lanceur.
+
+Dans le même panneau, **La taper dans un salon → Permettre de taper /prism**
+fait les trois gestes nécessaires, dans cet ordre :
+
+1. lire la clé publique de l'application auprès de Discord et la retenir
+   (`discord_apps.public_key`) — c'est avec elle que le site vérifie que ce
+   qu'il reçoit vient bien de Discord ;
+2. déclarer à Discord l'adresse `https://<hôte de l'application>/api/discord/interactions`.
+   Discord l'essaie sur-le-champ, avec une requête bien signée et une autre
+   mal signée : le site doit donc être joignable depuis internet, en HTTPS ;
+3. créer la commande, avec le nom et la description de la commande d'entrée.
+
+**Ne plus permettre de la taper** défait les trois, dans l'ordre inverse.
+Renommer la commande renomme les deux.
+
+- Il faut le **jeton de bot** : Discord ne laisse ni lire la clé ni déclarer
+  l'adresse avec l'identifiant et le secret. Il se saisit avec le verrou ; une
+  fois la commande tapée activée, lever le verrou ne l'efface plus.
+- Le site refuse de se brancher sur une application qui a déjà une adresse
+  d'interactions, ou d'autres commandes : un bot s'en occupe, et lui déclarer
+  une adresse détournerait vers le site tout ce que ce bot reçoit.
+- La route (`src/app/api/discord/interactions`) ne lit du message de Discord
+  que l'application visée et le type d'interaction. Discord y joint qui a tapé
+  la commande et dans quel salon : rien n'en est lu, gardé ni journalisé. La
+  page de confidentialité de l'Activité le dit, dès que la commande tapée est
+  activée.
+- Les droits du joueur — verrou, rôles — ne sont pas vérifiés à ce moment-là,
+  mais à l'ouverture de l'Activité, comme pour un lancement depuis le lanceur.
+- Une signature fausse vaut un 401. Discord en envoie exprès de temps en
+  temps, et retire l'adresse d'une application qui les accepterait.
+- Pour une Activité configurée par l'environnement, sans administration :
+  `DISCORD_CLE_PUBLIQUE` (« Public Key », onglet *General Information*), puis
+  l'adresse et la commande à la main, dans le portail et par l'API.
+- Essayé contre un faux Discord qui signe de vraies requêtes ; pas encore
+  contre le vrai. La liste « / » peut mettre quelques minutes à proposer la
+  commande, et relancer Discord l'accélère.
 
 ## Verrouiller l'Activité sur un serveur
 
@@ -536,6 +588,7 @@ utilisateurs par une autre voie que le portail.
 | OAuth, jeton, compte, jeu, verrou, applications par hôte | `src/lib/discord/` |
 | Rôles réservés | `src/lib/discord/roles.ts` |
 | Commande de lancement | `src/lib/discord/commande.ts` |
+| Commande tapée : interactions reçues de Discord | `src/lib/discord/interactions.ts`, `src/app/api/discord/interactions/route.ts` |
 | Pages légales (confidentialité, conditions) | `src/app/discord/confidentialite/`, `src/app/discord/conditions/`, `src/components/discord/mentions.tsx`, `src/lib/discord/mentions.ts` |
 | L'onglet Discord de l'administration | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost et certificat d'un hôte d'Activité | `deploiement/scripts/hote-activite.sh` |
