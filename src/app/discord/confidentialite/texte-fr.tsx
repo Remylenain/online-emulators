@@ -38,15 +38,15 @@ export function TexteConfidentialiteFr({ mentions }: { mentions: Mentions }) {
           </li>
           {mentions.verrou && (
             <li>
-              L&apos;Activité est réservée à un serveur Discord. À chaque lancement, elle demande donc à Discord
+              L&apos;Activité est réservée à certains serveurs Discord. À chaque lancement, elle demande donc à Discord
               dans quel serveur elle tourne et qui y participe, pour vérifier que tu en fais partie. La réponse
               n&apos;est pas conservée.
             </li>
           )}
           {mentions.roles && (
             <li>
-              Dans ce serveur, l&apos;Activité est réservée à certains rôles. À chaque lancement, elle demande donc
-              aussi à Discord ta fiche de membre du serveur — ton pseudo de serveur, tes rôles, ta date d&apos;arrivée
+              Dans un serveur où elle est réservée à certains rôles, elle demande aussi, à chaque lancement,
+              à Discord ta fiche de membre du serveur — ton pseudo de serveur, tes rôles, ta date d&apos;arrivée
               — et n&apos;y regarde que tes rôles. La réponse n&apos;est pas conservée.
             </li>
           )}

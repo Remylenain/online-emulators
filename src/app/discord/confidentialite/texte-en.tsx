@@ -38,13 +38,13 @@ export function TexteConfidentialiteEn({ mentions }: { mentions: Mentions }) {
           </li>
           {mentions.verrou && (
             <li>
-              The Activity is restricted to one Discord server. At each launch it therefore asks Discord which server
+              The Activity is restricted to certain Discord servers. At each launch it therefore asks Discord which server
               it is running in and who is taking part, to check that you are a member. The answer is not kept.
             </li>
           )}
           {mentions.roles && (
             <li>
-              In this server, the Activity is restricted to certain roles. At each launch it therefore also asks
+              In a server where it is restricted to certain roles, at each launch it also asks
               Discord for your server member record — your server nickname, your roles, the date you joined — and
               looks only at your roles. The answer is not kept.
             </li>

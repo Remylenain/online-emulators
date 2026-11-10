@@ -38,6 +38,7 @@ import {
   LONGUEUR_MAX_ASTUCE,
   LONGUEUR_MAX_CONTACT,
   LONGUEUR_MAX_EDITEUR,
+  SERVEURS_MAX,
 } from "@/lib/discord/limites";
 import { textes } from "@/lib/i18n/serveur";
 import type { Resultat } from "./actions";
@@ -61,7 +62,8 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
   const host = hoteNormalise(String(donnees.get("host") ?? ""));
   const clientId = String(donnees.get("clientId") ?? "").trim();
   const clientSecret = String(donnees.get("clientSecret") ?? "").trim();
-  const guildId = String(donnees.get("guildId") ?? "").trim();
+  // Un identifiant par ligne ; les virgules et les espaces séparent aussi.
+  const serveurs = [...new Set(String(donnees.get("serveurs") ?? "").split(/[\s,;]+/).filter(Boolean))];
   const botToken = String(donnees.get("botToken") ?? "").trim();
   const gameId = String(donnees.get("gameId") ?? "").trim();
   const welcome = String(donnees.get("welcome") ?? "").trim();
@@ -87,9 +89,10 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
   if (!FORME_IDENTIFIANT.test(clientId)) {
     return { ok: false, message: t.identifiantInvalide };
   }
-  if (guildId && !FORME_IDENTIFIANT.test(guildId)) {
+  if (serveurs.some((serveur) => !FORME_IDENTIFIANT.test(serveur))) {
     return { ok: false, message: t.serveurInvalide };
   }
+  if (serveurs.length > SERVEURS_MAX) return { ok: false, message: t.serveursTrop(SERVEURS_MAX) };
   if ([clientSecret, botToken].some((valeur) => valeur.length > 200)) {
     return { ok: false, message: t.valeurTropLongue };
   }
@@ -101,14 +104,14 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
 
   if (!id) {
     if (!clientSecret) return { ok: false, message: t.secretObligatoire };
-    if (guildId && !botToken) {
+    if (serveurs.length > 0 && !botToken) {
       return { ok: false, message: t.jetonObligatoire };
     }
-    creerApplication({ name, host, clientId, clientSecret, guildId, botToken, gameId, welcome, publisher, contact });
+    creerApplication({ name, host, clientId, clientSecret, serveurs, botToken, gameId, welcome, publisher, contact });
   } else {
     const existante = configParId(id);
     if (!existante) return { ok: false, message: t.applicationDisparue };
-    if (guildId && !botToken && !existante.botToken) {
+    if (serveurs.length > 0 && !botToken && !existante.botToken) {
       return { ok: false, message: t.jetonObligatoire };
     }
     modifierApplication(id, {
@@ -116,10 +119,10 @@ export async function enregistrerApplication(_etat: unknown, donnees: FormData):
       host,
       clientId,
       ...(clientSecret ? { clientSecret } : {}),
-      guildId,
+      serveurs,
       // Lever le verrou retire aussi le jeton, s'il ne servait qu'à lui : la
       // commande tapée en a besoin pour se renommer et se défaire.
-      ...(botToken ? { botToken } : guildId || interactionsParId(id)?.clePublique ? {} : { botToken: "" }),
+      ...(botToken ? { botToken } : serveurs.length > 0 || interactionsParId(id)?.clePublique ? {} : { botToken: "" }),
       gameId,
       welcome,
       publisher,
@@ -190,40 +193,45 @@ export type RolesDiscord =
     };
 
 /**
- * Les rôles du serveur du verrou, lus à l'instant auprès de Discord, pour les
- * choisir par leur nom. Seuls leurs identifiants sont enregistrés.
+ * Les rôles d'un serveur du verrou, lus à l'instant auprès de Discord, pour
+ * les choisir par leur nom. Seuls leurs identifiants sont enregistrés.
  */
-export async function rolesDiscord(id: string): Promise<RolesDiscord> {
+export async function rolesDiscord(id: string, serveur: string): Promise<RolesDiscord> {
   await requireAdmin();
   const t = (await textes()).adminDiscord.actions;
   const application = configParId(id);
   if (!application) return { ok: false, message: t.applicationDisparue };
-  if (!application.guildId || !application.botToken) return { ok: false, message: t.rolesSansVerrou };
+  // Seulement un serveur du verrou : l'action ne lit pas les rôles d'un
+  // serveur quelconque où le bot se trouverait.
+  const permis = application.serveurs.find((candidat) => candidat.id === serveur);
+  if (!permis || !application.botToken) return { ok: false, message: t.rolesSansVerrou };
 
-  const lus = await rolesDuServeur({ jetonBot: application.botToken, serveur: application.guildId });
-  if (lus.ok) return { ok: true, roles: lus.roles, choisis: application.roles };
+  const lus = await rolesDuServeur({ jetonBot: application.botToken, serveur: permis.id });
+  if (lus.ok) return { ok: true, roles: lus.roles, choisis: permis.roles };
   if (lus.motif === "bot-absent") {
     return {
       ok: false,
       message: t.rolesBotAbsent,
-      invitation: invitationDuBot(application.clientId, application.guildId),
+      invitation: invitationDuBot(application.clientId, permis.id),
     };
   }
   return { ok: false, message: lus.motif === "jeton-refuse" ? t.rolesJetonRefuse : t.rolesInjoignable };
 }
 
-/** Réserve l'Activité à ces rôles ; aucun : tous les membres du serveur. */
-export async function definirRolesDiscord(id: string, roles: string[]): Promise<Resultat> {
+/** Réserve l'Activité, dans ce serveur, à ces rôles ; aucun : tous ses membres. */
+export async function definirRolesDiscord(id: string, serveur: string, roles: string[]): Promise<Resultat> {
   await requireAdmin();
   const t = (await textes()).adminDiscord.actions;
   const application = configParId(id);
   if (!application) return { ok: false, message: t.applicationDisparue };
-  if (!application.guildId || !application.botToken) return { ok: false, message: t.rolesSansVerrou };
+  if (!application.serveurs.some((candidat) => candidat.id === serveur) || !application.botToken) {
+    return { ok: false, message: t.rolesSansVerrou };
+  }
   if (!Array.isArray(roles) || roles.length > ROLES_MAX || roles.some((role) => typeof role !== "string" || !FORME_IDENTIFIANT.test(role))) {
     return { ok: false, message: t.rolesInvalides };
   }
   const uniques = [...new Set(roles)];
-  definirRoles(id, uniques);
+  definirRoles(id, serveur, uniques);
   revalidatePath("/admin/discord");
   return { ok: true, message: uniques.length > 0 ? t.rolesReserves(uniques.length) : t.rolesOuverts };
 }

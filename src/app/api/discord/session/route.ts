@@ -23,9 +23,10 @@ import { rateLimit } from "@/lib/rate-limit";
  * `src/lib/discord/applications.ts`) : chaque application a son nom d'hôte,
  * et l'environnement sert de repli.
  *
- * Si un serveur Discord est imposé à cette application, la page envoie aussi
- * le nom de son instance, et Discord confirme où elle tourne et que cet
- * utilisateur y est (`src/lib/discord/instance.ts`).
+ * Si des serveurs Discord sont imposés à cette application, la page envoie
+ * aussi le nom de son instance, et Discord confirme où elle tourne et que cet
+ * utilisateur y est (`src/lib/discord/instance.ts`). Les rôles réservés sont
+ * ceux du serveur où elle tourne.
  *
  * Le jeton d'accès Discord repart vers la page, qui en a besoin pour terminer
  * la poignée de main du SDK (`authenticate`). Il n'est ni conservé ni
@@ -82,9 +83,13 @@ export async function POST(request: Request) {
     // Le verrou, s'il est réglé : avant de créer le moindre compte, et bien
     // avant de servir le jeu. L'essai local n'y passe pas — il n'existe pas en
     // production, et n'a pas d'instance Discord à montrer.
-    if (application.guildId) {
+    if (application.serveurs.length > 0) {
       const lieu = await verifierLieu(
-        { application: application.clientId, jetonBot: application.botToken, serveur: application.guildId },
+        {
+          application: application.clientId,
+          jetonBot: application.botToken,
+          serveurs: application.serveurs.map((serveur) => serveur.id),
+        },
         corps.instance,
         profil.id,
       );
@@ -96,13 +101,15 @@ export async function POST(request: Request) {
         );
       }
 
-      // Puis les rôles, s'il y en a de réservés : le joueur est au bon
-      // endroit, reste à savoir s'il a le droit d'y jouer.
-      if (application.roles.length > 0) {
+      // Puis les rôles, s'il y en a de réservés dans ce serveur-là : le
+      // joueur est au bon endroit, reste à savoir s'il a le droit d'y jouer.
+      // Les rôles d'un autre serveur du verrou ne comptent pas ici.
+      const reserves = application.serveurs.find((serveur) => serveur.id === lieu.serveur)?.roles ?? [];
+      if (reserves.length > 0) {
         const droit = await verifierRoles(
-          { jetonBot: application.botToken, serveur: application.guildId },
+          { jetonBot: application.botToken, serveur: lieu.serveur },
           profil.id,
-          application.roles,
+          reserves,
         );
         if (!droit.permis) {
           console.warn(`[discord] session refusée par les rôles : ${droit.motif}`);

@@ -32,10 +32,14 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
   carte: {
     hoteDuSite: "(the site's host)",
     jeuIntrouvable: "game not found",
-    resume: (application: string, serveur: string, jetonManquant: boolean) =>
+    resume: (application: string, serveurs: string[], jetonManquant: boolean) =>
       `Application ${application}` +
-      (serveur ? ` · restricted to server ${serveur}` : " · playable in any server where Discord allows it") +
-      (serveur && jetonManquant ? " · no bot token!" : ""),
+      (serveurs.length === 0
+        ? " · playable in any server where Discord allows it"
+        : serveurs.length === 1
+          ? ` · restricted to server ${serveurs[0]}`
+          : ` · restricted to ${serveurs.length} servers: ${serveurs.join(", ")}`) +
+      (serveurs.length > 0 && jetonManquant ? " · no bot token!" : ""),
     modifier: MODIFIER,
     essayer: ESSAYER,
     essaiEnCours: "Testing…",
@@ -240,11 +244,13 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
         "Shown on those same pages: an email address, or how to reach you on Discord. " +
         "This is how a player asks for their data to be deleted.",
     },
-    verrou: "Restrict the Activity to a single Discord server",
+    verrou: "Restrict the Activity to certain Discord servers",
     serveur: {
-      libelle: "Server ID",
+      libelle: "Server IDs",
       /** « Copy Server ID », le libellé du client Discord en anglais. */
-      aide: "Right-click the server → Copy Server ID (with developer mode on).",
+      aide: (maximum: number) =>
+        `One per line, ${maximum} at most. Right-click the server → Copy Server ID (with developer mode on). ` +
+        "Restricted roles are then chosen server by server, on the application's card.",
     },
     jetonBot: {
       libelle: "Bot token",
@@ -372,7 +378,7 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
           "or the certificate is missing. Open the host in a browser to see which.",
         "`invalid_client` in the server log: wrong ID, or the Public Key put in place of the secret. " +
           "`invalid_grant`: expired code, relaunch the Activity.",
-        "“This Activity can only be played in its own Discord server”: the lock is refusing; check the server ID " +
+        "“This Activity can only be played in the Discord servers it is restricted to”: the lock is refusing; check the server ID " +
           `and the bot token with “${ESSAYER}”.`,
         "The application doesn't appear in the launcher: Activities → Settings, the platform isn't ticked; " +
           "or the server has 25 members or more; or the account is neither the owner, nor on the team, nor a tester.",
@@ -408,18 +414,20 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
     hoteInvalide: "The hostname is invalid: letters, digits, hyphens and dots, with no scheme or port.",
     /** Sans la parenthèse du français : elle donne le libellé du portail, qui est ici le nom même du champ. */
     identifiantInvalide: "The Application ID is a 17- to 20-digit number.",
-    serveurInvalide: "The server ID is a 17- to 20-digit number.",
+    serveurInvalide: "A server ID is a 17- to 20-digit number: one per line.",
+    serveursTrop: (maximum: number) => `The lock can hold at most ${maximum} servers.`,
     valeurTropLongue: "One of the values is too long.",
     jeuManquant: "Choose the game this Activity serves.",
     hoteDejaPris: "Another application already has this hostname.",
     secretObligatoire: "The Client Secret is required (OAuth2 tab of the portal).",
-    jetonObligatoire: "Locking to a server requires the bot token (Bot tab of the portal).",
+    jetonObligatoire: "The server lock requires the bot token (Bot tab of the portal).",
     applicationDisparue: "This application no longer exists.",
     modifiee: "Application updated.",
     enregistreeSurLeSite: "Application saved on the site's host. The Discord portal still has to be set up.",
     enregistree: "Application saved. The Discord portal and the hostname still have to be set up.",
     supprimee: "Application deleted. The accounts created through this Activity remain.",
-    rolesSansVerrou: "Restricting roles requires the server lock: the server ID and the bot token.",
+    rolesSansVerrou:
+      "Restricting roles requires this server to be in the lock, with the bot token: reload the page if the lock has just changed.",
     rolesBotAbsent: "Discord does not show this server to the bot: it has not been invited, or the server ID is wrong.",
     rolesJetonRefuse: "Discord rejects the saved bot token.",
     rolesInjoignable: "Discord did not return the server's roles. Try again in a moment.",

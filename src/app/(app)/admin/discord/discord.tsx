@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { Fragment, useActionState, useState, useTransition } from "react";
 import { useT } from "@/components/langue";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 import {
@@ -21,12 +21,13 @@ import {
   supprimerAstuceDiscord,
 } from "@/lib/admin/actions-discord";
 import type { Resultat } from "@/lib/admin/actions";
-import type { ApplicationDiscord } from "@/lib/discord/applications";
+import type { ApplicationDiscord, ServeurPermis } from "@/lib/discord/applications";
 import {
   LONGUEUR_MAX_ACCUEIL,
   LONGUEUR_MAX_ASTUCE,
   LONGUEUR_MAX_CONTACT,
   LONGUEUR_MAX_EDITEUR,
+  SERVEURS_MAX,
 } from "@/lib/discord/limites";
 import type { EssaiApplication, Verdict } from "@/lib/discord/essai";
 import { Prose, Tutoriel } from "./tutoriel";
@@ -143,7 +144,11 @@ function Carte({
             )}
           </p>
           <p className="text-xs text-ink-400">
-            {t.carte.resume(application.clientId, application.guildId, !application.botTokenDefini)}
+            {t.carte.resume(
+              application.clientId,
+              application.serveurs.map((serveur) => serveur.id),
+              !application.botTokenDefini,
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -186,8 +191,15 @@ function Carte({
         <ul className="flex flex-col gap-1 text-sm">
           <Ligne titre={t.essai.identifiants} verdict={essai.identifiants} />
           {essai.bot && <Ligne titre={t.essai.bot} verdict={essai.bot} />}
-          {essai.serveur && <Ligne titre={t.essai.serveur} verdict={essai.serveur} />}
-          {essai.roles && <Ligne titre={t.essai.roles} verdict={essai.roles} />}
+          {essai.serveurs.map((essaye) => (
+            <Fragment key={essaye.id}>
+              <Ligne
+                titre={essai.serveurs.length > 1 ? `${t.essai.serveur} ${essaye.id}` : t.essai.serveur}
+                verdict={essaye.serveur}
+              />
+              {essaye.roles && <Ligne titre={t.essai.roles} verdict={essaye.roles} />}
+            </Fragment>
+          ))}
         </ul>
       )}
 
@@ -195,7 +207,16 @@ function Carte({
 
       <CommandeDeLancement application={application} />
 
-      {application.guildId && application.botTokenDefini && <Roles application={application} />}
+      {/* Un panneau par serveur du verrou : un rôle n'existe que dans le sien. */}
+      {application.botTokenDefini &&
+        application.serveurs.map((serveur) => (
+          <Roles
+            key={serveur.id}
+            application={application}
+            serveur={serveur}
+            plusieurs={application.serveurs.length > 1}
+          />
+        ))}
 
       <Astuces application={application} />
     </Panel>
@@ -400,7 +421,16 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
  * Discord quand on ouvre le choix, avec le jeton de bot. C'est aussi là
  * qu'on apprend que le bot n'est pas dans le serveur, et comment l'y inviter.
  */
-function Roles({ application }: { application: ApplicationDiscord }) {
+function Roles({
+  application,
+  serveur,
+  plusieurs,
+}: {
+  application: ApplicationDiscord;
+  serveur: ServeurPermis;
+  /** Le verrou compte plusieurs serveurs : chaque panneau dit duquel il parle. */
+  plusieurs: boolean;
+}) {
   const [lus, setLus] = useState<RolesDiscord | null>(null);
   const [coches, setCoches] = useState<string[]>([]);
   const [retour, setRetour] = useState<Resultat | null>(null);
@@ -410,7 +440,7 @@ function Roles({ application }: { application: ApplicationDiscord }) {
   const lire = () =>
     demarrer(async () => {
       setRetour(null);
-      const reponse = await rolesDiscord(application.id);
+      const reponse = await rolesDiscord(application.id, serveur.id);
       setLus(reponse);
       if (reponse.ok) setCoches(reponse.choisis);
     });
@@ -423,6 +453,7 @@ function Roles({ application }: { application: ApplicationDiscord }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="text-sm font-semibold text-ink-200">
           {t.titre}
+          {plusieurs && <code className="ml-2 font-normal text-ink-50">{serveur.id}</code>}
           <span className="ml-2 font-normal text-ink-400">{t.explication}</span>
         </h4>
         {lus === null ? (
@@ -442,7 +473,7 @@ function Roles({ application }: { application: ApplicationDiscord }) {
 
       {lus === null && (
         <p className="text-xs text-ink-400">
-          {application.roles.length === 0 ? t.tous : t.reserves(application.roles.length)}
+          {serveur.roles.length === 0 ? t.tous : t.reserves(serveur.roles.length)}
         </p>
       )}
 
@@ -473,7 +504,7 @@ function Roles({ application }: { application: ApplicationDiscord }) {
           onSubmit={(evenement) => {
             evenement.preventDefault();
             demarrer(async () => {
-              const resultat = await definirRolesDiscord(application.id, coches);
+              const resultat = await definirRolesDiscord(application.id, serveur.id, coches);
               setRetour(resultat);
               if (resultat.ok) setLus(null);
             });
@@ -635,7 +666,7 @@ function MarcheASuivre({
           <li>
             <Prose texte={t.portail.mappings(hote)} />
           </li>
-          {application.guildId && (
+          {application.serveurs.length > 0 && (
             <li>
               <Prose texte={t.portail.bot} />
             </li>
@@ -676,7 +707,7 @@ function Formulaire({
 }) {
   const [retour, action, enCours] = useActionState<Resultat | null, FormData>(enregistrerApplication, null);
   const [, demarrer] = useTransition();
-  const [verrou, setVerrou] = useState(Boolean(application?.guildId));
+  const [verrou, setVerrou] = useState((application?.serveurs.length ?? 0) > 0);
   const nouvelle = application === null;
   const t = useT().adminDiscord.formulaire;
 
@@ -783,8 +814,18 @@ function Formulaire({
         </label>
         {verrou && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t.serveur.libelle} htmlFor="guildId" hint={t.serveur.aide}>
-              <Input id="guildId" name="guildId" defaultValue={application?.guildId ?? ""} required inputMode="numeric" pattern="\d{17,20}" autoComplete="off" />
+            <Field label={t.serveur.libelle} htmlFor="serveurs" hint={t.serveur.aide(SERVEURS_MAX)}>
+              <textarea
+                id="serveurs"
+                name="serveurs"
+                defaultValue={application?.serveurs.map((serveur) => serveur.id).join("\n") ?? ""}
+                required
+                rows={Math.min(6, Math.max(2, (application?.serveurs.length ?? 0) + 1))}
+                inputMode="numeric"
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-ink-50 placeholder:text-ink-700 focus:border-accent-500 focus:ring-2 focus:ring-accent-600/30 focus:outline-none"
+              />
             </Field>
             <Field
               label={t.jetonBot.libelle}

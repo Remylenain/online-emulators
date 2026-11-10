@@ -232,9 +232,9 @@ Tant qu'aucune Activité n'est configurée pour un hôte, `/discord` et
 - `invalid_client` dans le journal du serveur : identifiant faux, ou Public
   Key mise à la place du secret. `invalid_grant` : code périmé, relancer
   l'Activité.
-- « Cette Activité ne se joue que dans son serveur Discord » : le verrou
-  refuse ; vérifier l'identifiant du serveur et le jeton de bot avec « Essayer
-  auprès de Discord ».
+- « Cette Activité ne se joue que dans les serveurs Discord qui lui sont
+  réservés » : le verrou refuse ; vérifier l'identifiant du serveur et le
+  jeton de bot avec « Essayer auprès de Discord ».
 - L'application n'apparaît pas dans le lanceur : plateforme non cochée dans
   Activities → Settings ; serveur de 25 membres ou plus ; compte ni
   propriétaire, ni dans l'équipe, ni testeur.
@@ -495,10 +495,12 @@ poster l'invitation** le remet comme à l'origine.
 ## Verrouiller l'Activité sur un serveur
 
 Par défaut, l'Activité se joue partout où Discord accepte de la lancer. Pour
-la réserver à **un seul serveur** : dans l'administration, cocher *Réserver
-l'Activité à un seul serveur Discord*, avec l'identifiant du serveur (clic
-droit → Copier l'identifiant, mode développeur activé) et le jeton de bot
-(onglet Bot du portail). En repli, dans `.env` :
+la réserver à **certains serveurs** : dans l'administration, cocher *Réserver
+l'Activité à certains serveurs Discord*, avec leurs identifiants, un par ligne
+(clic droit sur le serveur → Copier l'identifiant, mode développeur activé),
+et le jeton de bot (onglet Bot du portail). Un seul serveur ou plusieurs,
+vingt au plus (`discord_app_servers`). En repli, dans `.env`, pour un seul
+serveur :
 
 ```
 DISCORD_SERVEUR="…"     # identifiant du serveur
@@ -507,9 +509,9 @@ DISCORD_BOT_TOKEN="…"   # Token, onglet Bot du portail
 
 À l'ouverture d'une session, le site demande alors à Discord où tourne
 l'instance de l'Activité et qui s'y trouve (`src/lib/discord/instance.ts`).
-La session n'est ouverte que si l'instance existe, qu'elle tourne dans ce
-serveur, et que l'utilisateur en fait partie. Sinon : pas de jeton, donc ni
-jeu ni sauvegarde.
+La session n'est ouverte que si l'instance existe, qu'elle tourne dans l'un
+de ces serveurs, et que l'utilisateur en fait partie. Sinon : pas de jeton,
+donc ni jeu ni sauvegarde.
 
 - La page ne décide de rien : elle donne le nom de son instance, et c'est
   Discord qui répond au site. Un nom inventé ne correspond à aucune instance.
@@ -523,21 +525,28 @@ jeu ni sauvegarde.
 ### Réserver à certains rôles
 
 Le verrou dit **où** l'Activité se joue ; les rôles disent **qui**, parmi les
-membres de ce serveur, a le droit d'y jouer. Sur la carte de l'application,
+membres d'un serveur, a le droit d'y jouer. Sur la carte de l'application,
 **Rôles réservés → Choisir les rôles** lit les rôles du serveur auprès de
 Discord et les propose par leur nom. Un seul rôle coché suffit au joueur ;
-aucune case cochée, et tous les membres du serveur jouent, comme avant. En
-repli, dans `.env` :
+aucune case cochée, et tous les membres du serveur jouent, comme avant.
+
+**Les rôles se choisissent serveur par serveur** : avec plusieurs serveurs
+dans le verrou, la carte montre un panneau par serveur, à son identifiant. Un
+rôle n'existe que dans son serveur ; ceux d'un serveur ne comptent pas dans un
+autre, et l'un peut être ouvert à tous ses membres quand l'autre est réservé.
+
+En repli, dans `.env`, pour le serveur de `DISCORD_SERVEUR` :
 
 ```
 DISCORD_ROLES="…,…"     # identifiants des rôles, séparés par des virgules
 ```
 
 À l'ouverture d'une session, après le contrôle du lieu, le site demande à
-Discord la fiche de membre du joueur dans ce serveur et y regarde ses rôles
-(`src/lib/discord/roles.ts`). Sans l'un des rôles réservés : pas de jeton.
+Discord la fiche de membre du joueur dans le serveur où l'Activité tourne et
+y regarde ses rôles (`src/lib/discord/roles.ts`). Sans l'un des rôles réservés
+de ce serveur-là : pas de jeton.
 
-- **Le bot doit être invité dans le serveur.** Discord ne répond sur les
+- **Le bot doit être invité dans chaque serveur où des rôles sont réservés.** Discord ne répond sur les
   membres d'un serveur qu'à un bot qui en fait partie — ce que le verrou
   seul ne demandait pas. Aucune permission à lui donner. Si le bot n'y est
   pas, l'écran de choix des rôles le dit et donne le lien d'invitation.
@@ -548,8 +557,10 @@ Discord la fiche de membre du joueur dans ce serveur et y regarde ses rôles
   n'ont pas pu être vérifiés.
 - Les rôles sont contrôlés à l'ouverture de la session, comme le verrou : un
   rôle retiré prend effet au lancement suivant.
-- Changer le serveur du verrou, ou le lever, oublie les rôles réservés : ils
-  n'existent pas ailleurs.
+- Retirer un serveur du verrou, ou lever le verrou, oublie ses rôles
+  réservés : ils n'existent pas ailleurs. Les autres serveurs gardent les
+  leurs, et un serveur ajouté s'ouvre à tous ses membres en attendant qu'on
+  lui choisisse des rôles.
 - L'Activité reste visible dans le lanceur de Discord pour tous les membres ;
   c'est en l'ouvrant qu'un membre sans rôle est refusé.
 - La politique de confidentialité de l'Activité le dit dès qu'un rôle est

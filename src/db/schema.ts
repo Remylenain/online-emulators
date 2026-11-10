@@ -532,16 +532,11 @@ export const discordApps = sqliteTable(
     host: text("host").notNull(),
     clientId: text("client_id").notNull(),
     clientSecret: text("client_secret").notNull(),
-    /** Verrou facultatif : le seul serveur Discord où l'Activité se joue. */
-    guildId: text("guild_id").notNull().default(""),
-    /** Exigé par le verrou ; vide sinon. */
-    botToken: text("bot_token").notNull().default(""),
     /**
-     * Les rôles du serveur du verrou qui donnent le droit de jouer : un
-     * tableau JSON d'identifiants. Vide : tous les membres du serveur. N'a de
-     * sens qu'avec le verrou (voir `src/lib/discord/roles.ts`).
+     * Exigé par le verrou — les serveurs où l'Activité se joue, dans
+     * `discord_app_servers` — et par la commande tapée ; vide sinon.
      */
-    roles: text("roles").notNull().default(""),
+    botToken: text("bot_token").notNull().default(""),
     gameId: text("game_id")
       .notNull()
       .references(() => games.id, { onDelete: "cascade" }),
@@ -568,6 +563,29 @@ export const discordApps = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
   (table) => [uniqueIndex("discord_apps_host_unique").on(table.host)],
+);
+
+/**
+ * Le verrou d'une Activité : les serveurs Discord où elle se joue. Aucune
+ * ligne : elle se joue partout où Discord accepte de la lancer.
+ *
+ * Chaque serveur a ses rôles réservés, parce qu'un rôle n'existe que dans
+ * son serveur : un tableau JSON d'identifiants, vide pour « tous les membres
+ * de ce serveur » (voir `src/lib/discord/roles.ts`).
+ */
+export const discordAppServers = sqliteTable(
+  "discord_app_servers",
+  {
+    appId: text("app_id")
+      .notNull()
+      .references(() => discordApps.id, { onDelete: "cascade" }),
+    guildId: text("guild_id").notNull(),
+    roles: text("roles").notNull().default(""),
+    /** L'ordre dans lequel l'administrateur les a saisis. */
+    position: integer("position").notNull().default(0),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (table) => [primaryKey({ columns: [table.appId, table.guildId] })],
 );
 
 /**

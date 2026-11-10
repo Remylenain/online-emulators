@@ -1,5 +1,5 @@
 /**
- * Le verrou de l'Activité : n'être jouable que dans un serveur Discord donné.
+ * Le verrou de l'Activité : n'être jouable que dans certains serveurs Discord.
  *
  * Discord n'a pas de réglage pour cela. Il a mieux : une route qui dit, pour
  * une instance d'Activité en cours, **où** elle tourne et **qui** s'y trouve.
@@ -23,12 +23,13 @@ export type Verrou = {
   /** Identifiant de l'application Discord. */
   application: string;
   jetonBot: string;
-  /** Le seul serveur où l'Activité accepte d'être jouée. */
-  serveur: string;
+  /** Les seuls serveurs où l'Activité accepte d'être jouée. */
+  serveurs: readonly string[];
 };
 
 export type Lieu =
-  | { permis: true }
+  /** `serveur` : celui des serveurs permis où l'instance tourne — c'est là qu'on regardera les rôles du joueur. */
+  | { permis: true; serveur: string }
   | {
       permis: false;
       /** Pour le journal du serveur ; la page ne reçoit qu'un message général. */
@@ -52,10 +53,10 @@ async function lireInstance(verrou: Verrou, instance: string): Promise<Instance 
 }
 
 /**
- * L'utilisateur joue-t-il bien dans le serveur permis ?
+ * L'utilisateur joue-t-il bien dans l'un des serveurs permis ?
  *
  * Trois conditions, toutes attestées par Discord : l'instance existe, elle
- * tourne dans ce serveur, et cet utilisateur en fait partie. La dernière
+ * tourne dans l'un de ces serveurs, et cet utilisateur en fait partie. La dernière
  * empêche de présenter l'instance de quelqu'un d'autre pour jouer d'ailleurs.
  *
  * En cas de doute — Discord injoignable, jeton de bot refusé —, c'est non :
@@ -75,10 +76,13 @@ export async function verifierLieu(verrou: Verrou, instance: unknown, utilisateu
     }
     if (lue === "erreur") return { permis: false, motif: "discord-injoignable" };
     if (lue === null) return { permis: false, motif: "instance-inconnue" };
-    if (lue.location?.guild_id !== verrou.serveur) return { permis: false, motif: "autre-serveur" };
+    const serveur = lue.location?.guild_id;
+    if (typeof serveur !== "string" || !verrou.serveurs.includes(serveur)) {
+      return { permis: false, motif: "autre-serveur" };
+    }
 
     const presents = Array.isArray(lue.users) ? lue.users : [];
-    if (presents.includes(utilisateur)) return { permis: true };
+    if (presents.includes(utilisateur)) return { permis: true, serveur };
 
     // L'instance est la bonne mais le joueur n'y figure pas encore : il vient
     // de l'ouvrir, et Discord met un instant à l'y inscrire.

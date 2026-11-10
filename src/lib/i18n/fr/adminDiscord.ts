@@ -64,10 +64,14 @@ export const adminDiscord = {
     /** À la place du titre du jeu, en minuscules : une étiquette, pas une phrase. */
     jeuIntrouvable: "jeu introuvable",
     /** La ligne de détail : l'application chez Discord, et où elle se joue. */
-    resume: (application: string, serveur: string, jetonManquant: boolean) =>
+    resume: (application: string, serveurs: string[], jetonManquant: boolean) =>
       `Application ${application}` +
-      (serveur ? ` · réservée au serveur ${serveur}` : " · jouable dans tout serveur où Discord l'accepte") +
-      (serveur && jetonManquant ? " · sans jeton de bot !" : ""),
+      (serveurs.length === 0
+        ? " · jouable dans tout serveur où Discord l'accepte"
+        : serveurs.length === 1
+          ? ` · réservée au serveur ${serveurs[0]}`
+          : ` · réservée à ${serveurs.length} serveurs : ${serveurs.join(", ")}`) +
+      (serveurs.length > 0 && jetonManquant ? " · sans jeton de bot !" : ""),
     modifier: MODIFIER,
     essayer: ESSAYER,
     essaiEnCours: "Essai…",
@@ -327,11 +331,13 @@ export const adminDiscord = {
         "Affiché sur ces mêmes pages : une adresse e-mail, ou comment te joindre sur Discord. " +
         "C'est par là qu'un joueur demande la suppression de ses données.",
     },
-    verrou: "Réserver l'Activité à un seul serveur Discord",
+    verrou: "Réserver l'Activité à certains serveurs Discord",
     serveur: {
-      libelle: "Identifiant du serveur",
+      libelle: "Identifiants des serveurs",
       /** « Copier l'identifiant » est le libellé du client Discord. */
-      aide: "Clic droit sur le serveur → Copier l'identifiant (mode développeur activé).",
+      aide: (maximum: number) =>
+        `Un par ligne, ${maximum} au plus. Clic droit sur le serveur → Copier l'identifiant (mode développeur activé). ` +
+        "Les rôles réservés se choisissent ensuite serveur par serveur, sur la carte de l'application.",
     },
     jetonBot: {
       libelle: "Jeton de bot",
@@ -464,7 +470,7 @@ export const adminDiscord = {
         "`invalid_client` dans le journal du serveur : identifiant faux, ou Public Key mise à la place du secret. " +
           "`invalid_grant` : code périmé, relancer l'Activité.",
         // Le refus du verrou, tel que l'Activité l'affiche au joueur.
-        "« Cette Activité ne se joue que dans son serveur Discord » : le verrou refuse ; vérifier l'identifiant " +
+        "« Cette Activité ne se joue que dans les serveurs Discord qui lui sont réservés » : le verrou refuse ; vérifier l'identifiant " +
           `du serveur et le jeton de bot avec « ${ESSAYER} ».`,
         "L'application n'apparaît pas dans le lanceur : Activities → Settings, la plateforme n'est pas cochée ; " +
           "ou le serveur a 25 membres ou plus ; ou le compte n'est ni le propriétaire, ni dans l'équipe, ni testeur.",
@@ -501,20 +507,22 @@ export const adminDiscord = {
     contactTropLong: (maximum: number) => `Le contact fait au plus ${maximum} caractères.`,
     hoteInvalide: "Le nom d'hôte est invalide : lettres, chiffres, tirets et points, sans schéma ni port.",
     identifiantInvalide: "L'identifiant d'application est un nombre de 17 à 20 chiffres (Application ID).",
-    serveurInvalide: "L'identifiant du serveur est un nombre de 17 à 20 chiffres.",
+    serveurInvalide: "L'identifiant d'un serveur est un nombre de 17 à 20 chiffres : un par ligne.",
+    serveursTrop: (maximum: number) => `Le verrou compte au plus ${maximum} serveurs.`,
     /** Le secret ou le jeton de bot : sans dire lequel, ni rien en répéter. */
     valeurTropLongue: "Une des valeurs est trop longue.",
     jeuManquant: "Choisis le jeu que cette Activité sert.",
     hoteDejaPris: "Une autre application a déjà ce nom d'hôte.",
     secretObligatoire: "Le Client Secret est obligatoire (onglet OAuth2 du portail).",
-    jetonObligatoire: "Le verrou sur un serveur demande le jeton de bot (onglet Bot du portail).",
+    jetonObligatoire: "Le verrou de serveur demande le jeton de bot (onglet Bot du portail).",
     /** Sert aussi à la carte, quand l'essai porte sur une application supprimée entre-temps. */
     applicationDisparue: "Cette application n'existe plus.",
     modifiee: "Application modifiée.",
     enregistreeSurLeSite: "Application enregistrée sur l'hôte du site. Reste à régler le portail Discord.",
     enregistree: "Application enregistrée. Reste à régler le portail Discord et le nom d'hôte.",
     supprimee: "Application supprimée. Les comptes nés de cette Activité restent.",
-    rolesSansVerrou: "Réserver des rôles demande le verrou de serveur : l'identifiant du serveur et le jeton de bot.",
+    rolesSansVerrou:
+      "Réserver des rôles demande que ce serveur soit dans le verrou, avec le jeton de bot : recharge la page si le verrou vient de changer.",
     rolesBotAbsent:
       "Discord ne montre pas ce serveur au bot : il n'y est pas invité, ou l'identifiant du serveur est faux.",
     rolesJetonRefuse: "Discord refuse le jeton de bot enregistré.",

@@ -9,3 +9,5 @@ export const LONGUEUR_MAX_ACCUEIL = 600;
 /** Qui propose l'Activité, et comment le joindre : une ligne chacun. */
 export const LONGUEUR_MAX_EDITEUR = 80;
 export const LONGUEUR_MAX_CONTACT = 200;
+/** Les serveurs du verrou d'une Activité. Au-delà, ce n'est plus un verrou : autant le lever. */
+export const SERVEURS_MAX = 20;

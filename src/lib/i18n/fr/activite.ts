@@ -180,7 +180,7 @@ export const activite = {
     codeManquant: "Code d'autorisation manquant.",
     essaiLocalDesactive: "Essai local désactivé.",
     /** L'Activité est réservée à un serveur Discord, et le joueur la lance ailleurs. */
-    horsServeur: "Cette Activité ne se joue que dans son serveur Discord.",
+    horsServeur: "Cette Activité ne se joue que dans les serveurs Discord qui lui sont réservés.",
     /** L'Activité est réservée à certains rôles du serveur, et le joueur n'en porte aucun. */
     sansRole: "Cette Activité est réservée à certains rôles de ce serveur, et tu n'en as aucun.",
     /** Les rôles n'ont pas pu être lus : un réglage à revoir, pas une faute du joueur. */

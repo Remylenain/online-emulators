@@ -228,8 +228,8 @@ As long as no Activity is configured for a host, `/discord` and
   browser to see which.
 - `invalid_client` in the server log: wrong ID, or the Public Key put in
   place of the secret. `invalid_grant`: expired code, relaunch the Activity.
-- "This Activity can only be played in its own Discord server": the lock is
-  refusing; check the server ID and the bot token with
+- "This Activity can only be played in the Discord servers it is restricted
+  to": the lock is refusing; check the server ID and the bot token with
   "Test against Discord".
 - The application doesn't appear in the launcher: platform not ticked in
   Activities → Settings; server of 25 members or more; account that is neither
@@ -488,10 +488,11 @@ the invite** puts it back as it was.
 ## Locking the Activity to one server
 
 By default, the Activity can be played anywhere Discord agrees to launch it.
-To restrict it to **a single server**: in the administration, tick
-*Restrict the Activity to a single Discord server*, with the server ID
-(right-click → Copy ID, developer mode enabled) and the bot token (Bot tab of
-the portal). As a fallback, in `.env`:
+To restrict it to **certain servers**: in the administration, tick
+*Restrict the Activity to certain Discord servers*, with their IDs, one per
+line (right-click the server → Copy Server ID, developer mode enabled), and
+the bot token (Bot tab of the portal). One server or several, twenty at most
+(`discord_app_servers`). As a fallback, in `.env`, for a single server:
 
 ```
 DISCORD_SERVEUR="…"     # the server's ID
@@ -500,8 +501,9 @@ DISCORD_BOT_TOKEN="…"   # Token, Bot tab of the portal
 
 When a session is opened, the site then asks Discord where the Activity's
 instance is running and who is in it (`src/lib/discord/instance.ts`).
-The session is only opened if the instance exists, runs in that server, and
-the user is part of it. Otherwise: no token, hence no game and no save.
+The session is only opened if the instance exists, runs in one of those
+servers, and the user is part of it. Otherwise: no token, hence no game and no
+save.
 
 - The page decides nothing: it gives the name of its instance, and it is
   Discord that answers the site. A made-up name matches no instance.
@@ -516,20 +518,28 @@ the user is part of it. Otherwise: no token, hence no game and no save.
 ### Restricting to certain roles
 
 The lock says **where** the Activity is played; roles say **who**, among the
-members of that server, is allowed to play. On the application's card,
+members of a server, is allowed to play. On the application's card,
 **Restricted roles → Choose the roles** reads the server's roles from Discord
 and offers them by name. One ticked role is enough for a player; with no box
-ticked, all members of the server play, as before. As a fallback, in `.env`:
+ticked, all members of the server play, as before.
+
+**Roles are chosen server by server**: with several servers in the lock, the
+card shows one panel per server, labelled with its ID. A role only exists in
+its own server; one server's roles do not count in another, and one can be
+open to all its members while another is restricted.
+
+As a fallback, in `.env`, for the server in `DISCORD_SERVEUR`:
 
 ```
 DISCORD_ROLES="…,…"     # role IDs, separated by commas
 ```
 
 When a session is opened, after the location check, the site asks Discord for
-the player's member record in that server and looks at their roles
-(`src/lib/discord/roles.ts`). Without one of the restricted roles: no token.
+the player's member record in the server where the Activity is running and
+looks at their roles (`src/lib/discord/roles.ts`). Without one of that
+server's restricted roles: no token.
 
-- **The bot must be invited to the server.** Discord only answers about a
+- **The bot must be invited to every server where roles are restricted.** Discord only answers about a
   server's members to a bot that belongs to it — which the lock alone did not
   require. It needs no permission. If the bot is not there, the role picker
   says so and gives the invitation link.
@@ -540,8 +550,10 @@ the player's member record in that server and looks at their roles
   roles could not be checked.
 - Roles are checked when the session is opened, like the lock: a role that is
   removed takes effect at the next launch.
-- Changing the lock's server, or lifting the lock, forgets the restricted
-  roles: they do not exist anywhere else.
+- Removing a server from the lock, or lifting the lock, forgets its
+  restricted roles: they do not exist anywhere else. The other servers keep
+  theirs, and an added server is open to all its members until roles are
+  chosen for it.
 - The Activity stays visible in Discord's launcher for all members; a member
   without a role is refused when opening it.
 - The Activity's privacy policy says so as soon as a role is restricted: the
