@@ -1,0 +1,1 @@
+ALTER TABLE `discord_apps` ADD `roles` text DEFAULT '' NOT NULL;

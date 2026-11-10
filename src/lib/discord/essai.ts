@@ -1,5 +1,6 @@
 import type { Dictionnaire } from "@/lib/i18n/dictionnaires";
 import type { ConfigActivite } from "./applications";
+import { rolesDuServeur } from "./roles";
 
 /**
  * Essayer les réglages d'une application auprès de Discord, depuis
@@ -9,7 +10,8 @@ import type { ConfigActivite } from "./applications";
  * - l'identifiant et le secret vont-ils ensemble ? (le jeton `client_credentials`
  *   s'obtient avec les deux, sans utilisateur) ;
  * - le jeton de bot est-il accepté ? ;
- * - le serveur du verrou existe-t-il, et le bot y est-il ?
+ * - le serveur du verrou existe-t-il, et le bot y est-il ? ;
+ * - les rôles réservés existent-ils encore, et le bot peut-il les lire ?
  *
  * Rien de secret ne sort d'ici : des verdicts, pas des jetons.
  */
@@ -23,6 +25,8 @@ export type EssaiApplication = {
   bot: Verdict | null;
   /** `null` : pas de verrou. */
   serveur: Verdict | null;
+  /** `null` : aucun rôle réservé. */
+  roles: Verdict | null;
 };
 
 /** Les textes des verdicts : ceux de la langue de l'administrateur qui lance l'essai. */
@@ -100,10 +104,30 @@ async function serveur(application: ConfigActivite, t: Libelles): Promise<Verdic
   }
 }
 
+/**
+ * Les rôles réservés ne pardonnent pas une erreur de réglage : si le bot ne
+ * peut pas les lire, ou s'ils ont été supprimés du serveur, plus personne
+ * n'entre. Autant le savoir d'ici.
+ */
+async function roles(application: ConfigActivite, t: Libelles): Promise<Verdict> {
+  const lus = await rolesDuServeur({ jetonBot: application.botToken, serveur: application.guildId });
+  if (!lus.ok) {
+    return { ok: false, detail: lus.motif === "bot-absent" ? t.rolesBotAbsent : t.rolesIllisibles };
+  }
+  const connus = new Map(lus.roles.map((role) => [role.id, role.nom]));
+  const disparus = application.roles.filter((id) => !connus.has(id)).length;
+  const noms = application.roles.flatMap((id) => connus.get(id) ?? []);
+  if (noms.length === 0) return { ok: false, detail: t.rolesTousDisparus };
+  return disparus > 0
+    ? { ok: false, detail: t.rolesDisparus(noms, disparus) }
+    : { ok: true, detail: t.rolesReserves(noms) };
+}
+
 export async function essayerApplication(application: ConfigActivite, t: Libelles): Promise<EssaiApplication> {
   return {
     identifiants: await identifiants(application, t),
     bot: application.botToken ? await bot(application, t) : null,
     serveur: application.guildId && application.botToken ? await serveur(application, t) : null,
+    roles: application.guildId && application.botToken && application.roles.length > 0 ? await roles(application, t) : null,
   };
 }

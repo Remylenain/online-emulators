@@ -176,6 +176,11 @@ export const activite = {
     essaiLocalDesactive: "Essai local désactivé.",
     /** L'Activité est réservée à un serveur Discord, et le joueur la lance ailleurs. */
     horsServeur: "Cette Activité ne se joue que dans son serveur Discord.",
+    /** L'Activité est réservée à certains rôles du serveur, et le joueur n'en porte aucun. */
+    sansRole: "Cette Activité est réservée à certains rôles de ce serveur, et tu n'en as aucun.",
+    /** Les rôles n'ont pas pu être lus : un réglage à revoir, pas une faute du joueur. */
+    rolesInverifiables:
+      "Tes rôles dans ce serveur n'ont pas pu être vérifiés. Réessaie dans un instant ; si cela dure, préviens les responsables du serveur.",
     compteDesactive: "Ce compte est désactivé.",
     emplacementInvalide: "Emplacement invalide.",
     etatVide: "État vide.",

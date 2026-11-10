@@ -398,10 +398,46 @@ jeu ni sauvegarde.
 - La page ne décide de rien : elle donne le nom de son instance, et c'est
   Discord qui répond au site. Un nom inventé ne correspond à aucune instance.
 - En cas de doute (Discord injoignable, jeton de bot refusé), c'est non.
-- Le jeton de bot ne sert qu'à cette question.
+- Le jeton de bot ne sert qu'à cette question, et à celle des rôles
+  ci-dessous.
 - `DISCORD_SERVEUR` sans `DISCORD_BOT_TOKEN` empêche le site de démarrer,
   plutôt que de laisser croire à un verrou qui ne vérifie rien.
 - Le verrou est contrôlé à l'ouverture de la session, valable douze heures.
+
+### Réserver à certains rôles
+
+Le verrou dit **où** l'Activité se joue ; les rôles disent **qui**, parmi les
+membres de ce serveur, a le droit d'y jouer. Sur la carte de l'application,
+**Rôles réservés → Choisir les rôles** lit les rôles du serveur auprès de
+Discord et les propose par leur nom. Un seul rôle coché suffit au joueur ;
+aucune case cochée, et tous les membres du serveur jouent, comme avant. En
+repli, dans `.env` :
+
+```
+DISCORD_ROLES="…,…"     # identifiants des rôles, séparés par des virgules
+```
+
+À l'ouverture d'une session, après le contrôle du lieu, le site demande à
+Discord la fiche de membre du joueur dans ce serveur et y regarde ses rôles
+(`src/lib/discord/roles.ts`). Sans l'un des rôles réservés : pas de jeton.
+
+- **Le bot doit être invité dans le serveur.** Discord ne répond sur les
+  membres d'un serveur qu'à un bot qui en fait partie — ce que le verrou
+  seul ne demandait pas. Aucune permission à lui donner. Si le bot n'y est
+  pas, l'écran de choix des rôles le dit et donne le lien d'invitation.
+- En cas de doute (bot absent, Discord injoignable), c'est non pour tout le
+  monde. **Essayer auprès de Discord** vérifie d'avance que le bot lit les
+  rôles et que ceux qui sont réservés existent encore.
+- Deux refus distincts pour le joueur : il n'a aucun des rôles, ou ses rôles
+  n'ont pas pu être vérifiés.
+- Les rôles sont contrôlés à l'ouverture de la session, comme le verrou : un
+  rôle retiré prend effet au lancement suivant.
+- Changer le serveur du verrou, ou le lever, oublie les rôles réservés : ils
+  n'existent pas ailleurs.
+- L'Activité reste visible dans le lanceur de Discord pour tous les membres ;
+  c'est en l'ouvrant qu'un membre sans rôle est refusé.
+- La politique de confidentialité de l'Activité le dit dès qu'un rôle est
+  réservé : la fiche de membre est lue, pas conservée.
 
 ## Ce que les joueurs voient de ton serveur
 
@@ -464,6 +500,7 @@ utilisateurs par une autre voie que le portail.
 | Vitesse et son, partagés avec le lecteur du site | `src/components/player/commandes.tsx` |
 | Mot d'accueil et astuces | `src/lib/discord/applications.ts` (`discord_tips`), `src/lib/admin/actions-discord.ts` |
 | OAuth, jeton, compte, jeu, verrou, applications par hôte | `src/lib/discord/` |
+| Rôles réservés | `src/lib/discord/roles.ts` |
 | Pages légales (confidentialité, conditions) | `src/app/discord/confidentialite/`, `src/app/discord/conditions/`, `src/components/discord/mentions.tsx`, `src/lib/discord/mentions.ts` |
 | L'onglet Discord de l'administration | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost et certificat d'un hôte d'Activité | `deploiement/scripts/hote-activite.sh` |

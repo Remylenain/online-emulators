@@ -21,13 +21,15 @@ export type Mentions = {
   editeur: string;
   contact: string;
   verrou: boolean;
+  /** L'Activité est réservée à certains rôles du serveur : la page dit ce qu'elle en lit. */
+  roles: boolean;
 };
 
 /**
  * La date de la dernière retouche des textes, la même pour les deux pages et
  * pour toutes les langues : une traduction ne change pas ce que le texte dit.
  */
-const MISE_A_JOUR = new Date(Date.UTC(2026, 10, 9));
+const MISE_A_JOUR = new Date(Date.UTC(2026, 10, 10));
 
 export function miseAJour(langue: Langue): string {
   return new Intl.DateTimeFormat(REGION[langue], { dateStyle: "long", timeZone: "UTC" }).format(MISE_A_JOUR);
@@ -50,7 +52,13 @@ export async function mentionsDeLaRequete(): Promise<Mentions> {
   const mentions = mentionsPourHote(hoteDeLaRequete(await headers()));
   const jeu = mentions ? await jeuDeLActivite(mentions.gameId) : null;
   if (!mentions || !jeu) notFound();
-  return { jeu: jeu.titre, editeur: mentions.editeur, contact: mentions.contact, verrou: mentions.verrou };
+  return {
+    jeu: jeu.titre,
+    editeur: mentions.editeur,
+    contact: mentions.contact,
+    verrou: mentions.verrou,
+    roles: mentions.roles,
+  };
 }
 
 /** Comme la page de l'Activité : rien du site qui l'héberge dans l'en-tête. */

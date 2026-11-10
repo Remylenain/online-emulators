@@ -5,8 +5,11 @@ import { useT } from "@/components/langue";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 import {
   ajouterAstuceDiscord,
+  definirRolesDiscord,
   enregistrerApplication,
   essayerApplicationDiscord,
+  rolesDiscord,
+  type RolesDiscord,
   supprimerApplicationDiscord,
   supprimerAstuceDiscord,
 } from "@/lib/admin/actions-discord";
@@ -177,13 +180,144 @@ function Carte({
           <Ligne titre={t.essai.identifiants} verdict={essai.identifiants} />
           {essai.bot && <Ligne titre={t.essai.bot} verdict={essai.bot} />}
           {essai.serveur && <Ligne titre={t.essai.serveur} verdict={essai.serveur} />}
+          {essai.roles && <Ligne titre={t.essai.roles} verdict={essai.roles} />}
         </ul>
       )}
 
       {marche && <MarcheASuivre application={application} surLeSite={application.host === hoteDuSite} />}
 
+      {application.guildId && application.botTokenDefini && <Roles application={application} />}
+
       <Astuces application={application} />
     </Panel>
+  );
+}
+
+/**
+ * Les rôles réservés : parmi les membres du serveur du verrou, ceux qui ont
+ * le droit de jouer. Absent sans verrou — des rôles ne désignent rien hors
+ * d'un serveur.
+ *
+ * Les noms des rôles ne sont pas enregistrés : ils se lisent auprès de
+ * Discord quand on ouvre le choix, avec le jeton de bot. C'est aussi là
+ * qu'on apprend que le bot n'est pas dans le serveur, et comment l'y inviter.
+ */
+function Roles({ application }: { application: ApplicationDiscord }) {
+  const [lus, setLus] = useState<RolesDiscord | null>(null);
+  const [coches, setCoches] = useState<string[]>([]);
+  const [retour, setRetour] = useState<Resultat | null>(null);
+  const [enCours, demarrer] = useTransition();
+  const t = useT().adminDiscord.roles;
+
+  const lire = () =>
+    demarrer(async () => {
+      setRetour(null);
+      const reponse = await rolesDiscord(application.id);
+      setLus(reponse);
+      if (reponse.ok) setCoches(reponse.choisis);
+    });
+
+  // Un rôle enregistré que le serveur n'a plus : montré, pour pouvoir le décocher.
+  const disparus = lus?.ok ? coches.filter((id) => !lus.roles.some((role) => role.id === id)) : [];
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-ink-800 pt-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold text-ink-200">
+          {t.titre}
+          <span className="ml-2 font-normal text-ink-400">{t.explication}</span>
+        </h4>
+        {lus === null ? (
+          <Button type="button" variant="ghost" disabled={enCours} onClick={lire}>
+            {enCours ? t.chargement : t.choisir}
+          </Button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setLus(null)}
+            className="text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
+          >
+            {t.fermer}
+          </button>
+        )}
+      </div>
+
+      {lus === null && (
+        <p className="text-xs text-ink-400">
+          {application.roles.length === 0 ? t.tous : t.reserves(application.roles.length)}
+        </p>
+      )}
+
+      {lus && !lus.ok && (
+        <>
+          <Alert tone="error">{lus.message}</Alert>
+          {lus.invitation && (
+            <p className="text-xs text-ink-300">
+              <a
+                href={lus.invitation}
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent-400 underline underline-offset-4"
+              >
+                {t.inviter}
+              </a>
+              . {t.apresInvitation}
+            </p>
+          )}
+          <Button type="button" variant="ghost" disabled={enCours} onClick={lire} className="self-start">
+            {enCours ? t.chargement : t.relire}
+          </Button>
+        </>
+      )}
+
+      {lus?.ok && (
+        <form
+          onSubmit={(evenement) => {
+            evenement.preventDefault();
+            demarrer(async () => {
+              const resultat = await definirRolesDiscord(application.id, coches);
+              setRetour(resultat);
+              if (resultat.ok) setLus(null);
+            });
+          }}
+          className="flex flex-col gap-2"
+        >
+          <p className="text-xs text-ink-400">{t.consigne}</p>
+          {lus.roles.length === 0 && disparus.length === 0 && <p className="text-xs text-ink-400">{t.aucunRole}</p>}
+          <ul className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+            {[...lus.roles, ...disparus.map((id) => ({ id, nom: id, couleur: 0, absent: true }))].map((role) => (
+              <li key={role.id}>
+                <label className="flex items-center gap-2 text-ink-200">
+                  <input
+                    type="checkbox"
+                    checked={coches.includes(role.id)}
+                    onChange={(evenement) =>
+                      setCoches((actuels) =>
+                        evenement.target.checked ? [...actuels, role.id] : actuels.filter((id) => id !== role.id),
+                      )
+                    }
+                    className="size-4 accent-accent-500"
+                  />
+                  <span
+                    aria-hidden
+                    className="size-2.5 shrink-0 rounded-full border border-ink-700"
+                    style={role.couleur ? { backgroundColor: `#${role.couleur.toString(16).padStart(6, "0")}` } : undefined}
+                  />
+                  <span className="min-w-0 truncate">{role.nom}</span>
+                  {"absent" in role && <span className="text-xs text-red-300">{t.disparu}</span>}
+                </label>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-ink-400">{t.quand}</p>
+          <Button type="submit" variant="ghost" disabled={enCours} className="self-start">
+            {t.enregistrer}
+          </Button>
+        </form>
+      )}
+
+      {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
+    </div>
   );
 }
 

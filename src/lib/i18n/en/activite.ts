@@ -124,6 +124,9 @@ export const activite: Dictionnaire["activite"] = {
     codeManquant: "Missing authorization code.",
     essaiLocalDesactive: "Local testing is turned off.",
     horsServeur: "This Activity can only be played in its own Discord server.",
+    sansRole: "This Activity is restricted to certain roles in this server, and you have none of them.",
+    rolesInverifiables:
+      "Your roles in this server could not be checked. Try again in a moment; if it keeps happening, tell the people who run the server.",
     compteDesactive: "This account has been disabled.",
     emplacementInvalide: "Invalid slot.",
     etatVide: "Empty save state.",

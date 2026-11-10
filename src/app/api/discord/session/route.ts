@@ -6,6 +6,7 @@ import { jeuDeLActivite } from "@/lib/discord/jeu";
 import { cleInstance, signerJeton } from "@/lib/discord/jeton";
 import { echangerCode, profilDiscord, type ProfilDiscord } from "@/lib/discord/oauth";
 import { verifierLieu } from "@/lib/discord/instance";
+import { verifierRoles } from "@/lib/discord/roles";
 import { textes } from "@/lib/i18n/serveur";
 import { discordEssaiLocal } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
@@ -93,6 +94,24 @@ export async function POST(request: Request) {
           { erreur: (await textes()).activite.serveur.horsServeur },
           { status: 403 },
         );
+      }
+
+      // Puis les rôles, s'il y en a de réservés : le joueur est au bon
+      // endroit, reste à savoir s'il a le droit d'y jouer.
+      if (application.roles.length > 0) {
+        const droit = await verifierRoles(
+          { jetonBot: application.botToken, serveur: application.guildId },
+          profil.id,
+          application.roles,
+        );
+        if (!droit.permis) {
+          console.warn(`[discord] session refusée par les rôles : ${droit.motif}`);
+          const t = (await textes()).activite.serveur;
+          // Deux refus distincts : « tu n'as pas le rôle » regarde le joueur ;
+          // « on n'a pas pu vérifier » regarde qui tient le serveur.
+          const sansDroit = droit.motif === "sans-role" || droit.motif === "pas-membre";
+          return NextResponse.json({ erreur: sansDroit ? t.sansRole : t.rolesInverifiables }, { status: 403 });
+        }
       }
     }
   }

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { discordApps, discordTips, games } from "@/db/schema";
 import { newId } from "@/lib/auth/session";
 import { env } from "@/lib/env";
+import { lireRoles } from "./roles";
 
 /**
  * Quelle Activité sert une requête ?
@@ -23,6 +24,8 @@ export type ConfigActivite = {
   /** Vides sans verrou. */
   guildId: string;
   botToken: string;
+  /** Les rôles du serveur du verrou qui donnent le droit de jouer ; vide : tous ses membres. */
+  roles: string[];
   /** Mot d'accueil ; vide : rien. L'environnement n'en a pas. */
   welcome: string;
 };
@@ -49,6 +52,7 @@ function depuisEnvironnement(): ConfigActivite | null {
     gameId: env.DISCORD_JEU,
     guildId: env.DISCORD_SERVEUR,
     botToken: env.DISCORD_BOT_TOKEN,
+    roles: lireRoles(env.DISCORD_ROLES),
     welcome: "",
   };
 }
@@ -65,6 +69,8 @@ export type MentionsActivite = {
   contact: string;
   /** Avec le verrou, le site interroge Discord sur le lieu de l'Activité : la page le dit. */
   verrou: boolean;
+  /** Avec des rôles réservés, il l'interroge aussi sur les rôles du joueur. */
+  roles: boolean;
 };
 
 export function mentionsPourHote(hote: string): MentionsActivite | null {
@@ -74,13 +80,25 @@ export function mentionsPourHote(hote: string): MentionsActivite | null {
       editeur: discordApps.publisher,
       contact: discordApps.contact,
       guildId: discordApps.guildId,
+      roles: discordApps.roles,
     })
     .from(discordApps)
     .where(eq(discordApps.host, hoteNormalise(hote)))
     .get();
-  if (ligne) return { gameId: ligne.gameId, editeur: ligne.editeur, contact: ligne.contact, verrou: ligne.guildId !== "" };
+  if (ligne) {
+    const verrou = ligne.guildId !== "";
+    return {
+      gameId: ligne.gameId,
+      editeur: ligne.editeur,
+      contact: ligne.contact,
+      verrou,
+      roles: verrou && lireRoles(ligne.roles).length > 0,
+    };
+  }
   const repli = depuisEnvironnement();
-  return repli ? { gameId: repli.gameId, editeur: "", contact: "", verrou: repli.guildId !== "" } : null;
+  return repli
+    ? { gameId: repli.gameId, editeur: "", contact: "", verrou: repli.guildId !== "", roles: repli.roles.length > 0 }
+    : null;
 }
 
 /** La configuration qui répond sur cet hôte, ou `null` : pas d'Activité ici. */
@@ -93,12 +111,13 @@ export function configPourHote(hote: string): ConfigActivite | null {
       gameId: discordApps.gameId,
       guildId: discordApps.guildId,
       botToken: discordApps.botToken,
+      roles: discordApps.roles,
       welcome: discordApps.welcome,
     })
     .from(discordApps)
     .where(eq(discordApps.host, hoteNormalise(hote)))
     .get();
-  return ligne ?? depuisEnvironnement();
+  return ligne ? { ...ligne, roles: lireRoles(ligne.roles) } : depuisEnvironnement();
 }
 
 /** L'hôte du site lui-même, tel que l'installation le déclare (`PUBLIC_URL`). */
@@ -139,6 +158,8 @@ export type ApplicationDiscord = {
   guildId: string;
   /** Le jeton lui-même ne redescend jamais : seulement s'il existe. */
   botTokenDefini: boolean;
+  /** Les identifiants des rôles réservés ; leurs noms se demandent à Discord. */
+  roles: string[];
   gameId: string;
   welcome: string;
   /** Qui propose l'Activité et comment le joindre, pour ses pages légales. */
@@ -158,6 +179,7 @@ export function listerApplications(): ApplicationDiscord[] {
       clientId: discordApps.clientId,
       guildId: discordApps.guildId,
       botToken: discordApps.botToken,
+      roles: discordApps.roles,
       gameId: discordApps.gameId,
       welcome: discordApps.welcome,
       publisher: discordApps.publisher,
@@ -169,9 +191,10 @@ export function listerApplications(): ApplicationDiscord[] {
     .leftJoin(games, eq(games.id, discordApps.gameId))
     .orderBy(asc(discordApps.name))
     .all()
-    .map(({ botToken, titre, console: consoleSlug, ...ligne }) => ({
+    .map(({ botToken, roles, titre, console: consoleSlug, ...ligne }) => ({
       ...ligne,
       botTokenDefini: botToken.length > 0,
+      roles: lireRoles(roles),
       astuces: listerAstuces(ligne.id),
       jeu: titre && consoleSlug ? { titre, console: consoleSlug } : null,
     }));
@@ -222,8 +245,14 @@ export function creerApplication(champs: ChampsApplication & { clientSecret: str
 }
 
 export function modifierApplication(id: string, champs: ChampsApplication): void {
+  // Des rôles ne valent que pour un serveur : changer de serveur, ou lever le
+  // verrou, les oublie. Les garder réserverait l'Activité à des rôles qui
+  // n'existent pas ailleurs, donc à personne.
+  const avant = db.select({ guildId: discordApps.guildId }).from(discordApps).where(eq(discordApps.id, id)).get();
+  const serveurChange = avant !== undefined && avant.guildId !== champs.guildId.trim();
   db.update(discordApps)
     .set({
+      ...(serveurChange ? { roles: "" } : {}),
       name: champs.name.trim(),
       host: hoteNormalise(champs.host),
       clientId: champs.clientId.trim(),
@@ -240,27 +269,35 @@ export function modifierApplication(id: string, champs: ChampsApplication): void
     .run();
 }
 
+/** Les rôles qui donnent le droit de jouer ; aucun : tous les membres du serveur. */
+export function definirRoles(id: string, roles: string[]): void {
+  db.update(discordApps)
+    .set({ roles: roles.length > 0 ? JSON.stringify(roles) : "", updatedAt: new Date() })
+    .where(eq(discordApps.id, id))
+    .run();
+}
+
 export function supprimerApplication(id: string): void {
   db.delete(discordApps).where(eq(discordApps.id, id)).run();
 }
 
 /** Les réglages complets d'une application, pour l'essayer auprès de Discord. */
 export function configParId(id: string): ConfigActivite | null {
-  return (
-    db
-      .select({
-        id: discordApps.id,
-        clientId: discordApps.clientId,
-        clientSecret: discordApps.clientSecret,
-        gameId: discordApps.gameId,
-        guildId: discordApps.guildId,
-        botToken: discordApps.botToken,
-        welcome: discordApps.welcome,
-      })
-      .from(discordApps)
-      .where(eq(discordApps.id, id))
-      .get() ?? null
-  );
+  const ligne = db
+    .select({
+      id: discordApps.id,
+      clientId: discordApps.clientId,
+      clientSecret: discordApps.clientSecret,
+      gameId: discordApps.gameId,
+      guildId: discordApps.guildId,
+      botToken: discordApps.botToken,
+      roles: discordApps.roles,
+      welcome: discordApps.welcome,
+    })
+    .from(discordApps)
+    .where(eq(discordApps.id, id))
+    .get();
+  return ligne ? { ...ligne, roles: lireRoles(ligne.roles) } : null;
 }
 
 // ---------------------------------------------------------------------------

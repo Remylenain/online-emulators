@@ -85,11 +85,22 @@ export const adminDiscord = {
     bot: "Jeton de bot",
     /** Le serveur Discord auquel le verrou réserve l'Activité. */
     serveur: "Serveur du verrou",
+    /** Les rôles du serveur qui donnent le droit de jouer. */
+    roles: "Rôles réservés",
     /**
      * Le détail de chaque verdict. Ces textes attendent leur raccord : c'est
      * `src/lib/discord/essai.ts` qui les écrit aujourd'hui, en français.
      */
     verdicts: {
+      rolesReserves: (noms: string[]) => `Seuls ces rôles peuvent jouer : ${noms.join(", ")}.`,
+      rolesDisparus: (noms: string[], disparus: number) =>
+        `${disparus === 1 ? "Un rôle réservé n'existe plus" : `${disparus} rôles réservés n'existent plus`} dans le serveur. ` +
+        `Restent : ${noms.join(", ")}.`,
+      rolesTousDisparus:
+        "Aucun des rôles réservés n'existe plus dans le serveur : personne ne peut entrer. Choisis-en d'autres, ou n'en réserve aucun.",
+      rolesBotAbsent:
+        "Le bot n'est pas dans le serveur : Discord ne lui dit rien des rôles, et personne ne peut entrer. Invite-le depuis « Rôles réservés ».",
+      rolesIllisibles: "Discord n'a pas donné les rôles du serveur : tant que cela dure, personne ne peut entrer.",
       identifiantsAcceptes: "Identifiant et secret acceptés par Discord.",
       identifiantsRefuses:
         "Discord refuse l'identifiant ou le secret (invalid_client). Le secret n'est pas la Public Key.",
@@ -108,6 +119,34 @@ export const adminDiscord = {
   },
 
   /** Le mot d'accueil et les astuces, au bas de la carte. */
+  /**
+   * Les rôles réservés : sous le verrou de serveur, qui dit où l'Activité se
+   * joue, ils disent qui a le droit d'y jouer.
+   */
+  roles: {
+    titre: "Rôles réservés",
+    explication: "Parmi les membres du serveur, qui peut jouer.",
+    tous: "Tous les membres du serveur peuvent jouer.",
+    reserves: (nombre: number) =>
+      nombre === 1 ? "Réservée à un rôle du serveur." : `Réservée à ${nombre} rôles du serveur.`,
+    choisir: "Choisir les rôles",
+    chargement: "Lecture des rôles…",
+    /** Au-dessus des cases : ce que cocher veut dire. */
+    consigne:
+      "Coche les rôles qui donnent le droit de jouer : un seul suffit au joueur. Aucune case cochée : tous les membres du serveur.",
+    aucunRole: "Ce serveur n'a aucun rôle à part « @everyone ».",
+    /** Un rôle enregistré que le serveur n'a plus : il ne sert à rien, autant le dire. */
+    disparu: "rôle supprimé du serveur",
+    enregistrer: "Enregistrer les rôles",
+    fermer: "Fermer",
+    /** Le bot doit être dans le serveur pour que Discord réponde sur ses membres. */
+    inviter: "Inviter le bot dans le serveur",
+    apresInvitation:
+      "Aucune permission à lui donner : il n'a qu'à y être. Une fois invité, reviens ici et relis les rôles.",
+    relire: "Relire les rôles",
+    /** Vérifié à chaque lancement seulement : dit ici pour ne pas le découvrir plus tard. */
+    quand: "Les rôles sont vérifiés à chaque lancement de l'Activité : un rôle retiré prend effet au lancement suivant.",
+  },
   astuces: {
     /** Suivi du mot d'accueil lui-même ; la ponctuation est celle de la langue. */
     accueil: "Mot d'accueil :",
@@ -404,6 +443,17 @@ export const adminDiscord = {
     enregistreeSurLeSite: "Application enregistrée sur l'hôte du site. Reste à régler le portail Discord.",
     enregistree: "Application enregistrée. Reste à régler le portail Discord et le nom d'hôte.",
     supprimee: "Application supprimée. Les comptes nés de cette Activité restent.",
+    rolesSansVerrou: "Réserver des rôles demande le verrou de serveur : l'identifiant du serveur et le jeton de bot.",
+    rolesBotAbsent:
+      "Discord ne montre pas ce serveur au bot : il n'y est pas invité, ou l'identifiant du serveur est faux.",
+    rolesJetonRefuse: "Discord refuse le jeton de bot enregistré.",
+    rolesInjoignable: "Discord n'a pas donné les rôles du serveur. Réessaie dans un instant.",
+    rolesInvalides: "La liste des rôles est invalide.",
+    rolesReserves: (nombre: number) =>
+      nombre === 1
+        ? "Activité réservée à un rôle. Effet au prochain lancement."
+        : `Activité réservée à ${nombre} rôles. Effet au prochain lancement.`,
+    rolesOuverts: "Plus aucun rôle réservé : tous les membres du serveur peuvent jouer.",
     astuceVide: "L'astuce est vide.",
     astuceTropLongue: (maximum: number) => `Une astuce fait au plus ${maximum} caractères.`,
     astuceAjoutee: "Astuce ajoutée.",

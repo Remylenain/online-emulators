@@ -44,6 +44,15 @@ const schema = z.object({
    */
   DISCORD_SERVEUR: z.string().regex(/^\d{17,20}$|^$/, "DISCORD_SERVEUR est un identifiant de serveur Discord").default(""),
   DISCORD_BOT_TOKEN: z.string().default(""),
+  /**
+   * Facultatif, avec `DISCORD_SERVEUR` : les identifiants des rôles qui
+   * donnent le droit de jouer, séparés par des virgules. Vide : tous les
+   * membres du serveur.
+   */
+  DISCORD_ROLES: z
+    .string()
+    .regex(/^(\d{17,20}(\s*,\s*\d{17,20})*)?$/, "DISCORD_ROLES est une liste d'identifiants de rôles, séparés par des virgules")
+    .default(""),
   /** « 1 » : ouvre `/discord` hors de Discord, pour l'essayer. Jamais en production. */
   DISCORD_ESSAI_LOCAL: z.string().default(""),
 });
@@ -54,6 +63,11 @@ const parsed = schema
     // Mieux vaut refuser de démarrer que démarrer avec un verrou qui ne
     // peut rien vérifier.
     message: "DISCORD_SERVEUR est réglé : DISCORD_BOT_TOKEN est alors obligatoire",
+  })
+  .refine((valeurs) => !valeurs.DISCORD_ROLES || valeurs.DISCORD_SERVEUR.length > 0, {
+    path: ["DISCORD_ROLES"],
+    // Des rôles sans serveur ne désignent rien : même raison que ci-dessus.
+    message: "DISCORD_ROLES est réglé : DISCORD_SERVEUR est alors obligatoire",
   })
   .safeParse(process.env);
 

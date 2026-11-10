@@ -536,6 +536,12 @@ export const discordApps = sqliteTable(
     guildId: text("guild_id").notNull().default(""),
     /** Exigé par le verrou ; vide sinon. */
     botToken: text("bot_token").notNull().default(""),
+    /**
+     * Les rôles du serveur du verrou qui donnent le droit de jouer : un
+     * tableau JSON d'identifiants. Vide : tous les membres du serveur. N'a de
+     * sens qu'avec le verrou (voir `src/lib/discord/roles.ts`).
+     */
+    roles: text("roles").notNull().default(""),
     gameId: text("game_id")
       .notNull()
       .references(() => games.id, { onDelete: "cascade" }),

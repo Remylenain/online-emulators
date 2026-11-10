@@ -9,6 +9,7 @@ import {
   ajouterAstuce,
   configParId,
   creerApplication,
+  definirRoles,
   hoteDejaPris,
   hoteDuSite,
   hoteNormalise,
@@ -17,6 +18,7 @@ import {
   supprimerAstuce,
 } from "@/lib/discord/applications";
 import { essayerApplication, type EssaiApplication } from "@/lib/discord/essai";
+import { invitationDuBot, ROLES_MAX, rolesDuServeur, type RoleDiscord } from "@/lib/discord/roles";
 import {
   LONGUEUR_MAX_ACCUEIL,
   LONGUEUR_MAX_ASTUCE,
@@ -160,4 +162,53 @@ export async function essayerApplicationDiscord(id: string): Promise<EssaiApplic
   const application = configParId(id);
   if (!application) return null;
   return essayerApplication(application, (await textes()).adminDiscord.essai.verdicts);
+}
+
+/** Ce que l'écran de choix des rôles reçoit de Discord. */
+export type RolesDiscord =
+  | { ok: true; roles: RoleDiscord[]; choisis: string[] }
+  | {
+      ok: false;
+      message: string;
+      /** Quand il ne manque que le bot dans le serveur : l'adresse qui l'y invite. */
+      invitation?: string;
+    };
+
+/**
+ * Les rôles du serveur du verrou, lus à l'instant auprès de Discord, pour les
+ * choisir par leur nom. Seuls leurs identifiants sont enregistrés.
+ */
+export async function rolesDiscord(id: string): Promise<RolesDiscord> {
+  await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
+  const application = configParId(id);
+  if (!application) return { ok: false, message: t.applicationDisparue };
+  if (!application.guildId || !application.botToken) return { ok: false, message: t.rolesSansVerrou };
+
+  const lus = await rolesDuServeur({ jetonBot: application.botToken, serveur: application.guildId });
+  if (lus.ok) return { ok: true, roles: lus.roles, choisis: application.roles };
+  if (lus.motif === "bot-absent") {
+    return {
+      ok: false,
+      message: t.rolesBotAbsent,
+      invitation: invitationDuBot(application.clientId, application.guildId),
+    };
+  }
+  return { ok: false, message: lus.motif === "jeton-refuse" ? t.rolesJetonRefuse : t.rolesInjoignable };
+}
+
+/** Réserve l'Activité à ces rôles ; aucun : tous les membres du serveur. */
+export async function definirRolesDiscord(id: string, roles: string[]): Promise<Resultat> {
+  await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
+  const application = configParId(id);
+  if (!application) return { ok: false, message: t.applicationDisparue };
+  if (!application.guildId || !application.botToken) return { ok: false, message: t.rolesSansVerrou };
+  if (!Array.isArray(roles) || roles.length > ROLES_MAX || roles.some((role) => typeof role !== "string" || !FORME_IDENTIFIANT.test(role))) {
+    return { ok: false, message: t.rolesInvalides };
+  }
+  const uniques = [...new Set(roles)];
+  definirRoles(id, uniques);
+  revalidatePath("/admin/discord");
+  return { ok: true, message: uniques.length > 0 ? t.rolesReserves(uniques.length) : t.rolesOuverts };
 }

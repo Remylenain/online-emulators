@@ -42,6 +42,13 @@ export function TexteConfidentialiteEn({ mentions }: { mentions: Mentions }) {
               it is running in and who is taking part, to check that you are a member. The answer is not kept.
             </li>
           )}
+          {mentions.roles && (
+            <li>
+              In this server, the Activity is restricted to certain roles. At each launch it therefore also asks
+              Discord for your server member record — your server nickname, your roles, the date you joined — and
+              looks only at your roles. The answer is not kept.
+            </li>
+          )}
         </ul>
       </section>
 

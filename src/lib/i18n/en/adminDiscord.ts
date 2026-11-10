@@ -51,7 +51,17 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
     identifiants: "ID and secret",
     bot: "Bot token",
     serveur: "Server for the lock",
+    roles: "Restricted roles",
     verdicts: {
+      rolesReserves: (noms: string[]) => `Only these roles can play: ${noms.join(", ")}.`,
+      rolesDisparus: (noms: string[], disparus: number) =>
+        `${disparus === 1 ? "One restricted role no longer exists" : `${disparus} restricted roles no longer exist`} in the server. ` +
+        `Remaining: ${noms.join(", ")}.`,
+      rolesTousDisparus:
+        "None of the restricted roles exist in the server any more: nobody can get in. Choose others, or restrict to none.",
+      rolesBotAbsent:
+        "The bot is not in the server: Discord tells it nothing about roles, and nobody can get in. Invite it from “Restricted roles”.",
+      rolesIllisibles: "Discord did not return the server's roles: as long as this lasts, nobody can get in.",
       identifiantsAcceptes: "ID and secret accepted by Discord.",
       identifiantsRefuses: "Discord rejects the ID or the secret (invalid_client). The secret is not the Public Key.",
       reponse: (code: number) => `Discord answered ${code}.`,
@@ -66,6 +76,26 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
     },
   },
 
+  roles: {
+    titre: "Restricted roles",
+    explication: "Among the server's members, who can play.",
+    tous: "All members of the server can play.",
+    reserves: (nombre: number) =>
+      nombre === 1 ? "Restricted to one role in the server." : `Restricted to ${nombre} roles in the server.`,
+    choisir: "Choose the roles",
+    chargement: "Reading the roles…",
+    consigne:
+      "Tick the roles that give the right to play: a player needs only one of them. No box ticked: all members of the server.",
+    aucunRole: "This server has no role other than “@everyone”.",
+    disparu: "role deleted from the server",
+    enregistrer: "Save the roles",
+    fermer: "Close",
+    inviter: "Invite the bot to the server",
+    apresInvitation:
+      "It needs no permission at all: it only has to be there. Once it is invited, come back here and read the roles again.",
+    relire: "Read the roles again",
+    quand: "Roles are checked each time the Activity is launched: a role that is removed takes effect at the next launch.",
+  },
   astuces: {
     accueil: "Welcome message:",
     sansAccueil: `No welcome message: “${MODIFIER}” to write one.`,
@@ -337,6 +367,16 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
     enregistreeSurLeSite: "Application saved on the site's host. The Discord portal still has to be set up.",
     enregistree: "Application saved. The Discord portal and the hostname still have to be set up.",
     supprimee: "Application deleted. The accounts created through this Activity remain.",
+    rolesSansVerrou: "Restricting roles requires the server lock: the server ID and the bot token.",
+    rolesBotAbsent: "Discord does not show this server to the bot: it has not been invited, or the server ID is wrong.",
+    rolesJetonRefuse: "Discord rejects the saved bot token.",
+    rolesInjoignable: "Discord did not return the server's roles. Try again in a moment.",
+    rolesInvalides: "The list of roles is invalid.",
+    rolesReserves: (nombre: number) =>
+      nombre === 1
+        ? "Activity restricted to one role. Takes effect at the next launch."
+        : `Activity restricted to ${nombre} roles. Takes effect at the next launch.`,
+    rolesOuverts: "No restricted roles any more: all members of the server can play.",
     astuceVide: "The tip is empty.",
     astuceTropLongue: (maximum: number) => `A tip can be at most ${maximum} characters long.`,
     astuceAjoutee: "Tip added.",

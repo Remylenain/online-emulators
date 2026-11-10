@@ -390,11 +390,46 @@ the user is part of it. Otherwise: no token, hence no game and no save.
 - The page decides nothing: it gives the name of its instance, and it is
   Discord that answers the site. A made-up name matches no instance.
 - When in doubt (Discord unreachable, bot token refused), the answer is no.
-- The bot token is used for this question only.
+- The bot token is used for this question only, and for the one about roles
+  below.
 - `DISCORD_SERVEUR` without `DISCORD_BOT_TOKEN` prevents the site from
   starting, rather than letting anyone believe in a lock that checks nothing.
 - The lock is checked when the session is opened; the session is valid for
   twelve hours.
+
+### Restricting to certain roles
+
+The lock says **where** the Activity is played; roles say **who**, among the
+members of that server, is allowed to play. On the application's card,
+**Restricted roles → Choose the roles** reads the server's roles from Discord
+and offers them by name. One ticked role is enough for a player; with no box
+ticked, all members of the server play, as before. As a fallback, in `.env`:
+
+```
+DISCORD_ROLES="…,…"     # role IDs, separated by commas
+```
+
+When a session is opened, after the location check, the site asks Discord for
+the player's member record in that server and looks at their roles
+(`src/lib/discord/roles.ts`). Without one of the restricted roles: no token.
+
+- **The bot must be invited to the server.** Discord only answers about a
+  server's members to a bot that belongs to it — which the lock alone did not
+  require. It needs no permission. If the bot is not there, the role picker
+  says so and gives the invitation link.
+- When in doubt (bot absent, Discord unreachable), the answer is no for
+  everyone. **Test against Discord** checks in advance that the bot can read
+  the roles and that the restricted ones still exist.
+- Two distinct refusals for the player: they have none of the roles, or their
+  roles could not be checked.
+- Roles are checked when the session is opened, like the lock: a role that is
+  removed takes effect at the next launch.
+- Changing the lock's server, or lifting the lock, forgets the restricted
+  roles: they do not exist anywhere else.
+- The Activity stays visible in Discord's launcher for all members; a member
+  without a role is refused when opening it.
+- The Activity's privacy policy says so as soon as a role is restricted: the
+  member record is read, not kept.
 
 ## What players can see of your server
 
@@ -459,6 +494,7 @@ by some route other than the portal.
 | Speed and sound, shared with the site's player | `src/components/player/commandes.tsx` |
 | Welcome message and tips | `src/lib/discord/applications.ts` (`discord_tips`), `src/lib/admin/actions-discord.ts` |
 | OAuth, token, account, game, lock, per-host applications | `src/lib/discord/` |
+| Restricted roles | `src/lib/discord/roles.ts` |
 | Legal pages (privacy, terms) | `src/app/discord/confidentialite/`, `src/app/discord/conditions/`, `src/components/discord/mentions.tsx`, `src/lib/discord/mentions.ts` |
 | The administration's Discord tab | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost and certificate for an Activity host | `deploiement/scripts/hote-activite.sh` |

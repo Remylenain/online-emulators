@@ -134,6 +134,13 @@
       "when": 1794222066640,
       "tag": "0018_mentions_discord",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1794298429584,
+      "tag": "0019_roles_discord",
+      "breakpoints": true
     }
   ]
 }
