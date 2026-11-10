@@ -371,6 +371,29 @@ change your keys without leaving the game, with the console paused, and
 applies on the site, and vice versa. Unverified: that Discord lets an
 Activity's iframe use the Gamepad API.
 
+## The launch command
+
+As soon as an application enables Activities, Discord creates an entry point
+command for it, named `launch`. It shows up in the App Launcher, and can be
+typed in a channel like any other command: Discord launches the Activity
+itself, and the site has nothing to receive. Since every Activity carries that
+same default name, renaming it makes it easier to find.
+
+On the application's card, **Launch command → Show the command** reads its
+name and description from Discord, and lets you change them — `/prism` instead
+of `/launch`. Nothing is stored in the site: Discord is the only source
+(`src/lib/discord/commande.ts`).
+
+- An application has only one entry point command: you rename it, you do not
+  add another.
+- The name follows Discord's rules: lowercase letters, digits and hyphens, no
+  spaces, 32 characters at most.
+- The site talks to Discord with the bot token if there is one, otherwise with
+  the application's ID and secret.
+- A change can take a few minutes to reach players.
+- Unverified in Discord's documentation: which channel types the command can
+  be typed in.
+
 ## Locking the Activity to one server
 
 By default, the Activity can be played anywhere Discord agrees to launch it.
@@ -497,6 +520,7 @@ by some route other than the portal.
 | Welcome message and tips | `src/lib/discord/applications.ts` (`discord_tips`), `src/lib/admin/actions-discord.ts` |
 | OAuth, token, account, game, lock, per-host applications | `src/lib/discord/` |
 | Restricted roles | `src/lib/discord/roles.ts` |
+| Launch command | `src/lib/discord/commande.ts` |
 | Legal pages (privacy, terms) | `src/app/discord/confidentialite/`, `src/app/discord/conditions/`, `src/components/discord/mentions.tsx`, `src/lib/discord/mentions.ts` |
 | The administration's Discord tab | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost and certificate for an Activity host | `deploiement/scripts/hote-activite.sh` |

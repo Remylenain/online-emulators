@@ -378,6 +378,29 @@ menu de pause. Ils enregistrent sur le compte Discord par
 vaut sur le site, et inversement. Non vérifié : que Discord laisse l'API
 Gamepad à l'iframe d'une Activité.
 
+## La commande de lancement
+
+Dès qu'une application active les Activités, Discord lui crée une commande
+d'entrée, nommée `launch`. Elle apparaît dans le lanceur d'applications, et se
+tape dans un salon comme n'importe quelle commande : c'est Discord qui lance
+l'Activité, le site n'a rien à recevoir. Toutes les Activités portant ce même
+nom par défaut, la renommer la rend plus facile à trouver.
+
+Sur la carte de l'application, **Commande de lancement → Voir la commande**
+lit son nom et sa description auprès de Discord, et permet de les changer —
+`/prism` au lieu de `/launch`. Rien n'est enregistré dans le site : Discord
+est la seule source (`src/lib/discord/commande.ts`).
+
+- Une application n'a qu'une commande d'entrée : on la renomme, on n'en
+  ajoute pas.
+- Le nom suit les règles de Discord : minuscules, chiffres et tirets, sans
+  espace, 32 caractères au plus.
+- Le site s'adresse à Discord avec le jeton de bot s'il y en a un, sinon avec
+  l'identifiant et le secret de l'application.
+- Un changement peut mettre quelques minutes à apparaître chez les joueurs.
+- Non vérifié dans la documentation de Discord : dans quels types de salons
+  la commande peut être tapée.
+
 ## Verrouiller l'Activité sur un serveur
 
 Par défaut, l'Activité se joue partout où Discord accepte de la lancer. Pour
@@ -503,6 +526,7 @@ utilisateurs par une autre voie que le portail.
 | Mot d'accueil et astuces | `src/lib/discord/applications.ts` (`discord_tips`), `src/lib/admin/actions-discord.ts` |
 | OAuth, jeton, compte, jeu, verrou, applications par hôte | `src/lib/discord/` |
 | Rôles réservés | `src/lib/discord/roles.ts` |
+| Commande de lancement | `src/lib/discord/commande.ts` |
 | Pages légales (confidentialité, conditions) | `src/app/discord/confidentialite/`, `src/app/discord/conditions/`, `src/components/discord/mentions.tsx`, `src/lib/discord/mentions.ts` |
 | L'onglet Discord de l'administration | `src/app/(app)/admin/discord/`, `src/lib/admin/actions-discord.ts` |
 | Vhost et certificat d'un hôte d'Activité | `deploiement/scripts/hote-activite.sh` |

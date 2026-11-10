@@ -5,9 +5,11 @@ import { useT } from "@/components/langue";
 import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 import {
   ajouterAstuceDiscord,
+  commandeDiscord,
   definirRolesDiscord,
   enregistrerApplication,
   essayerApplicationDiscord,
+  renommerCommandeDiscord,
   rolesDiscord,
   type RolesDiscord,
   supprimerApplicationDiscord,
@@ -186,10 +188,130 @@ function Carte({
 
       {marche && <MarcheASuivre application={application} surLeSite={application.host === hoteDuSite} />}
 
+      <CommandeDeLancement application={application} />
+
       {application.guildId && application.botTokenDefini && <Roles application={application} />}
 
       <Astuces application={application} />
     </Panel>
+  );
+}
+
+/**
+ * La commande qui lance l'Activité dans Discord : `/launch` tant qu'on ne l'a
+ * pas renommée. Rien n'est enregistré ici — c'est Discord qui la tient, on la
+ * lui lit quand on ouvre le panneau, et on la lui renvoie renommée.
+ */
+function CommandeDeLancement({ application }: { application: ApplicationDiscord }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [nom, setNom] = useState("");
+  const [description, setDescription] = useState("");
+  const [connue, setConnue] = useState<string | null>(null);
+  const [retour, setRetour] = useState<Resultat | null>(null);
+  const [enCours, demarrer] = useTransition();
+  const t = useT().adminDiscord.commande;
+
+  const lire = () =>
+    demarrer(async () => {
+      setRetour(null);
+      const reponse = await commandeDiscord(application.id);
+      setOuvert(true);
+      if (reponse.ok) {
+        setErreur(null);
+        setNom(reponse.nom);
+        setDescription(reponse.description);
+        setConnue(reponse.nom);
+      } else {
+        setErreur(reponse.message);
+      }
+    });
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-ink-800 pt-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold text-ink-200">
+          {t.titre}
+          {connue && <code className="ml-2 font-normal text-ink-50">/{connue}</code>}
+          <span className="ml-2 font-normal text-ink-400">{t.explication}</span>
+        </h4>
+        {ouvert ? (
+          <button
+            type="button"
+            onClick={() => setOuvert(false)}
+            className="text-xs text-ink-400 underline-offset-4 hover:text-ink-50 hover:underline"
+          >
+            {t.fermer}
+          </button>
+        ) : (
+          <Button type="button" variant="ghost" disabled={enCours} onClick={lire}>
+            {enCours ? t.chargement : t.voir}
+          </Button>
+        )}
+      </div>
+
+      {ouvert && erreur && (
+        <>
+          <Alert tone="error">{erreur}</Alert>
+          <Button type="button" variant="ghost" disabled={enCours} onClick={lire} className="self-start">
+            {enCours ? t.chargement : t.relire}
+          </Button>
+        </>
+      )}
+
+      {ouvert && !erreur && (
+        <form
+          onSubmit={(evenement) => {
+            evenement.preventDefault();
+            demarrer(async () => {
+              const resultat = await renommerCommandeDiscord(application.id, nom, description);
+              setRetour(resultat);
+              // Ce que Discord a retenu, pas ce qui a été tapé : on relit.
+              if (resultat.ok) {
+                const relue = await commandeDiscord(application.id);
+                if (relue.ok) {
+                  setNom(relue.nom);
+                  setDescription(relue.description);
+                  setConnue(relue.nom);
+                }
+              }
+            });
+          }}
+          className="flex flex-col gap-3"
+        >
+          <p className="text-xs text-ink-400">{t.consigne}</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,12rem)_1fr]">
+            <Field label={t.nom} htmlFor={`commande-nom-${application.id}`} hint={t.aideNom}>
+              <Input
+                id={`commande-nom-${application.id}`}
+                value={nom}
+                onChange={(evenement) => setNom(evenement.target.value)}
+                maxLength={32}
+                required
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </Field>
+            <Field label={t.description} htmlFor={`commande-description-${application.id}`} hint={t.aideDescription}>
+              <Input
+                id={`commande-description-${application.id}`}
+                value={description}
+                onChange={(evenement) => setDescription(evenement.target.value)}
+                maxLength={100}
+                required
+                autoComplete="off"
+              />
+            </Field>
+          </div>
+          <p className="text-xs text-ink-400">{t.delai}</p>
+          <Button type="submit" variant="ghost" disabled={enCours} className="self-start">
+            {t.renommer}
+          </Button>
+        </form>
+      )}
+
+      {retour && <Alert tone={retour.ok ? "success" : "error"}>{retour.message}</Alert>}
+    </div>
   );
 }
 

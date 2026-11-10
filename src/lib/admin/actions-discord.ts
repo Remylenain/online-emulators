@@ -17,6 +17,13 @@ import {
   supprimerApplication,
   supprimerAstuce,
 } from "@/lib/discord/applications";
+import {
+  commandeDEntree,
+  DESCRIPTION_COMMANDE_MAX,
+  FORME_NOM_COMMANDE,
+  renommerCommandeDEntree,
+  type Refus as RefusCommande,
+} from "@/lib/discord/commande";
 import { essayerApplication, type EssaiApplication } from "@/lib/discord/essai";
 import { invitationDuBot, ROLES_MAX, rolesDuServeur, type RoleDiscord } from "@/lib/discord/roles";
 import {
@@ -211,4 +218,58 @@ export async function definirRolesDiscord(id: string, roles: string[]): Promise<
   definirRoles(id, uniques);
   revalidatePath("/admin/discord");
   return { ok: true, message: uniques.length > 0 ? t.rolesReserves(uniques.length) : t.rolesOuverts };
+}
+
+/** Ce que l'écran de la commande de lancement reçoit de Discord. */
+export type CommandeDiscord = { ok: true; nom: string; description: string } | { ok: false; message: string };
+
+function refusDeCommande(
+  refus: RefusCommande,
+  t: Awaited<ReturnType<typeof textes>>["adminDiscord"]["actions"],
+): { ok: false; message: string } {
+  switch (refus.motif) {
+    case "identifiants-refuses":
+      return { ok: false, message: t.commandeIdentifiants };
+    case "sans-commande":
+      return { ok: false, message: t.commandeAbsente };
+    case "refusee":
+      return { ok: false, message: t.commandeRefusee(refus.detail) };
+    default:
+      return { ok: false, message: t.commandeInjoignable };
+  }
+}
+
+/** La commande qui lance l'Activité, telle que Discord la connaît à l'instant. */
+export async function commandeDiscord(id: string): Promise<CommandeDiscord> {
+  await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
+  const application = configParId(id);
+  if (!application) return { ok: false, message: t.applicationDisparue };
+  const lue = await commandeDEntree({
+    application: application.clientId,
+    secret: application.clientSecret,
+    jetonBot: application.botToken,
+  });
+  return lue.ok ? { ok: true, nom: lue.commande.nom, description: lue.commande.description } : refusDeCommande(lue, t);
+}
+
+/** Renomme la commande qui lance l'Activité : `/prism` au lieu de `/launch`. */
+export async function renommerCommandeDiscord(id: string, nom: string, description: string): Promise<Resultat> {
+  await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
+  const application = configParId(id);
+  if (!application) return { ok: false, message: t.applicationDisparue };
+  // Une barre oblique tapée par habitude ne fait pas partie du nom.
+  const propre = String(nom).trim().replace(/^\//, "");
+  const phrase = String(description).trim().replace(/\s+/g, " ");
+  if (!FORME_NOM_COMMANDE.test(propre)) return { ok: false, message: t.commandeNomInvalide };
+  if (phrase.length < 1 || phrase.length > DESCRIPTION_COMMANDE_MAX) {
+    return { ok: false, message: t.commandeDescriptionInvalide(DESCRIPTION_COMMANDE_MAX) };
+  }
+  const faite = await renommerCommandeDEntree(
+    { application: application.clientId, secret: application.clientSecret, jetonBot: application.botToken },
+    propre,
+    phrase,
+  );
+  return faite.ok ? { ok: true, message: t.commandeRenommee(faite.commande.nom) } : refusDeCommande(faite, t);
 }

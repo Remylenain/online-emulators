@@ -147,6 +147,29 @@ export const adminDiscord = {
     /** Vérifié à chaque lancement seulement : dit ici pour ne pas le découvrir plus tard. */
     quand: "Les rôles sont vérifiés à chaque lancement de l'Activité : un rôle retiré prend effet au lancement suivant.",
   },
+  /**
+   * La commande de lancement : celle que Discord crée pour toute Activité,
+   * `/launch` par défaut. La renommer la rend plus parlante — `/prism`.
+   */
+  commande: {
+    titre: "Commande de lancement",
+    explication: "Ce que les joueurs tapent dans un salon pour lancer l'Activité.",
+    voir: "Voir la commande",
+    chargement: "Lecture de la commande…",
+    fermer: "Fermer",
+    /** Au-dessus du formulaire : d'où vient cette commande, et où elle sert. */
+    consigne:
+      "Discord crée cette commande pour toute Activité, sous le nom « launch ». Elle apparaît dans le lanceur " +
+      "d'applications et se tape dans n'importe quel salon, vocal ou non. Une application n'en a qu'une.",
+    nom: "Nom",
+    aideNom: "En minuscules, sans espace ni barre oblique : lettres, chiffres, tirets. 32 caractères au plus.",
+    description: "Description",
+    aideDescription: "Affichée à côté de la commande quand un joueur la tape.",
+    renommer: "Renommer la commande",
+    /** Discord met un moment à répandre un changement de commande. */
+    delai: "Un changement peut mettre quelques minutes à apparaître chez les joueurs ; relancer Discord l'accélère.",
+    relire: "Relire la commande",
+  },
   astuces: {
     /** Suivi du mot d'accueil lui-même ; la ponctuation est celle de la langue. */
     accueil: "Mot d'accueil :",
@@ -454,6 +477,17 @@ export const adminDiscord = {
         ? "Activité réservée à un rôle. Effet au prochain lancement."
         : `Activité réservée à ${nombre} rôles. Effet au prochain lancement.`,
     rolesOuverts: "Plus aucun rôle réservé : tous les membres du serveur peuvent jouer.",
+    commandeIdentifiants: "Discord refuse les identifiants enregistrés : la commande n'a pas pu être lue.",
+    commandeAbsente:
+      "Cette application n'a pas de commande de lancement : active les Activités dans le portail (Activities → Settings), Discord la crée alors.",
+    commandeInjoignable: "Discord n'a pas répondu. Réessaie dans un instant.",
+    /** `detail` : ce que Discord en dit, en anglais — c'est lui qui sait ce qui ne va pas. */
+    commandeRefusee: (detail?: string) =>
+      detail ? `Discord refuse ce nom ou cette description : ${detail}` : "Discord refuse ce nom ou cette description.",
+    commandeNomInvalide:
+      "Le nom est invalide : des minuscules, des chiffres et des tirets, sans espace, 32 caractères au plus.",
+    commandeDescriptionInvalide: (max: number) => `La description fait entre 1 et ${max} caractères.`,
+    commandeRenommee: (nom: string) => `La commande s'appelle maintenant /${nom}.`,
     astuceVide: "L'astuce est vide.",
     astuceTropLongue: (maximum: number) => `Une astuce fait au plus ${maximum} caractères.`,
     astuceAjoutee: "Astuce ajoutée.",

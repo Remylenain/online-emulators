@@ -96,6 +96,23 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
     relire: "Read the roles again",
     quand: "Roles are checked each time the Activity is launched: a role that is removed takes effect at the next launch.",
   },
+  commande: {
+    titre: "Launch command",
+    explication: "What players type in a channel to launch the Activity.",
+    voir: "Show the command",
+    chargement: "Reading the command…",
+    fermer: "Close",
+    consigne:
+      "Discord creates this command for every Activity, under the name “launch”. It shows up in the App Launcher " +
+      "and can be typed in any channel, voice or not. An application has only one.",
+    nom: "Name",
+    aideNom: "Lowercase, with no space or slash: letters, digits, hyphens. 32 characters at most.",
+    description: "Description",
+    aideDescription: "Shown next to the command when a player types it.",
+    renommer: "Rename the command",
+    delai: "A change can take a few minutes to reach players; restarting Discord speeds it up.",
+    relire: "Read the command again",
+  },
   astuces: {
     accueil: "Welcome message:",
     sansAccueil: `No welcome message: “${MODIFIER}” to write one.`,
@@ -377,6 +394,15 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
         ? "Activity restricted to one role. Takes effect at the next launch."
         : `Activity restricted to ${nombre} roles. Takes effect at the next launch.`,
     rolesOuverts: "No restricted roles any more: all members of the server can play.",
+    commandeIdentifiants: "Discord rejects the saved credentials: the command could not be read.",
+    commandeAbsente:
+      "This application has no launch command: enable Activities in the portal (Activities → Settings), and Discord will create it.",
+    commandeInjoignable: "Discord did not answer. Try again in a moment.",
+    commandeRefusee: (detail?: string) =>
+      detail ? `Discord rejects this name or description: ${detail}` : "Discord rejects this name or description.",
+    commandeNomInvalide: "The name is invalid: lowercase letters, digits and hyphens, no spaces, 32 characters at most.",
+    commandeDescriptionInvalide: (max: number) => `The description must be 1 to ${max} characters long.`,
+    commandeRenommee: (nom: string) => `The command is now called /${nom}.`,
     astuceVide: "The tip is empty.",
     astuceTropLongue: (maximum: number) => `A tip can be at most ${maximum} characters long.`,
     astuceAjoutee: "Tip added.",
