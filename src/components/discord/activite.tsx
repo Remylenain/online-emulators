@@ -157,8 +157,11 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   const [vitesse, setVitesse] = useState(1);
   const vitesseRef = useRef(1);
   const [accelere, setAccelere] = useState(false);
-  /** Le menu de pause, par-dessus le jeu ; la console est en pause pendant ce temps. */
-  const [panneau, setPanneau] = useState<"pause" | null>(null);
+  /**
+   * Ce qui s'affiche par-dessus le jeu, console en pause : le menu de pause,
+   * ou les touches et la manette, qu'on ouvre depuis lui et qui y ramènent.
+   */
+  const [panneau, setPanneau] = useState<"pause" | "reglages" | null>(null);
   const [tactile, setTactile] = useState(false);
   const [isolation, setIsolation] = useState<boolean | null>(null);
 
@@ -429,7 +432,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   }, []);
 
   /** Un panneau par-dessus le jeu met la console en pause ; la refermer la relance. */
-  const ouvrirPanneau = useCallback((lequel: "pause" | null) => {
+  const ouvrirPanneau = useCallback((lequel: "pause" | "reglages" | null) => {
     const emulateur = emulateurRef.current;
     if (lequel) emulateur?.pause();
     else emulateur?.reprendre();
@@ -472,17 +475,22 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
     (touche: Touche, enfonce: boolean) => {
       const emulateur = emulateurRef.current;
       if (!emulateur) return;
+      // Pendant le réglage en cours de partie, la manette est lue pour être
+      // reconnue et réglée, pas pour jouer : ses appuis ne vont pas au jeu.
+      // Les relâchements passent toujours, sans quoi un bouton tenu au moment
+      // d'ouvrir la pause resterait enfoncé à la reprise.
+      if (enfonce && panneau !== null) return;
       if (touche === "FAST") accelerer(enfonce);
       else emulateur.bouton(touche as Bouton, enfonce);
     },
-    [accelerer],
+    [accelerer, panneau],
   );
   const manette = useManette(
     session?.jeu.console ?? "gb",
     dispositions.manette,
     dispositions.manettes,
     surToucheManette,
-    (etape === "jeu" && panneau === null) || reglages,
+    (etape === "jeu" && panneau !== "pause") || reglages,
     enregistreur,
   );
 
@@ -648,6 +656,8 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
               <Commande onClick={() => ouvrirPanneau(null)}>{t.activite.pause.reprendre}</Commande>
             </div>
             {session.accueil.astuces.length > 0 && <AstucesQuiDefilent liste={session.accueil.astuces} />}
+            {/* Les mêmes réglages qu'à l'accueil, sans quitter la partie. */}
+            <Commande onClick={() => ouvrirPanneau("reglages")}>{t.activite.reglages.titre}</Commande>
             <p className="text-xs text-ink-400">{t.activite.pause.explication}</p>
             <Savestates
               gameId={session.jeu.id}
@@ -656,6 +666,21 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
               surEcrire={() => emulateurRef.current?.ecrireEtat() ?? null}
               surLire={(donnees) => emulateurRef.current?.lireEtat(PASSAGE, donnees) ?? false}
               surVignette={capturerEcran}
+            />
+          </div>
+        )}
+
+        {etape === "jeu" && panneau === "reglages" && session && (
+          <div className="absolute inset-0 flex justify-center overflow-y-auto bg-ink-950/95">
+            <ReglagesActivite
+              consoleSlug={session.jeu.console}
+              tactile={tactile}
+              touches={touches}
+              surTouches={setTouches}
+              manette={manette}
+              enregistreur={enregistreur}
+              // Retour au menu de pause : la console reste en pause.
+              fermer={() => ouvrirPanneau("pause")}
             />
           </div>
         )}
@@ -675,8 +700,8 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
           )}
           {etape === "jeu" && (
             <>
-              <Commande onClick={() => ouvrirPanneau(panneau === "pause" ? null : "pause")} actif={panneau === "pause"}>
-                {panneau === "pause" ? t.activite.pause.fermer : t.activite.pause.ouvrir}
+              <Commande onClick={() => ouvrirPanneau(panneau === null ? "pause" : null)} actif={panneau !== null}>
+                {panneau === null ? t.activite.pause.ouvrir : t.activite.pause.fermer}
               </Commande>
               <ChoixVitesse
                 valeur={vitesse}

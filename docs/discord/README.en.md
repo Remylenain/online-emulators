@@ -364,7 +364,9 @@ menu:
 ## Keys and controller
 
 The "Keys and controller" button on the home screen opens the same screens as
-the site's player. They save to the Discord account through
+the site's player. In solo play, the pause menu has the same button: you
+change your keys without leaving the game, with the console paused, and
+"Close" brings you back to the pause menu. They save to the Discord account through
 `/api/discord/touches` (token in a header); a setting made in the Activity
 applies on the site, and vice versa. Unverified: that Discord lets an
 Activity's iframe use the Gamepad API.

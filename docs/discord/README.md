@@ -371,7 +371,9 @@ En solo, « Pause » en bas de l'écran arrête la console et ouvre le menu :
 ## Touches et manette
 
 Le bouton « Touches et manette » de l'accueil ouvre les mêmes écrans que le
-lecteur du site. Ils enregistrent sur le compte Discord par
+lecteur du site. En solo, le menu de pause a le même bouton : on règle ses
+touches sans quitter la partie, console en pause, et « Fermer » ramène au
+menu de pause. Ils enregistrent sur le compte Discord par
 `/api/discord/touches` (jeton en en-tête) ; un réglage fait dans l'Activité
 vaut sur le site, et inversement. Non vérifié : que Discord laisse l'API
 Gamepad à l'iframe d'une Activité.
