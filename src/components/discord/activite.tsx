@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useLangue, useT } from "@/components/langue";
 import { ChoixVitesse, Commande, lireVolumeRetenu, retenirVolume, Volume } from "@/components/player/commandes";
 import { Manette } from "@/components/player/manette";
@@ -64,6 +64,33 @@ type EtatSauvegarde = "aucun" | "envoi" | "ok" | "echec" | "conflit";
 const DELAI_ENVOI_MS = 1500;
 /** Multiplicateur de la touche d'accélération tenue. */
 const VITESSE_RAPIDE = 3;
+
+/**
+ * Téléphone couché : ce dont la manette s'écarte encore des bords, en plus des
+ * marges sûres que Discord annonce.
+ */
+const GARDE_COUCHE = "1rem";
+
+/**
+ * Le sens dans lequel l'appareil est tenu, suivi tant que l'Activité est
+ * ouverte : un téléphone se tourne en pleine partie.
+ */
+const ORIENTATION = "(orientation: landscape)";
+
+function suivreOrientation(rappel: () => void): () => void {
+  const requete = window.matchMedia(ORIENTATION);
+  requete.addEventListener("change", rappel);
+  return () => requete.removeEventListener("change", rappel);
+}
+
+function usePaysage(): boolean {
+  return useSyncExternalStore(
+    suivreOrientation,
+    () => window.matchMedia(ORIENTATION).matches,
+    () => false,
+  );
+}
+
 /** Emplacement de passage du cœur : les emplacements du joueur vivent sur le serveur. */
 const PASSAGE = 1;
 
@@ -163,6 +190,11 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
    */
   const [panneau, setPanneau] = useState<"pause" | "reglages" | null>(null);
   const [tactile, setTactile] = useState(false);
+  /** Téléphone tenu à l'horizontale : l'écran au centre, la manette de part et d'autre. */
+  const paysage = usePaysage();
+  /** La place qu'occupent l'écran et la manette, mesurée : la manette couchée s'y taille. */
+  const zoneRef = useRef<HTMLDivElement>(null);
+  const [zone, setZone] = useState<{ largeur: number; hauteur: number } | null>(null);
   const [isolation, setIsolation] = useState<boolean | null>(null);
 
   // -------------------------------------------------------------------------
@@ -527,10 +559,36 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
     emulateurRef.current?.bouton(bouton, enfonce);
   }, []);
 
+  // Mesurée plutôt que déduite de la fenêtre : Discord retire ses marges sûres
+  // tout autour, et la barre du bas va et vient.
+  useEffect(() => {
+    const element = zoneRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observateur = new ResizeObserver(([entree]) => {
+      if (!entree) return;
+      setZone({
+        largeur: Math.round(entree.contentRect.width),
+        hauteur: Math.round(entree.contentRect.height),
+      });
+    });
+    observateur.observe(element);
+    return () => observateur.disconnect();
+  }, []);
+
+  /** La manette tactile est à l'écran. */
+  const manetteTactile = tactile && etape === "jeu" && session !== null;
+  /**
+   * Téléphone couché, en partie : l'écran prend la hauteur, la croix et les
+   * boutons se rangent sur les côtés, et la barre du bas s'efface — elle
+   * revient avec le menu de pause.
+   */
+  const couche = manetteTactile && paysage;
+  const debout = manetteTactile && !paysage;
+
   const libelleSauvegarde: Record<EtatSauvegarde, string> = {
     aucun: "",
-    envoi: t.activite.sauvegarde.envoi,
-    ok: t.activite.sauvegarde.ok,
+    envoi: tactile ? t.activite.sauvegarde.court.envoi : t.activite.sauvegarde.envoi,
+    ok: tactile ? t.activite.sauvegarde.court.ok : t.activite.sauvegarde.ok,
     echec: t.activite.sauvegarde.echec,
     conflit: t.activite.sauvegarde.conflit,
   };
@@ -546,68 +604,173 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
         paddingRight: "var(--discord-safe-area-inset-right, env(safe-area-inset-right))",
       }}
     >
-      <div className="relative flex min-h-0 flex-1 items-center justify-center p-2">
-        {/*
-          Le canvas existe dès le départ : le cœur en a besoin au démarrage,
-          avant que l'écran de jeu ne soit affiché.
-        */}
-        <canvas
-          ref={canvasRef}
-          width={160}
-          height={144}
-          className={`h-full w-full object-contain ${etape === "jeu" ? "" : "invisible"}`}
-          style={{ imageRendering: "pixelated" }}
-        />
+      {/*
+        Une seule arborescence pour toutes les dispositions : le cœur dessine
+        dans **ce** canvas, et tourner le téléphone ne doit pas en créer un
+        autre. Seules les classes changent.
 
-        {etape !== "jeu" && (
-          <div
-            className={`absolute inset-0 flex flex-col items-center justify-center gap-4 text-center ${
-              etape === "duo" ? "p-0 text-left" : "p-6"
-            }`}
-          >
-            {etape === "connexion" && <p className="text-ink-400">{t.activite.accueil.connexion}</p>}
+        - Ordinateur, et tout ce qui précède la partie : l'écran prend la place.
+        - Téléphone debout : l'écran garde sa taille naturelle — toute la
+          largeur — et la manette reçoit la hauteur qui reste, au lieu de la
+          laisser en bandes vides autour du jeu.
+        - Téléphone couché : l'écran prend la hauteur, et laisse de chaque
+          côté une bande (`--cote`) où la manette se pose par-dessus.
+      */}
+      <div
+        ref={zoneRef}
+        className="relative flex min-h-0 flex-1 flex-col"
+        style={
+          couche
+            ? ({
+                "--cote": zone ? `${Math.round(zone.largeur * 0.22)}px` : "22vw",
+                "--haut": zone ? `${zone.hauteur}px` : "100dvh",
+                // Les marges sûres sont déjà retirées tout autour. Il reste une
+                // garde : sur un téléphone Android couché, la marge que Discord
+                // annonce s'est montrée plus étroite que la barre de navigation.
+                "--marge-gauche": GARDE_COUCHE,
+                "--marge-droite": GARDE_COUCHE,
+              } as React.CSSProperties)
+            : undefined
+        }
+      >
+        <div
+          className={`relative flex min-h-0 justify-center p-2 ${debout ? "shrink items-start" : "flex-1 items-center"}`}
+          style={
+            couche
+              ? {
+                  paddingLeft: `calc(var(--cote) + ${GARDE_COUCHE})`,
+                  paddingRight: `calc(var(--cote) + ${GARDE_COUCHE})`,
+                }
+              : undefined
+          }
+        >
+          {/*
+            Le canvas existe dès le départ : le cœur en a besoin au démarrage,
+            avant que l'écran de jeu ne soit affiché.
+          */}
+          <canvas
+            ref={canvasRef}
+            width={160}
+            height={144}
+            className={`w-full object-contain ${debout ? "max-h-full" : "h-full"} ${etape === "jeu" ? "" : "invisible"}`}
+            style={{ imageRendering: "pixelated" }}
+          />
 
-            {etape === "accueil" && session && !reglages && (
-              <>
-                <h1 className="text-2xl font-semibold text-ink-50">{session.jeu.titre}</h1>
-                {session.accueil.mot && (
-                  <p className="max-w-lg whitespace-pre-line text-sm text-ink-200">{session.accueil.mot}</p>
-                )}
-                <p className="text-sm text-ink-400">{t.activite.accueil.partieGardee(session.pseudo)}</p>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => void jouer()}
-                    className="rounded-xl bg-accent-500 px-8 py-3 text-lg font-semibold text-ink-950 transition-colors hover:bg-accent-400"
-                  >
-                    {t.activite.accueil.jouerSeul}
-                  </button>
-                  {session.instance && (
+          {etape !== "jeu" && (
+            // Défilable, et centré sans rogner le haut : sur un téléphone
+            // couché, l'accueil dépasse vite la hauteur de l'écran.
+            <div
+              className={`absolute inset-0 flex flex-col items-center justify-center-safe gap-4 overflow-y-auto text-center ${
+                etape === "duo" ? "p-0 text-left" : "p-6"
+              }`}
+            >
+              {etape === "connexion" && <p className="text-ink-400">{t.activite.accueil.connexion}</p>}
+
+              {etape === "accueil" && session && !reglages && (
+                <>
+                  <h1 className="text-2xl font-semibold text-ink-50">{session.jeu.titre}</h1>
+                  {session.accueil.mot && (
+                    <p className="max-w-lg whitespace-pre-line text-sm text-ink-200">{session.accueil.mot}</p>
+                  )}
+                  <p className="text-sm text-ink-400">{t.activite.accueil.partieGardee(session.pseudo)}</p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
                     <button
                       type="button"
-                      onClick={() => setEtape("duo")}
-                      className="rounded-xl border border-accent-500 px-8 py-3 text-lg font-semibold text-accent-400 transition-colors hover:bg-accent-600/20"
+                      onClick={() => void jouer()}
+                      className="rounded-xl bg-accent-500 px-8 py-3 text-lg font-semibold text-ink-950 transition-colors hover:bg-accent-400"
                     >
-                      {t.activite.accueil.jouerADeux}
+                      {t.activite.accueil.jouerSeul}
                     </button>
+                    {session.instance && (
+                      <button
+                        type="button"
+                        onClick={() => setEtape("duo")}
+                        className="rounded-xl border border-accent-500 px-8 py-3 text-lg font-semibold text-accent-400 transition-colors hover:bg-accent-600/20"
+                      >
+                        {t.activite.accueil.jouerADeux}
+                      </button>
+                    )}
+                  </div>
+                  {session.instance && (
+                    <p className="max-w-md text-xs text-ink-400">{t.activite.accueil.explicationADeux}</p>
                   )}
-                </div>
-                {session.instance && (
-                  <p className="max-w-md text-xs text-ink-400">{t.activite.accueil.explicationADeux}</p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setReglages(true)}
-                  className="rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-sm text-ink-200"
-                >
-                  {t.activite.reglages.titre}
-                </button>
-                <PartieActivite jeton={session.jeton} titre={session.jeu.titre} />
-                {session.accueil.astuces[0] !== undefined && <Astuce texte={session.accueil.astuces[0]} />}
-              </>
-            )}
+                  <button
+                    type="button"
+                    onClick={() => setReglages(true)}
+                    className="rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-sm text-ink-200"
+                  >
+                    {t.activite.reglages.titre}
+                  </button>
+                  <PartieActivite jeton={session.jeton} titre={session.jeu.titre} />
+                  {session.accueil.astuces[0] !== undefined && <Astuce texte={session.accueil.astuces[0]} />}
+                </>
+              )}
 
-            {etape === "accueil" && session && reglages && (
+              {etape === "accueil" && session && reglages && (
+                <ReglagesActivite
+                  consoleSlug={session.jeu.console}
+                  tactile={tactile}
+                  touches={touches}
+                  surTouches={setTouches}
+                  manette={manette}
+                  enregistreur={enregistreur}
+                  fermer={() => setReglages(false)}
+                />
+              )}
+
+              {etape === "duo" && session && session.instance && (
+                <div className="h-full w-full overflow-y-auto">
+                  <Duo
+                    jeton={session.jeton}
+                    instance={session.instance}
+                    jeu={{ id: session.jeu.id, console: session.jeu.console, titre: session.jeu.titre }}
+                    dispositions={{ ...dispositions, touches }}
+                    enregistreur={enregistreur}
+                    surQuitter={() => setEtape("accueil")}
+                  />
+                </div>
+              )}
+
+              {etape === "chargement" && <p className="text-ink-400">{progression}</p>}
+
+              {etape === "erreur" && (
+                <>
+                  <p className="max-w-md text-ink-200">{erreur}</p>
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-sm"
+                  >
+                    {t.activite.erreurs.reessayer}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {etape === "jeu" && panneau === "pause" && session && accesEtats && (
+            <div className="absolute inset-0 z-10 flex flex-col gap-3 overflow-y-auto bg-ink-950/95 p-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-ink-50">{t.activite.pause.titre}</h2>
+                <Commande onClick={() => ouvrirPanneau(null)}>{t.activite.pause.reprendre}</Commande>
+              </div>
+              {session.accueil.astuces.length > 0 && <AstucesQuiDefilent liste={session.accueil.astuces} />}
+              {/* Les mêmes réglages qu'à l'accueil, sans quitter la partie. */}
+              <Commande onClick={() => ouvrirPanneau("reglages")}>{t.activite.reglages.titre}</Commande>
+              <p className="text-xs text-ink-400">{t.activite.pause.explication}</p>
+              <Savestates
+                gameId={session.jeu.id}
+                acces={accesEtats}
+                autos={false}
+                surEcrire={() => emulateurRef.current?.ecrireEtat() ?? null}
+                surLire={(donnees) => emulateurRef.current?.lireEtat(PASSAGE, donnees) ?? false}
+                surVignette={capturerEcran}
+              />
+            </div>
+          )}
+
+          {etape === "jeu" && panneau === "reglages" && session && (
+            <div className="absolute inset-0 z-10 flex justify-center overflow-y-auto bg-ink-950/95">
               <ReglagesActivite
                 consoleSlug={session.jeu.console}
                 tactile={tactile}
@@ -615,85 +778,46 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
                 surTouches={setTouches}
                 manette={manette}
                 enregistreur={enregistreur}
-                fermer={() => setReglages(false)}
+                // Retour au menu de pause : la console reste en pause.
+                fermer={() => ouvrirPanneau("pause")}
               />
-            )}
-
-            {etape === "duo" && session && session.instance && (
-              <div className="h-full w-full overflow-y-auto">
-                <Duo
-                  jeton={session.jeton}
-                  instance={session.instance}
-                  jeu={{ id: session.jeu.id, console: session.jeu.console, titre: session.jeu.titre }}
-                  dispositions={{ ...dispositions, touches }}
-                  enregistreur={enregistreur}
-                  surQuitter={() => setEtape("accueil")}
-                />
-              </div>
-            )}
-
-            {etape === "chargement" && <p className="text-ink-400">{progression}</p>}
-
-            {etape === "erreur" && (
-              <>
-                <p className="max-w-md text-ink-200">{erreur}</p>
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  className="rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-sm"
-                >
-                  {t.activite.erreurs.reessayer}
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {etape === "jeu" && panneau === "pause" && session && accesEtats && (
-          <div className="absolute inset-0 flex flex-col gap-3 overflow-y-auto bg-ink-950/95 p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-ink-50">{t.activite.pause.titre}</h2>
-              <Commande onClick={() => ouvrirPanneau(null)}>{t.activite.pause.reprendre}</Commande>
             </div>
-            {session.accueil.astuces.length > 0 && <AstucesQuiDefilent liste={session.accueil.astuces} />}
-            {/* Les mêmes réglages qu'à l'accueil, sans quitter la partie. */}
-            <Commande onClick={() => ouvrirPanneau("reglages")}>{t.activite.reglages.titre}</Commande>
-            <p className="text-xs text-ink-400">{t.activite.pause.explication}</p>
-            <Savestates
-              gameId={session.jeu.id}
-              acces={accesEtats}
-              autos={false}
-              surEcrire={() => emulateurRef.current?.ecrireEtat() ?? null}
-              surLire={(donnees) => emulateurRef.current?.lireEtat(PASSAGE, donnees) ?? false}
-              surVignette={capturerEcran}
+          )}
+
+        </div>
+
+        {manetteTactile && session && (
+          // Debout, la manette se centre dans la hauteur qui reste sous l'écran.
+          // Couchée, elle se pose par-dessus toute la zone, et les menus (`z-10`)
+          // passent devant elle.
+          <div className={couche ? "pointer-events-none absolute inset-0" : "flex shrink-0 grow flex-col justify-center"}>
+            <Manette
+              gachettes={session.jeu.console === "gba"}
+              surBouton={surBouton}
+              paysage={couche}
+              basGauche={
+                <Commande onClick={() => ouvrirPanneau("pause")}>{t.activite.pause.ouvrir}</Commande>
+              }
             />
           </div>
         )}
-
-        {etape === "jeu" && panneau === "reglages" && session && (
-          <div className="absolute inset-0 flex justify-center overflow-y-auto bg-ink-950/95">
-            <ReglagesActivite
-              consoleSlug={session.jeu.console}
-              tactile={tactile}
-              touches={touches}
-              surTouches={setTouches}
-              manette={manette}
-              enregistreur={enregistreur}
-              // Retour au menu de pause : la console reste en pause.
-              fermer={() => ouvrirPanneau("pause")}
-            />
-          </div>
-        )}
-
       </div>
 
-      {tactile && etape === "jeu" && session && (
-        <Manette gachettes={session.jeu.console === "gba"} surBouton={surBouton} />
-      )}
-
-      <footer className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2 text-xs text-ink-400">
+      {/*
+        Sur téléphone, une seule ligne : chaque ligne de plus est prise à la
+        manette. Les commandes ne se replient pas entre elles ; elles ne
+        passent sous l'état de la sauvegarde que s'il est trop long pour tenir
+        à côté — un refus, dont la phrase doit rester lisible en entier.
+        Couché, la barre ne s'affiche qu'avec le menu de pause, d'où l'on
+        règle la vitesse et le son.
+      */}
+      <footer
+        className={`flex flex-wrap items-center justify-between gap-x-3 px-3 text-xs text-ink-400 ${
+          tactile ? "gap-y-1 py-1.5" : "gap-y-2 py-2"
+        } ${couche && panneau === null ? "hidden" : ""}`}
+      >
         <span aria-live="polite">{libelleSauvegarde[etatSauvegarde]}</span>
-        <span className="flex flex-wrap items-center gap-2">
+        <span className={`flex items-center gap-2 ${tactile ? "grow justify-end" : "flex-wrap"}`}>
           {/* Constat du prototype : Discord n'isole pas ses iframes. */}
           {isolation !== null && etape !== "jeu" && (
             <span title="self.crossOriginIsolated">{t.activite.accueil.isolation(isolation)}</span>
@@ -709,10 +833,17 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
                 surChoix={changerVitesse}
                 toucheAcceleration={tactile ? null : touches.FAST}
                 vitesseTouche={VITESSE_RAPIDE}
+                court={tactile}
               />
             </>
           )}
-          <Volume valeur={volume} muet={muet} surChangement={changerVolume} surMuet={() => setMuet((valeur) => !valeur)} />
+          <Volume
+            valeur={volume}
+            muet={muet}
+            surChangement={changerVolume}
+            surMuet={() => setMuet((valeur) => !valeur)}
+            court={tactile}
+          />
         </span>
       </footer>
     </main>

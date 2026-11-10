@@ -129,6 +129,11 @@ export const activite = {
     echec: "Sauvegarde non envoyée, nouvel essai à la prochaine",
     /** Le serveur a refusé d'écraser une partie plus récente ; l'Activité n'insiste pas. */
     conflit: "Partie plus récente sur le serveur : celle-ci n'est pas envoyée",
+    /** Sur téléphone, où la barre tient sur une ligne. Les refus gardent leur phrase entière. */
+    court: {
+      envoi: "Sauvegarde…",
+      ok: "Sauvegardée",
+    },
   },
 
   /** L'écran des touches et de la manette ; les deux réglages eux-mêmes sont dans `commandes`. */

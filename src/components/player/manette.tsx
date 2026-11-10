@@ -210,6 +210,11 @@ export function Manette({
    * l'écran. Le conteneur laisse passer les doigts (`pointer-events-none`) ;
    * seules les colonnes les captent, pour ne jamais masquer l'image.
    *
+   * Les colonnes s'écartent des bords arrondis et de l'encoche. Qui a déjà
+   * compté ces marges autour de la manette — l'Activité Discord, qui les
+   * reçoit de Discord — donne les siennes par `--marge-gauche` et
+   * `--marge-droite`.
+   *
    * La taille suit la plus petite des deux contraintes : la largeur de la
    * bande et la hauteur de l'écran, pour que la croix tienne aussi bien sur
    * un téléphone étroit que sur un long.
@@ -226,7 +231,7 @@ export function Manette({
           className={`${colonne} left-0`}
           style={{
             width: "var(--cote)",
-            marginLeft: "env(safe-area-inset-left)",
+            marginLeft: "var(--marge-gauche, env(safe-area-inset-left))",
           }}
         >
           {gachettes ? (
@@ -244,7 +249,7 @@ export function Manette({
           className={`${colonne} right-0`}
           style={{
             width: "var(--cote)",
-            marginRight: "env(safe-area-inset-right)",
+            marginRight: "var(--marge-droite, env(safe-area-inset-right))",
           }}
         >
           {gachettes ? (

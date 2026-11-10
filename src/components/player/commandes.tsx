@@ -49,7 +49,7 @@ export function Commande({
       type="button"
       onClick={onClick}
       aria-pressed={actif}
-      className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+      className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-sm transition-colors ${
         actif
           ? "border-accent-600 bg-accent-600/15 text-accent-400"
           : "border-ink-700 text-ink-200 hover:border-ink-400 hover:text-ink-50"
@@ -63,6 +63,9 @@ export function Commande({
 /**
  * Vitesse de jeu, de ×1 à ×5. Mise en évidence comme un bouton actif dès
  * qu'elle dépasse ×1, ou tant que la touche d'accélération est tenue.
+ *
+ * `court` : le multiplicateur seul, « ×2 », là où la place manque — la barre
+ * d'un téléphone tenu debout. Le nom du réglage reste dit aux lecteurs d'écran.
  */
 export function ChoixVitesse({
   valeur,
@@ -70,6 +73,7 @@ export function ChoixVitesse({
   surChoix,
   toucheAcceleration,
   vitesseTouche = 4,
+  court = false,
 }: {
   valeur: number;
   accelere: boolean;
@@ -78,6 +82,7 @@ export function ChoixVitesse({
   toucheAcceleration: string | null | undefined;
   /** Ce que donne la touche tenue, pour l'infobulle. */
   vitesseTouche?: number;
+  court?: boolean;
 }) {
   const t = useT();
 
@@ -91,7 +96,7 @@ export function ChoixVitesse({
           ? t.partie.vitesse.toucheATenir(keyLabel(toucheAcceleration, t.commandes.clavier), vitesseTouche)
           : undefined
       }
-      className={`rounded-lg border bg-ink-950 px-3 py-1.5 text-sm transition-colors ${
+      className={`rounded-lg border bg-ink-950 py-1.5 text-sm transition-colors ${court ? "px-1.5" : "px-3"} ${
         valeur > 1 || accelere
           ? "border-accent-600 text-accent-400"
           : "border-ink-700 text-ink-200 hover:border-ink-400 hover:text-ink-50"
@@ -99,29 +104,42 @@ export function ChoixVitesse({
     >
       {VITESSES.map((multiplicateur) => (
         <option key={multiplicateur} value={multiplicateur}>
-          {multiplicateur === 1 ? t.partie.vitesse.normale : t.partie.vitesse.acceleree(multiplicateur)}
+          {court
+            ? `×${multiplicateur}`
+            : multiplicateur === 1
+              ? t.partie.vitesse.normale
+              : t.partie.vitesse.acceleree(multiplicateur)}
         </option>
       ))}
     </select>
   );
 }
 
-/** Le son : un bouton pour le couper, un curseur de 0 à 100 %. */
+/**
+ * Le son : un bouton pour le couper, un curseur de 0 à 100 %.
+ *
+ * `court` : sans le pourcentage, et le curseur prend la place qui reste sur
+ * la ligne au lieu d'une largeur fixe. Il part d'une petite largeur et
+ * s'étire : parti de sa largeur naturelle, il ferait passer les commandes à
+ * la ligne là où elles tiennent.
+ */
 export function Volume({
   valeur,
   muet,
   surChangement,
   surMuet,
+  court = false,
 }: {
   valeur: number;
   muet: boolean;
   surChangement: (pourcentage: number) => void;
   surMuet: () => void;
+  court?: boolean;
 }) {
   const t = useT();
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${court ? "grow" : ""}`}>
       <Commande onClick={surMuet} actif={muet}>
         {muet ? t.partie.son.coupe : t.partie.son.actif}
       </Commande>
@@ -134,9 +152,11 @@ export function Volume({
         onChange={(evenement) => surChangement(Number(evenement.target.value))}
         disabled={muet}
         aria-label={t.partie.son.volume}
-        className="w-24 accent-accent-500 disabled:opacity-40"
+        className={`accent-accent-500 disabled:opacity-40 ${court ? "w-10 max-w-40 grow" : "w-24"}`}
       />
-      <span className="w-10 font-mono text-xs text-ink-400">{t.partie.son.pourcentage(muet ? 0 : valeur)}</span>
+      {!court && (
+        <span className="w-10 font-mono text-xs text-ink-400">{t.partie.son.pourcentage(muet ? 0 : valeur)}</span>
+      )}
     </div>
   );
 }

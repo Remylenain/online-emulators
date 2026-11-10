@@ -92,6 +92,10 @@ export const activite: Dictionnaire["activite"] = {
     ok: "Progress saved",
     echec: "Save not sent; it will retry at the next one",
     conflit: "Newer progress on the server: this one is not sent",
+    court: {
+      envoi: "Saving…",
+      ok: "Saved",
+    },
   },
 
   reglages: {
