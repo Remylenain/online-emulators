@@ -131,6 +131,22 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
       desactiver: "Stop allowing it to be typed",
       enCours: "Discord is checking…",
     },
+    invitation: {
+      titre: "The invite in the channel",
+      postee:
+        "When the Activity is launched from the App Launcher button, Discord posts a “game invite” in the channel, " +
+        "every time. The site can answer that button itself, as it does for the typed command: Discord then posts " +
+        "nothing. In return, other members no longer get a card to join from, and the button launches nothing when " +
+        "the site is unreachable.",
+      masquee:
+        "The site answers the App Launcher button itself: Discord posts no invite in the channel. If the site is " +
+        "unreachable, the button launches nothing.",
+      orpheline:
+        "The App Launcher button goes through the site, but Discord no longer knows where to notify it: it launches " +
+        "nothing. Hand the launch back to Discord, or allow the command to be typed again.",
+      masquer: "Stop posting the invite",
+      retablir: "Let Discord post the invite",
+    },
   },
   astuces: {
     accueil: "Welcome message:",
@@ -440,6 +456,11 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
     commandeTapeeActivee: (nom: string) =>
       `/${nom} can now be typed in a channel. Discord may take a few minutes to offer it; restarting Discord speeds it up.`,
     commandeTapeeDesactivee: "The command can no longer be typed. It stays in the App Launcher.",
+    lanceurSansBranchement:
+      "First allow the command to be typed: Discord notifies the site at that same address.",
+    lanceurConfie:
+      "The site now answers the App Launcher button: Discord no longer posts an invite in the channel.",
+    lanceurRendu: "Discord launches the Activity itself again, and posts its invite in the channel.",
     astuceVide: "The tip is empty.",
     astuceTropLongue: (maximum: number) => `A tip can be at most ${maximum} characters long.`,
     astuceAjoutee: "Tip added.",

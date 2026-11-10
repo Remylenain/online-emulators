@@ -52,9 +52,10 @@ export function TexteConfidentialiteFr({ mentions }: { mentions: Mentions }) {
           )}
           {mentions.commande && (
             <li>
-              L&apos;Activité se lance aussi par une commande tapée dans un salon. Discord prévient alors le serveur
-              de l&apos;Activité que tu l&apos;as tapée, en lui disant qui tu es et dans quel salon. Le serveur
-              répond seulement d&apos;ouvrir l&apos;Activité : il ne lit pas ces informations et ne les conserve pas.
+              L&apos;Activité se lance aussi par une commande tapée dans un salon, et son bouton du lanceur
+              d&apos;applications peut passer par le même chemin. Discord prévient alors le serveur de
+              l&apos;Activité que tu l&apos;as lancée, en lui disant qui tu es et dans quel salon. Le serveur répond
+              seulement d&apos;ouvrir l&apos;Activité : il ne lit pas ces informations et ne les conserve pas.
             </li>
           )}
         </ul>

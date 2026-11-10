@@ -9,6 +9,12 @@
  * liste qui s'ouvre quand on tape « / » ne la propose pas, quel que soit son
  * nom. Constaté sur une vraie application, après l'avoir renommée.
  *
+ * Quand Discord la lance lui-même, il poste dans le salon une « invitation de
+ * jeu », à chaque fois. On peut lui demander de ne plus la lancer et de
+ * prévenir l'application à la place (`handler`) : le site répond alors comme
+ * à la commande tapée, et Discord ne poste rien — constaté pour la commande
+ * tapée, sur une vraie application.
+ *
  * **La commande tapée.** Pour qu'un joueur écrive `/prism` dans un salon, il
  * faut une commande ordinaire, du même nom. Celle-là, Discord ne la lance pas
  * tout seul : il demande à l'application quoi répondre, à l'adresse qu'elle
@@ -26,6 +32,10 @@ const API = "https://discord.com/api";
 const COMMANDE_D_ENTREE = 4;
 /** Le type des commandes qui se tapent (`CHAT_INPUT`). */
 const COMMANDE_TAPEE = 1;
+
+/** Qui lance l'Activité quand on appuie sur la commande d'entrée (`handler`). */
+const LANCEE_PAR_L_APPLICATION = 1;
+const LANCEE_PAR_DISCORD = 2;
 
 export type AccesCommandes = {
   application: string;
@@ -45,6 +55,12 @@ export type CommandeDEntree = {
    * qu'il en reste, le nom ci-dessus ne s'affiche chez presque personne.
    */
   traduite: boolean;
+  /**
+   * Discord ne lance plus l'Activité lui-même : il prévient l'application,
+   * qui répond. Sans adresse où la prévenir, le bouton du lanceur ne mène
+   * alors nulle part.
+   */
+  parLeSite: boolean;
 };
 
 /** Les règles de Discord pour un nom de commande : minuscules, chiffres, tirets, 32 au plus. */
@@ -102,7 +118,14 @@ async function autorisation(acces: AccesCommandes): Promise<string | null> {
   return typeof corps?.access_token === "string" ? `Bearer ${corps.access_token}` : null;
 }
 
-type Brute = { id?: unknown; name?: unknown; description?: unknown; type?: unknown; name_localizations?: unknown };
+type Brute = {
+  id?: unknown;
+  name?: unknown;
+  description?: unknown;
+  type?: unknown;
+  name_localizations?: unknown;
+  handler?: unknown;
+};
 
 function lire(brute: Brute | null | undefined): CommandeDEntree | null {
   if (!brute || typeof brute.id !== "string" || typeof brute.name !== "string") return null;
@@ -112,6 +135,7 @@ function lire(brute: Brute | null | undefined): CommandeDEntree | null {
     nom: brute.name,
     description: typeof brute.description === "string" ? brute.description : "",
     traduite: Boolean(traductions && typeof traductions === "object" && Object.keys(traductions).length > 0),
+    parLeSite: brute.handler === LANCEE_PAR_L_APPLICATION,
   };
 }
 
@@ -191,6 +215,39 @@ export async function renommerCommandeDEntree(
       }
     }
     return { ok: true, commande: { ...lue, traduite: false } };
+  } catch {
+    return { ok: false, motif: "discord-injoignable" };
+  }
+}
+
+/**
+ * Dit à Discord qui lance l'Activité depuis le bouton du lanceur : lui, comme
+ * à l'origine, ou l'application — qu'il prévient alors à son adresse
+ * d'interactions, et dont il attend la réponse.
+ */
+export async function confierLancement(
+  acces: AccesCommandes,
+  commande: string,
+  auSite: boolean,
+): Promise<{ ok: true } | Refus> {
+  try {
+    const qui = await autorisation(acces);
+    if (!qui) return { ok: false, motif: "identifiants-refuses" };
+    const reponse = await fetch(`${API}/applications/${acces.application}/commands/${commande}`, {
+      method: "PATCH",
+      headers: { Authorization: qui, "Content-Type": "application/json" },
+      body: JSON.stringify({ handler: auSite ? LANCEE_PAR_L_APPLICATION : LANCEE_PAR_DISCORD }),
+      cache: "no-store",
+    });
+    if (reponse.status === 401 || reponse.status === 403) return { ok: false, motif: "identifiants-refuses" };
+    const corps: unknown = await reponse.json().catch(() => null);
+    if (reponse.status === 400) return { ok: false, motif: "refusee", detail: detailDe(corps) };
+    // Ce que Discord a retenu, pas ce qu'on lui a demandé.
+    const retenue = reponse.ok ? lire(corps as Brute) : null;
+    if (!retenue || retenue.parLeSite !== auSite) {
+      return { ok: false, motif: "discord-injoignable", detail: detailDe(corps) };
+    }
+    return { ok: true };
   } catch {
     return { ok: false, motif: "discord-injoignable" };
   }

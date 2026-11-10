@@ -6,6 +6,7 @@ import { Alert, Button, Field, Input, Panel } from "@/components/ui";
 import {
   ajouterAstuceDiscord,
   activerCommandeTapee,
+  confierLanceurDiscord,
   type CommandeDiscord,
   commandeDiscord,
   definirRolesDiscord,
@@ -216,6 +217,8 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
   const [traduite, setTraduite] = useState(false);
   /** La commande se tape-t-elle ? `null` tant que Discord n'a pas répondu. */
   const [tapee, setTapee] = useState<EtatCommandeTapee | null>(null);
+  /** Le bouton du lanceur passe par le site : Discord ne poste pas d'invitation dans le salon. */
+  const [lanceurParLeSite, setLanceurParLeSite] = useState(false);
   const [retour, setRetour] = useState<Resultat | null>(null);
   const [enCours, demarrer] = useTransition();
   const t = useT().adminDiscord.commande;
@@ -226,6 +229,7 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
     setConnue(lue.nom);
     setTraduite(lue.traduite);
     setTapee(lue.tapee);
+    setLanceurParLeSite(lue.lanceurParLeSite);
   };
 
   const lire = () =>
@@ -351,6 +355,34 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
               {enCours ? t.tapee.enCours : tapee === "active" ? t.tapee.desactiver : t.tapee.activer(connue)}
             </Button>
           )}
+        </div>
+      )}
+
+      {/*
+        Proposé une fois la commande tapée branchée : c'est par la même
+        adresse que Discord prévient le site. Affiché aussi tant que le bouton
+        passe par le site, même débranché, pour qu'on puisse le rendre à
+        Discord.
+      */}
+      {ouvert && !erreur && tapee && (tapee === "active" || lanceurParLeSite) && (
+        <div className="flex flex-col gap-2 border-t border-ink-800 pt-3">
+          <h5 className="text-sm font-semibold text-ink-200">{t.invitation.titre}</h5>
+          <p className="text-xs text-ink-400">
+            {!lanceurParLeSite
+              ? t.invitation.postee
+              : tapee === "active"
+                ? t.invitation.masquee
+                : t.invitation.orpheline}
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={enCours}
+            onClick={() => brancher((id) => confierLanceurDiscord(id, !lanceurParLeSite))}
+            className="self-start"
+          >
+            {enCours ? t.tapee.enCours : lanceurParLeSite ? t.invitation.retablir : t.invitation.masquer}
+          </Button>
         </div>
       )}
 

@@ -2,7 +2,8 @@ import { createPublicKey, verify } from "node:crypto";
 
 /**
  * Les interactions que Discord envoie au site : ce qu'il faut pour qu'une
- * commande **tapée** dans un salon — `/prism` — lance l'Activité.
+ * commande **tapée** dans un salon — `/prism` — lance l'Activité, et pour
+ * que le bouton du lanceur puisse passer par le même chemin.
  *
  * La commande d'entrée que Discord crée pour toute Activité ne s'affiche que
  * dans le lanceur d'applications : elle ne se tape pas. Une commande qui se
@@ -10,6 +11,10 @@ import { createPublicKey, verify } from "node:crypto";
  * demande à l'application quoi répondre, par une requête signée envoyée à
  * l'adresse qu'elle a déclarée. Le site y répond « lance l'Activité », et
  * c'est tout ce qu'il y répond jamais.
+ *
+ * La commande d'entrée arrive ici aussi quand on a demandé à Discord de ne
+ * plus la lancer lui-même (`./commande.ts`) : c'est une commande comme une
+ * autre, et la réponse est la même.
  *
  * Ce module ne fait que vérifier la signature et choisir la réponse. Il ne
  * lit pas la configuration et n'importe rien du site : la route

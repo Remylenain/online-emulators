@@ -405,7 +405,7 @@ of `launch`. The name is not stored in the site: Discord is the only source
   Launcher in the message bar: no need to be in a voice channel. Discord then
   posts a message in the channel announcing the game, from which other members
   can join. Observed in use; Discord's documentation does not say which
-  channel types.
+  channel types. To get rid of it, see “The invite in the channel” below.
 - The server lock and the restricted roles apply the same way, whatever the
   channel.
 
@@ -454,9 +454,36 @@ the command renames both.
   administration: `DISCORD_CLE_PUBLIQUE` (“Public Key”, *General Information*
   tab), then the address and the command by hand, in the portal and through
   the API.
-- Tried against a fake Discord that signs real requests; not yet against the
-  real one. The “/” list can take a few minutes to offer the command, and
+- Observed on a real application: the command shows up in the “/” list and
+  opens the Activity. The list can take a few minutes to offer it, and
   restarting Discord speeds it up.
+
+### The invite in the channel
+
+When Discord launches the Activity itself — from the App Launcher button — it
+posts a “game invite” in the channel, every time: a card with a “Play” button,
+which stays after the game. No portal setting prevents it.
+
+The typed command posts none: the site answers, and Discord merely opens the
+Activity. Observed on a real application. The App Launcher button can go the
+same way: the entry point command carries a setting, `handler`, that tells
+Discord to stop launching it itself and to notify the application instead.
+
+In the same panel, once the typed command is enabled, **The invite in the
+channel → Stop posting the invite** changes that setting; **Let Discord post
+the invite** puts it back as it was.
+
+- The typed command is required: Discord notifies the site at that same
+  address. “Stop allowing it to be typed” first hands the launch back to
+  Discord, so that the button is not left unanswered.
+- In return, other members of the channel no longer get a card to join from,
+  and the App Launcher button launches nothing when the site is unreachable —
+  Discord used to launch the Activity without asking anything.
+- Nothing is stored in the site: the setting is read from Discord, like the
+  command's name.
+- Tried against a fake Discord. Whether the invite also disappears for the
+  App Launcher button remains to be observed on a real application: Discord's
+  documentation does not say.
 
 ## Locking the Activity to one server
 

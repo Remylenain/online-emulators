@@ -413,7 +413,8 @@ Discord est la seule source (`src/lib/discord/commande.ts`).
   d'applications de la barre de message : pas besoin d'être dans un salon
   vocal. Discord poste alors dans le salon un message qui annonce la partie,
   d'où les autres membres peuvent la rejoindre. Constaté à l'usage ; la
-  documentation de Discord ne dit pas dans quels types de salons.
+  documentation de Discord ne dit pas dans quels types de salons. Pour ne
+  plus l'avoir, voir « L'invitation dans le salon », plus bas.
 - Le verrou de serveur et les rôles réservés s'appliquent de la même façon,
   quel que soit le salon.
 
@@ -458,9 +459,38 @@ Renommer la commande renomme les deux.
 - Pour une Activité configurée par l'environnement, sans administration :
   `DISCORD_CLE_PUBLIQUE` (« Public Key », onglet *General Information*), puis
   l'adresse et la commande à la main, dans le portail et par l'API.
-- Essayé contre un faux Discord qui signe de vraies requêtes ; pas encore
-  contre le vrai. La liste « / » peut mettre quelques minutes à proposer la
-  commande, et relancer Discord l'accélère.
+- Constaté sur une vraie application : la commande apparaît dans la liste
+  « / » et ouvre l'Activité. La liste peut mettre quelques minutes à la
+  proposer, et relancer Discord l'accélère.
+
+### L'invitation dans le salon
+
+Quand Discord lance lui-même l'Activité — depuis le bouton du lanceur
+d'applications — il poste dans le salon une « invitation de jeu », à chaque
+fois : une carte avec un bouton « Jouer », qui reste après la partie. Aucun
+réglage du portail ne l'empêche.
+
+La commande tapée, elle, n'en poste pas : c'est le site qui répond, et Discord
+se contente d'ouvrir l'Activité. Constaté sur une vraie application. Le
+bouton du lanceur peut passer par le même chemin : la commande d'entrée porte
+un réglage, `handler`, qui dit à Discord de ne plus la lancer lui-même et de
+prévenir l'application à la place.
+
+Dans le même panneau, une fois la commande tapée activée, **L'invitation dans
+le salon → Ne plus poster l'invitation** change ce réglage ; **Laisser Discord
+poster l'invitation** le remet comme à l'origine.
+
+- Il faut la commande tapée : c'est à la même adresse que Discord prévient le
+  site. « Ne plus permettre de la taper » rend d'abord le lancement à Discord,
+  pour que le bouton ne reste pas sans réponse.
+- En contrepartie, les autres membres du salon n'ont plus de carte d'où
+  rejoindre la partie, et le bouton du lanceur ne lance rien quand le site est
+  injoignable — Discord, lui, lançait l'Activité sans rien demander.
+- Rien n'est enregistré dans le site : le réglage se lit auprès de Discord,
+  comme le nom de la commande.
+- Essayé contre un faux Discord. Que l'invitation disparaisse aussi pour le
+  bouton du lanceur reste à constater sur une vraie application : la
+  documentation de Discord ne le dit pas.
 
 ## Verrouiller l'Activité sur un serveur
 

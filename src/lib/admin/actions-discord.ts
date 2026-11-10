@@ -22,6 +22,7 @@ import {
 import {
   branchement,
   commandeDEntree,
+  confierLancement,
   creerCommandeTapee,
   declarerAdresseInteractions,
   DESCRIPTION_COMMANDE_MAX,
@@ -242,6 +243,11 @@ export type CommandeDiscord =
       /** Des noms traduits masquent encore ce nom. */
       traduite: boolean;
       tapee: EtatCommandeTapee;
+      /**
+       * Le bouton du lanceur passe par le site, comme la commande tapée :
+       * Discord ne poste pas d'invitation dans le salon.
+       */
+      lanceurParLeSite: boolean;
     }
   | { ok: false; message: string };
 
@@ -304,6 +310,7 @@ export async function commandeDiscord(id: string): Promise<CommandeDiscord> {
     description: lue.commande.description,
     traduite: lue.commande.traduite,
     tapee,
+    lanceurParLeSite: lue.commande.parLeSite,
   };
 }
 
@@ -377,8 +384,47 @@ export async function activerCommandeTapee(id: string): Promise<Resultat> {
 }
 
 /**
- * Défait ce que `activerCommandeTapee` a fait, dans l'ordre inverse. La
- * commande d'entrée, celle du lanceur, n'est pas touchée.
+ * Fait répondre le site au bouton du lanceur, ou rend ce lancement à Discord.
+ *
+ * Quand Discord lance lui-même l'Activité, il poste une invitation dans le
+ * salon ; quand c'est le site qui répond, il n'en poste pas. Le site ne peut
+ * répondre que si Discord sait où le prévenir : il faut que la commande
+ * tapée soit branchée, c'est la même adresse. Rendre le lancement à Discord
+ * ne demande rien — c'est ce qui dépanne un bouton qui ne mène plus nulle
+ * part.
+ */
+export async function confierLanceurDiscord(id: string, auSite: boolean): Promise<Resultat> {
+  await requireAdmin();
+  const t = (await textes()).adminDiscord.actions;
+  const application = configParId(id);
+  const enregistre = interactionsParId(id);
+  if (!application || !enregistre) return { ok: false, message: t.applicationDisparue };
+  const acces = { application: application.clientId, secret: application.clientSecret, jetonBot: application.botToken };
+
+  const commandes = await commandeDEntree(acces);
+  if (!commandes.ok) return refusDeCommande(commandes, t);
+  if (auSite) {
+    if (!application.botToken) return { ok: false, message: t.commandeTapeeSansJeton };
+    const chezDiscord = await branchement(application.botToken);
+    if (!chezDiscord.ok) return refusDeCommande(chezDiscord, t);
+    const branche =
+      chezDiscord.adresseInteractions === adresseDesInteractions(enregistre.hote) &&
+      enregistre.clePublique === chezDiscord.clePublique.toLowerCase();
+    if (!branche) return { ok: false, message: t.lanceurSansBranchement };
+  }
+  if (commandes.commande.parLeSite !== auSite) {
+    const confie = await confierLancement(acces, commandes.commande.id, auSite);
+    if (!confie.ok) return refusDeCommande(confie, t);
+  }
+  revalidatePath("/admin/discord");
+  return { ok: true, message: auSite ? t.lanceurConfie : t.lanceurRendu };
+}
+
+/**
+ * Défait ce que `activerCommandeTapee` a fait, dans l'ordre inverse. Le
+ * bouton du lanceur reste, et Discord le lance de nouveau lui-même s'il
+ * passait par le site : sans adresse où le prévenir, il ne mènerait plus
+ * nulle part.
  */
 export async function desactiverCommandeTapee(id: string): Promise<Resultat> {
   await requireAdmin();
@@ -396,6 +442,10 @@ export async function desactiverCommandeTapee(id: string): Promise<Resultat> {
   if (chezDiscord.adresseInteractions === adresseDesInteractions(enregistre.hote)) {
     const commandes = await commandeDEntree(acces);
     if (!commandes.ok) return refusDeCommande(commandes, t);
+    if (commandes.commande.parLeSite) {
+      const rendu = await confierLancement(acces, commandes.commande.id, false);
+      if (!rendu.ok) return refusDeCommande(rendu, t);
+    }
     for (const commande of commandes.tapees) {
       const retiree = await supprimerCommande(acces, commande.id);
       if (!retiree.ok) return refusDeCommande(retiree, t);

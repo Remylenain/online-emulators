@@ -199,6 +199,24 @@ export const adminDiscord = {
       desactiver: "Ne plus permettre de la taper",
       enCours: "Discord vérifie…",
     },
+    /** L'« invitation de jeu » que Discord poste dans le salon à chaque lancement par le bouton du lanceur. */
+    invitation: {
+      titre: "L'invitation dans le salon",
+      postee:
+        "Lancée par le bouton du lanceur d'applications, l'Activité fait poster à Discord une « invitation de jeu » " +
+        "dans le salon, à chaque fois. Le site peut répondre lui-même à ce bouton, comme il le fait pour la commande " +
+        "tapée : Discord ne poste alors plus rien. En contrepartie, les autres membres n'ont plus de carte d'où " +
+        "rejoindre la partie, et le bouton ne lance rien si le site est injoignable.",
+      masquee:
+        "Le site répond lui-même au bouton du lanceur d'applications : Discord ne poste pas d'invitation dans le " +
+        "salon. Si le site est injoignable, le bouton ne lance rien.",
+      /** Le site répond au bouton, mais Discord ne sait plus où le prévenir : le bouton ne mène nulle part. */
+      orpheline:
+        "Le bouton du lanceur d'applications passe par le site, mais Discord ne sait plus où le prévenir : il ne " +
+        "lance rien. Rends-lui ce lancement, ou permets de nouveau de taper la commande.",
+      masquer: "Ne plus poster l'invitation",
+      retablir: "Laisser Discord poster l'invitation",
+    },
   },
   astuces: {
     /** Suivi du mot d'accueil lui-même ; la ponctuation est celle de la langue. */
@@ -537,6 +555,11 @@ export const adminDiscord = {
     commandeTapeeActivee: (nom: string) =>
       `/${nom} se tape maintenant dans un salon. Discord peut mettre quelques minutes à la proposer ; relancer Discord l'accélère.`,
     commandeTapeeDesactivee: "La commande ne se tape plus. Elle reste dans le lanceur d'applications.",
+    lanceurSansBranchement:
+      "Il faut d'abord permettre de taper la commande : c'est à la même adresse que Discord prévient le site.",
+    lanceurConfie:
+      "Le site répond maintenant au bouton du lanceur d'applications : Discord ne poste plus d'invitation dans le salon.",
+    lanceurRendu: "Discord lance de nouveau l'Activité lui-même, et poste son invitation dans le salon.",
     astuceVide: "L'astuce est vide.",
     astuceTropLongue: (maximum: number) => `Une astuce fait au plus ${maximum} caractères.`,
     astuceAjoutee: "Astuce ajoutée.",
