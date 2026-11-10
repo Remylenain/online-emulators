@@ -221,7 +221,9 @@ export async function definirRolesDiscord(id: string, roles: string[]): Promise<
 }
 
 /** Ce que l'écran de la commande de lancement reçoit de Discord. */
-export type CommandeDiscord = { ok: true; nom: string; description: string } | { ok: false; message: string };
+export type CommandeDiscord =
+  | { ok: true; nom: string; description: string; /** Des noms traduits masquent encore ce nom. */ traduite: boolean }
+  | { ok: false; message: string };
 
 function refusDeCommande(
   refus: RefusCommande,
@@ -250,7 +252,9 @@ export async function commandeDiscord(id: string): Promise<CommandeDiscord> {
     secret: application.clientSecret,
     jetonBot: application.botToken,
   });
-  return lue.ok ? { ok: true, nom: lue.commande.nom, description: lue.commande.description } : refusDeCommande(lue, t);
+  return lue.ok
+    ? { ok: true, nom: lue.commande.nom, description: lue.commande.description, traduite: lue.commande.traduite }
+    : refusDeCommande(lue, t);
 }
 
 /** Renomme la commande qui lance l'Activité : `/prism` au lieu de `/launch`. */

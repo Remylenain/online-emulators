@@ -397,6 +397,10 @@ est la seule source (`src/lib/discord/commande.ts`).
   espace, 32 caractères au plus.
 - Le site s'adresse à Discord avec le jeton de bot s'il y en a un, sinon avec
   l'identifiant et le secret de l'application.
+- La commande par défaut porte un nom par langue — « lancer » dans un Discord
+  en français — et c'est lui que voient les joueurs. Renommer efface ces
+  traductions : le nouveau nom vaut alors pour toutes les langues, et Discord
+  ne le traduit plus.
 - Un changement peut mettre quelques minutes à apparaître chez les joueurs.
 - L'Activité se lance aussi depuis un salon textuel, par le lanceur
   d'applications de la barre de message : pas besoin d'être dans un salon

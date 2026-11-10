@@ -208,6 +208,8 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
   const [nom, setNom] = useState("");
   const [description, setDescription] = useState("");
   const [connue, setConnue] = useState<string | null>(null);
+  /** Des noms traduits masquent encore le nom : il faut renommer pour l'imposer partout. */
+  const [traduite, setTraduite] = useState(false);
   const [retour, setRetour] = useState<Resultat | null>(null);
   const [enCours, demarrer] = useTransition();
   const t = useT().adminDiscord.commande;
@@ -222,6 +224,7 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
         setNom(reponse.nom);
         setDescription(reponse.description);
         setConnue(reponse.nom);
+        setTraduite(reponse.traduite);
       } else {
         setErreur(reponse.message);
       }
@@ -273,6 +276,7 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
                   setNom(relue.nom);
                   setDescription(relue.description);
                   setConnue(relue.nom);
+                  setTraduite(relue.traduite);
                 }
               }
             });
@@ -280,6 +284,7 @@ function CommandeDeLancement({ application }: { application: ApplicationDiscord 
           className="flex flex-col gap-3"
         >
           <p className="text-xs text-ink-400">{t.consigne}</p>
+          {traduite && <Alert tone="info">{t.traduite}</Alert>}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,12rem)_1fr]">
             <Field label={t.nom} htmlFor={`commande-nom-${application.id}`} hint={t.aideNom}>
               <Input

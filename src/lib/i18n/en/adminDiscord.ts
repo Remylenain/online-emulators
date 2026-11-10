@@ -110,6 +110,9 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
     description: "Description",
     aideDescription: "Shown next to the command when a player types it.",
     renommer: "Rename the command",
+    traduite:
+      "Discord still shows this command under a translated name, depending on each player's language — “/lancer” in " +
+      "French. Click “Rename the command” to make the name below apply in every language.",
     delai: "A change can take a few minutes to reach players; restarting Discord speeds it up.",
     relire: "Read the command again",
   },

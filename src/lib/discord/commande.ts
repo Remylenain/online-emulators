@@ -24,7 +24,18 @@ export type AccesCommandes = {
   jetonBot: string;
 };
 
-export type CommandeDEntree = { id: string; nom: string; description: string };
+export type CommandeDEntree = {
+  id: string;
+  nom: string;
+  description: string;
+  /**
+   * Discord tient encore des noms traduits pour cette commande. La commande
+   * par défaut en a une trentaine (« lancer », « Start », « ejecutar »…), et
+   * ce sont eux que voient les joueurs, selon la langue de leur Discord : tant
+   * qu'il en reste, le nom ci-dessus ne s'affiche chez presque personne.
+   */
+  traduite: boolean;
+};
 
 /** Les règles de Discord pour un nom de commande : minuscules, chiffres, tirets, 32 au plus. */
 export const FORME_NOM_COMMANDE = /^[-_\p{Ll}\p{N}]{1,32}$/u;
@@ -59,11 +70,17 @@ async function autorisation(acces: AccesCommandes): Promise<string | null> {
   return typeof corps?.access_token === "string" ? `Bearer ${corps.access_token}` : null;
 }
 
-type Brute = { id?: unknown; name?: unknown; description?: unknown; type?: unknown };
+type Brute = { id?: unknown; name?: unknown; description?: unknown; type?: unknown; name_localizations?: unknown };
 
 function lire(brute: Brute | null | undefined): CommandeDEntree | null {
   if (!brute || typeof brute.id !== "string" || typeof brute.name !== "string") return null;
-  return { id: brute.id, nom: brute.name, description: typeof brute.description === "string" ? brute.description : "" };
+  const traductions = brute.name_localizations;
+  return {
+    id: brute.id,
+    nom: brute.name,
+    description: typeof brute.description === "string" ? brute.description : "",
+    traduite: Boolean(traductions && typeof traductions === "object" && Object.keys(traductions).length > 0),
+  };
 }
 
 /** Le message d'erreur de Discord, tel qu'il le donne : court, et en anglais. */
@@ -78,7 +95,8 @@ export async function commandeDEntree(
   try {
     const qui = await autorisation(acces);
     if (!qui) return { ok: false, motif: "identifiants-refuses" };
-    const reponse = await fetch(`${API}/applications/${acces.application}/commands`, {
+    // Sans ce paramètre, Discord tait les noms traduits.
+    const reponse = await fetch(`${API}/applications/${acces.application}/commands?with_localizations=true`, {
       headers: { Authorization: qui },
       cache: "no-store",
     });
@@ -92,7 +110,12 @@ export async function commandeDEntree(
   }
 }
 
-/** Renomme la commande d'entrée. Les joueurs la voient changer en quelques instants. */
+/**
+ * Renomme la commande d'entrée, **pour toutes les langues** : les noms et les
+ * descriptions traduits de la commande par défaut sont effacés du même coup.
+ * Sans cela, un Discord en français continue d'afficher « /lancer », et le
+ * nouveau nom n'apparaît nulle part — constaté sur une vraie application.
+ */
 export async function renommerCommandeDEntree(
   acces: AccesCommandes,
   nom: string,
@@ -106,13 +129,16 @@ export async function renommerCommandeDEntree(
     const reponse = await fetch(`${API}/applications/${acces.application}/commands/${actuelle.commande.id}`, {
       method: "PATCH",
       headers: { Authorization: qui, "Content-Type": "application/json" },
-      body: JSON.stringify({ name: nom, description }),
+      body: JSON.stringify({ name: nom, description, name_localizations: null, description_localizations: null }),
       cache: "no-store",
     });
     const corps: unknown = await reponse.json().catch(() => null);
     if (reponse.status === 401 || reponse.status === 403) return { ok: false, motif: "identifiants-refuses" };
     if (reponse.status === 400) return { ok: false, motif: "refusee", detail: detailDe(corps) };
-    const commande = reponse.ok ? lire(corps as Brute) : null;
+    // La réponse d'une modification ne dit rien des traductions : elles
+    // viennent d'être effacées, on le note sans la relire.
+    const lue = reponse.ok ? lire(corps as Brute) : null;
+    const commande = lue ? { ...lue, traduite: false } : null;
     return commande ? { ok: true, commande } : { ok: false, motif: "discord-injoignable", detail: detailDe(corps) };
   } catch {
     return { ok: false, motif: "discord-injoignable" };

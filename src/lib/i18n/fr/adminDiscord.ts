@@ -166,6 +166,13 @@ export const adminDiscord = {
     description: "Description",
     aideDescription: "Affichée à côté de la commande quand un joueur la tape.",
     renommer: "Renommer la commande",
+    /**
+     * La commande par défaut porte un nom par langue (« lancer » en français) :
+     * tant qu'ils sont là, le nom ci-dessous ne s'affiche chez personne.
+     */
+    traduite:
+      "Discord affiche encore cette commande sous un nom traduit, selon la langue de chaque joueur — « /lancer » en " +
+      "français. Clique « Renommer la commande » pour imposer le nom ci-dessous dans toutes les langues.",
     /** Discord met un moment à répandre un changement de commande. */
     delai: "Un changement peut mettre quelques minutes à apparaître chez les joueurs ; relancer Discord l'accélère.",
     relire: "Relire la commande",
