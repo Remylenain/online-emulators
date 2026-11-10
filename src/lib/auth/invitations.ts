@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { invites, users } from "@/db/schema";
-import { INSCRIPTION_DUREE_MS, INSCRIPTION_PLAFONDS } from "./inscription";
+import { dureeEnMs, INSCRIPTION_DUREES_JOURS, INSCRIPTION_PLAFONDS } from "./inscription";
 import { generateToken, hashToken } from "./tokens";
 import { newId } from "./session";
 
@@ -14,18 +14,20 @@ import { newId } from "./session";
  * Un lien vaut pour un nombre de comptes choisi à la création, pour qu'un
  * même lien circule dans un groupe d'amis. Le risque est celui d'un secret
  * qui passe de main en main : s'il fuit, il produit des comptes inconnus.
- * D'où la journée de validité, la révocation, et la trace gardée par chaque
+ * D'où la validité limitée — une journée par défaut, une semaine ou un mois
+ * au choix de l'administrateur —, la révocation, et la trace gardée par chaque
  * compte du lien qui l'a créé — on retrouve d'un coup ce qu'un lien a donné.
  *
  * Comme les autres jetons, la base ne garde que l'empreinte ; la valeur en
  * clair n'existe que dans le lien remis à la personne.
  */
 
-export { INSCRIPTION_DUREE_MS, INSCRIPTION_PLAFONDS };
+export { INSCRIPTION_DUREES_JOURS, INSCRIPTION_PLAFONDS };
 
 export async function creerLienInscription(
   creePar: string,
   maxUses: number,
+  jours: (typeof INSCRIPTION_DUREES_JOURS)[number],
 ): Promise<{ token: string; expiresAt: Date }> {
   // Les jetons périmés et jamais utilisés n'ont plus de raison d'être gardés.
   // Ceux qui ont servi restent : ils disent d'où viennent les comptes.
@@ -34,7 +36,7 @@ export async function creerLienInscription(
     .where(and(lt(invites.expiresAt, new Date()), eq(invites.usesCount, 0)));
 
   const token = generateToken();
-  const expiresAt = new Date(Date.now() + INSCRIPTION_DUREE_MS);
+  const expiresAt = new Date(Date.now() + dureeEnMs(jours));
   await db.insert(invites).values({
     id: newId(),
     code: hashToken(token),

@@ -68,11 +68,12 @@ export const adminActions = {
   /** Les liens d'inscription, et l'ouverture des inscriptions à tous. */
   invitations: {
     plafondInvalide: "Nombre de comptes invalide.",
+    dureeInvalide: "Durée de validité invalide.",
     cree: "Lien d'inscription créé.",
     /** Affiché sous le lien tout juste créé : ce qu'il permet, et jusqu'à quand. */
-    aTransmettre: (plafond: number) =>
+    aTransmettre: (plafond: number, jours: number) =>
       "Lien à transmettre : la personne y choisira son pseudo et son mot de passe. " +
-      `Valable 24 heures, pour ${plafond === 1 ? "un seul compte" : `${plafond} comptes au plus`}.`,
+      `Valable ${jours === 1 ? "24 heures" : `${jours} jours`}, pour ${plafond === 1 ? "un seul compte" : `${plafond} comptes au plus`}.`,
     revoque: "Lien révoqué : il ne créera plus de compte.",
     dejaRevoque: "Ce lien était déjà révoqué, ou n'existe pas.",
 

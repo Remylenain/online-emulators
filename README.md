@@ -37,8 +37,8 @@ le droit de partager.
   compte, qui jouent en invités — leur partie reste dans leur navigateur, le
   serveur n'en garde rien. Voir [docs/vitrine.md](docs/vitrine.md).
 - **Comptes** : création par l'administrateur, liens d'invitation valables
-  24 h pour un ou plusieurs comptes, ou inscriptions ouvertes à tous avec
-  e-mail confirmé et captcha, au choix. Réinitialisation de mot de passe par
+  un jour, une semaine ou un mois, pour un ou plusieurs comptes, ou
+  inscriptions ouvertes à tous avec e-mail confirmé et captcha, au choix. Réinitialisation de mot de passe par
   e-mail.
 - **Sauvegardes protégées** : copies de secours des cinq dernières écritures
   et une par jour sur trente jours, restaurables par le joueur, export de

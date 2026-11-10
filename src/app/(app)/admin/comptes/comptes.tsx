@@ -19,7 +19,7 @@ import {
   type Resultat,
 } from "@/lib/admin/actions";
 import { modesAcces, type ModeAcces } from "@/lib/modes-acces";
-import { INSCRIPTION_PLAFONDS } from "@/lib/auth/inscription";
+import { INSCRIPTION_DUREE_PAR_DEFAUT, INSCRIPTION_DUREES_JOURS, INSCRIPTION_PLAFONDS } from "@/lib/auth/inscription";
 import type { LienInscription } from "@/lib/auth/invitations";
 import { formatDate } from "@/lib/format";
 import { Accentue, useLangue, useT } from "@/components/langue";
@@ -64,6 +64,7 @@ export function Comptes({
   const [importPour, setImportPour] = useState<string | null>(null);
   const [attribuerPour, setAttribuerPour] = useState<string | null>(null);
   const [plafond, setPlafond] = useState<number>(1);
+  const [jours, setJours] = useState<number>(INSCRIPTION_DUREE_PAR_DEFAUT);
   const [creation, action, enCreation] = useActionState<Resultat | null, FormData>(
     creerCompte,
     null,
@@ -157,9 +158,24 @@ export function Comptes({
                 ))}
               </select>
             </label>
+            <label className="flex items-center gap-2 text-sm text-ink-200">
+              {t.liens.valable}
+              <select
+                value={jours}
+                onChange={(e) => setJours(Number(e.target.value))}
+                className="rounded-lg border border-ink-700 bg-ink-950 px-2 py-1.5 text-sm text-ink-200"
+                aria-label={t.liens.dureeDeValidite}
+              >
+                {INSCRIPTION_DUREES_JOURS.map((n) => (
+                  <option key={n} value={n}>
+                    {t.liens.duree(n)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Button
               variant="ghost"
-              onClick={() => agir(() => creerInvitation(plafond))}
+              onClick={() => agir(() => creerInvitation(plafond, jours))}
               disabled={enCours}
             >
               {t.liens.creer}

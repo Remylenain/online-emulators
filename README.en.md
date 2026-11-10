@@ -36,7 +36,7 @@ only what you have the right to share.
   account, who play as guests — their progress stays in their browser, and
   the server keeps nothing of it. See [docs/vitrine.en.md](docs/vitrine.en.md).
 - **Accounts**: created by the administrator, invitation links valid for
-  24 hours for one or several accounts, or sign-ups open to everyone with a
+  a day, a week or a month, for one or several accounts, or sign-ups open to everyone with a
   confirmed e-mail address and a captcha — your choice. Password reset by
   e-mail.
 - **Protected saves**: backup copies of the last five writes plus one per

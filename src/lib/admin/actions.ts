@@ -18,6 +18,7 @@ import {
   INSCRIPTION_PLAFONDS,
   revoquerLienInscription,
 } from "@/lib/auth/invitations";
+import { dureeValide, INSCRIPTION_DUREE_PAR_DEFAUT } from "@/lib/auth/inscription";
 import { hashPassword } from "@/lib/auth/password";
 import {
   createPasswordResetToken,
@@ -230,23 +231,25 @@ export async function renvoyerInvitation(userId: string): Promise<Resultat> {
 
 /**
  * Lien d'inscription : la personne qui le reçoit crée son compte elle-même,
- * pseudo compris. À donner de la main à la main ; il vit une journée, et vaut
- * pour autant de comptes que l'administrateur l'a décidé.
+ * pseudo compris. À donner de la main à la main ; il vit une journée, une
+ * semaine ou un mois, et vaut pour autant de comptes que l'administrateur l'a
+ * décidé.
  */
-export async function creerInvitation(plafond: number): Promise<Resultat> {
+export async function creerInvitation(plafond: number, jours: number = INSCRIPTION_DUREE_PAR_DEFAUT): Promise<Resultat> {
   const admin = await requireAdmin();
   const t = (await textes()).adminActions.invitations;
   if (!INSCRIPTION_PLAFONDS.includes(plafond as (typeof INSCRIPTION_PLAFONDS)[number])) {
     return { ok: false, message: t.plafondInvalide };
   }
+  if (!dureeValide(jours)) return { ok: false, message: t.dureeInvalide };
 
-  const { token } = await creerLienInscription(admin.id, plafond);
+  const { token } = await creerLienInscription(admin.id, plafond, jours);
   revalidatePath("/admin/comptes");
   return {
     ok: true,
     message: t.cree,
     lien: `${env.PUBLIC_URL}/inscription?token=${encodeURIComponent(token)}`,
-    lienLibelle: t.aTransmettre(plafond),
+    lienLibelle: t.aTransmettre(plafond, jours),
   };
 }
 

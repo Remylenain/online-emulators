@@ -108,11 +108,15 @@ export const adminComptes: Dictionnaire["adminComptes"] = {
     titre: "Or let people sign up",
     explication:
       "A link to hand out: each person picks their own username and password there. It expires after " +
-      "24 hours and is good for the number of accounts chosen here. Anyone with the link can create " +
-      "an account: if it spreads too far, revoke it — the accounts it created are listed below.",
+      "the period chosen here and is good for the number of accounts chosen here. Anyone with the link can create " +
+      "an account: the longer it lives, the more time it has to spread. If it spreads too far, revoke it — " +
+      "the accounts it created are listed below.",
     pour: "For",
     plafond: (n: number) => (n === 1 ? "a single account" : `up to ${n} accounts`),
     nombreDeComptes: "Number of accounts",
+    valable: "valid for",
+    duree: (jours: number) => (jours === 1 ? "24 hours" : `${jours} days`),
+    dureeDeValidite: "Validity period",
     creer: "Create a sign-up link",
     lien: (creeLe: string, utilises: number, maximum: number) =>
       `Link created ${creeLe} · ${utilises}/${maximum} account${s(maximum)}`,

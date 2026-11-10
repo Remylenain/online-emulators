@@ -141,13 +141,19 @@ export const adminComptes = {
     titre: "Ou laisser les gens s'inscrire",
     explication:
       "Un lien à donner : chacun y choisit son pseudo et son mot de passe. Il expire au bout " +
-      "de 24 heures et vaut pour le nombre de comptes choisi ici. Qui a le lien peut créer " +
-      "un compte : s'il circule trop, révoque-le, les comptes qu'il a donnés sont listés dessous.",
+      "de la durée choisie ici et vaut pour le nombre de comptes choisi ici. Qui a le lien peut créer " +
+      "un compte : plus il vit longtemps, plus il a le temps de circuler. S'il circule trop, révoque-le, " +
+      "les comptes qu'il a donnés sont listés dessous.",
     /** Précède la liste déroulante, qui finit la phrase : « Pour 5 comptes au plus ». */
     pour: "Pour",
     plafond: (n: number) => (n === 1 ? "un seul compte" : `${n} comptes au plus`),
     /** Le nom de la liste déroulante, pour les lecteurs d'écran. */
     nombreDeComptes: "Nombre de comptes",
+    /** Précède la seconde liste déroulante, qui finit la phrase : « valable 7 jours ». */
+    valable: "valable",
+    duree: (jours: number) => (jours === 1 ? "24 heures" : `${jours} jours`),
+    /** Le nom de cette liste, pour les lecteurs d'écran. */
+    dureeDeValidite: "Durée de validité",
     creer: "Créer un lien d'inscription",
     /** Un lien déjà créé : sa date, puis combien de comptes il a donnés sur combien. */
     lien: (creeLe: string, utilises: number, maximum: number) =>

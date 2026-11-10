@@ -46,11 +46,12 @@ export const adminActions: Dictionnaire["adminActions"] = {
 
   invitations: {
     plafondInvalide: "Invalid number of accounts.",
+    dureeInvalide: "Invalid validity period.",
     /** « Sign-up link » : la personne crée son compte elle-même, pseudo compris. */
     cree: "Sign-up link created.",
-    aTransmettre: (plafond: number) =>
+    aTransmettre: (plafond: number, jours: number) =>
       "Link to pass on: the person will choose their username and password there. " +
-      `Valid for 24 hours, for ${plafond === 1 ? "a single account" : `up to ${plafond} accounts`}.`,
+      `Valid for ${jours === 1 ? "24 hours" : `${jours} days`}, for ${plafond === 1 ? "a single account" : `up to ${plafond} accounts`}.`,
     revoque: "Link revoked: it will not create any more accounts.",
     dejaRevoque: "This link was already revoked, or does not exist.",
 
