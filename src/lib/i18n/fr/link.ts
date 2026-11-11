@@ -102,6 +102,8 @@ export const link = {
     /** La question posée avant de terminer (`window.confirm`). Le « vos » s'adresse aux deux joueurs. */
     confirmerFin: "Terminer la session ? Les deux parties seront enregistrées sur vos comptes.",
     terminer: "Terminer et enregistrer",
+    /** Le même, sous la croix d'un téléphone couché, où la place manque. */
+    terminerCourt: "Terminer",
     /** Partir en laissant le salon ouvert : on peut y revenir, la partie continue sur le serveur. */
     quitterSansTerminer: "Quitter sans terminer",
     arreterDeRegarder: "Arrêter de regarder",

@@ -19,7 +19,6 @@ export const activite: Dictionnaire["activite"] = {
       "Two-player: with someone in this voice channel, over the link cable. " +
       "Each player's progress is the one on their own account, solo or two-player.",
     astuce: "Tip:",
-    isolation: (isolee: boolean) => `Cross-origin isolation: ${isolee ? "yes" : "no"}`,
   },
 
   lancement: {
@@ -67,7 +66,8 @@ export const activite: Dictionnaire["activite"] = {
     rienATelecharger: "There is no progress to download yet.",
     telechargee: (octets: number) =>
       `Progress sent for download (${octets} bytes). ` +
-      "If nothing arrives, Discord blocked it: get it from the website instead, it is the same one.",
+      "If nothing arrives, Discord is blocking the download from the Activity: " +
+      "try again from Discord opened in a web browser, or from another device.",
     telechargementEchoue: "The download failed.",
     fichierVide: "This file is empty.",
     confirmer: {

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLangue, useT } from "@/components/langue";
 import { ChoixVitesse, Commande, lireVolumeRetenu, retenirVolume, Volume } from "@/components/player/commandes";
 import { Manette } from "@/components/player/manette";
+import { GARDE_COUCHE, MARGES_SURES, usePaysage, useZone, variablesCouche } from "@/components/player/orientation";
 import { Savestates, type AccesEtats } from "@/components/player/savestates";
 import { useManette } from "@/components/player/use-manette";
 import { DEFAULT_KEYMAP, toucheDeEvenement, type Touche } from "@/lib/consoles";
@@ -64,32 +65,6 @@ type EtatSauvegarde = "aucun" | "envoi" | "ok" | "echec" | "conflit";
 const DELAI_ENVOI_MS = 1500;
 /** Multiplicateur de la touche d'accélération tenue. */
 const VITESSE_RAPIDE = 3;
-
-/**
- * Téléphone couché : ce dont la manette s'écarte encore des bords, en plus des
- * marges sûres que Discord annonce.
- */
-const GARDE_COUCHE = "1rem";
-
-/**
- * Le sens dans lequel l'appareil est tenu, suivi tant que l'Activité est
- * ouverte : un téléphone se tourne en pleine partie.
- */
-const ORIENTATION = "(orientation: landscape)";
-
-function suivreOrientation(rappel: () => void): () => void {
-  const requete = window.matchMedia(ORIENTATION);
-  requete.addEventListener("change", rappel);
-  return () => requete.removeEventListener("change", rappel);
-}
-
-function usePaysage(): boolean {
-  return useSyncExternalStore(
-    suivreOrientation,
-    () => window.matchMedia(ORIENTATION).matches,
-    () => false,
-  );
-}
 
 /** Emplacement de passage du cœur : les emplacements du joueur vivent sur le serveur. */
 const PASSAGE = 1;
@@ -194,8 +169,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   const paysage = usePaysage();
   /** La place qu'occupent l'écran et la manette, mesurée : la manette couchée s'y taille. */
   const zoneRef = useRef<HTMLDivElement>(null);
-  const [zone, setZone] = useState<{ largeur: number; hauteur: number } | null>(null);
-  const [isolation, setIsolation] = useState<boolean | null>(null);
+  const zone = useZone(zoneRef);
 
   // -------------------------------------------------------------------------
   // 1. Qui joue
@@ -217,7 +191,6 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
         volumeRef.current = volumeRetenu;
         setVolume(volumeRetenu);
       }
-      setIsolation(Boolean(window.crossOriginIsolated));
       setTactile(window.matchMedia("(pointer: coarse)").matches);
 
       // Discord ouvre l'iframe avec `frame_id` dans l'adresse ; le SDK refuse
@@ -559,22 +532,6 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
     emulateurRef.current?.bouton(bouton, enfonce);
   }, []);
 
-  // Mesurée plutôt que déduite de la fenêtre : Discord retire ses marges sûres
-  // tout autour, et la barre du bas va et vient.
-  useEffect(() => {
-    const element = zoneRef.current;
-    if (!element || typeof ResizeObserver === "undefined") return;
-    const observateur = new ResizeObserver(([entree]) => {
-      if (!entree) return;
-      setZone({
-        largeur: Math.round(entree.contentRect.width),
-        hauteur: Math.round(entree.contentRect.height),
-      });
-    });
-    observateur.observe(element);
-    return () => observateur.disconnect();
-  }, []);
-
   /** La manette tactile est à l'écran. */
   const manetteTactile = tactile && etape === "jeu" && session !== null;
   /**
@@ -597,13 +554,8 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   return (
     <main
       className="fixed inset-0 flex select-none flex-col bg-ink-950 text-ink-200"
-      style={{
-        // Discord donne ses propres marges sûres ; à défaut, celles du système.
-        paddingTop: "var(--discord-safe-area-inset-top, env(safe-area-inset-top))",
-        paddingBottom: "var(--discord-safe-area-inset-bottom, env(safe-area-inset-bottom))",
-        paddingLeft: "var(--discord-safe-area-inset-left, env(safe-area-inset-left))",
-        paddingRight: "var(--discord-safe-area-inset-right, env(safe-area-inset-right))",
-      }}
+      // Discord donne ses propres marges sûres ; à défaut, celles du système.
+      style={MARGES_SURES}
     >
       {/*
         Une seule arborescence pour toutes les dispositions : le cœur dessine
@@ -620,19 +572,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       <div
         ref={zoneRef}
         className="relative flex min-h-0 flex-1 flex-col"
-        style={
-          couche
-            ? ({
-                "--cote": zone ? `${Math.round(zone.largeur * 0.22)}px` : "22vw",
-                "--haut": zone ? `${zone.hauteur}px` : "100dvh",
-                // Les marges sûres sont déjà retirées tout autour. Il reste une
-                // garde : sur un téléphone Android couché, la marge que Discord
-                // annonce s'est montrée plus étroite que la barre de navigation.
-                "--marge-gauche": GARDE_COUCHE,
-                "--marge-droite": GARDE_COUCHE,
-              } as React.CSSProperties)
-            : undefined
-        }
+        style={couche ? variablesCouche(zone) : undefined}
       >
         <div
           className={`relative flex min-h-0 justify-center p-2 ${debout ? "shrink items-start" : "flex-1 items-center"}`}
@@ -831,10 +771,6 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       >
         <span aria-live="polite">{libelleSauvegarde[etatSauvegarde]}</span>
         <span className={`flex items-center gap-2 ${tactile ? "grow justify-end" : "flex-wrap"}`}>
-          {/* Constat du prototype : Discord n'isole pas ses iframes. */}
-          {isolation !== null && etape !== "jeu" && (
-            <span title="self.crossOriginIsolated">{t.activite.accueil.isolation(isolation)}</span>
-          )}
           {etape === "jeu" && (
             <>
               <Commande onClick={() => ouvrirPanneau(panneau === null ? "pause" : null)} actif={panneau !== null}>

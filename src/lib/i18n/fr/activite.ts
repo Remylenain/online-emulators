@@ -25,8 +25,6 @@ export const activite = {
       "La partie de chacun est celle de son compte, seul comme à deux.",
     /** Devant chaque astuce de l'administrateur, à l'accueil comme en pause. L'astuce, elle, s'affiche telle quelle. */
     astuce: "Astuce :",
-    /** Un constat technique en pied d'écran, hérité du prototype : Discord n'isole pas ses iframes. */
-    isolation: (isolee: boolean) => `Isolation cross-origin : ${isolee ? "oui" : "non"}`,
   },
 
   /** Le lancement d'une partie en solo : les trois temps du chargement. */
@@ -91,7 +89,8 @@ export const activite = {
     /** Discord peut refuser le téléchargement depuis son cadre : le dire, sans pouvoir le savoir d'ici. */
     telechargee: (octets: number) =>
       `Partie envoyée au téléchargement (${octets} octets). ` +
-      "Si rien n'arrive, Discord l'a bloqué : récupère-la depuis le site, c'est la même.",
+      "Si rien n'arrive, c'est Discord qui bloque le téléchargement depuis l'Activité : " +
+      "réessaie depuis Discord ouvert dans un navigateur, ou depuis un autre appareil.",
     telechargementEchoue: "Le téléchargement a échoué.",
     fichierVide: "Ce fichier est vide.",
     /** Les questions posées avant d'agir (`window.confirm`). */

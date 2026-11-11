@@ -73,6 +73,7 @@ export const link: Dictionnaire["link"] = {
 
     confirmerFin: "End the session? Both players' progress will be saved to your accounts.",
     terminer: "End and save",
+    terminerCourt: "End",
     quitterSansTerminer: "Leave without ending",
     arreterDeRegarder: "Stop watching",
     retour: "Back",

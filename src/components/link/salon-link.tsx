@@ -6,7 +6,9 @@ import { AvecCode } from "@/components/link/code-salon";
 import { useT } from "@/components/langue";
 import { Alert, Button } from "@/components/ui";
 import { usePleinEcranAuto } from "@/components/player/plein-ecran";
+import { Commande } from "@/components/player/commandes";
 import { Manette } from "@/components/player/manette";
+import { GARDE_COUCHE, MARGES_SURES, usePaysage, useZone, variablesCouche } from "@/components/player/orientation";
 import type { Bouton } from "@/lib/emulator/adapter";
 import { toucheDeEvenement, type Touche } from "@/lib/consoles";
 import { useManette } from "@/components/player/use-manette";
@@ -37,6 +39,11 @@ import { texteErreurLink, texteFinLink } from "@/lib/link/textes";
  * Le même composant sert l'Activité Discord, à trois différences près : le
  * jeton de l'Activité à la place du cookie, un bouton de retour à la place
  * d'un lien, et pas de code de salon à dicter — le salon vocal en tient lieu.
+ *
+ * Téléphone couché, en partie : la même disposition que le lecteur en solo —
+ * l'écran prend la hauteur, la croix et les boutons se posent sur les côtés,
+ * le son et la fin de session sous la croix. Le reste (bandeau, actions)
+ * revient en tenant le téléphone debout.
  */
 
 export function SalonLink({
@@ -88,6 +95,9 @@ export function SalonLink({
   const [tactile, setTactile] = useState(false);
   // Sur téléphone, le premier appui fait disparaître les barres du système.
   usePleinEcranAuto(tactile);
+  const paysage = usePaysage();
+  const zoneRef = useRef<HTMLDivElement>(null);
+  const zone = useZone(zoneRef);
 
   useEffect(() => {
     const requete = window.matchMedia("(pointer: coarse)");
@@ -338,6 +348,9 @@ export function SalonLink({
     );
   }
 
+  /** Téléphone couché, en partie : l'écran au centre, la manette de part et d'autre. */
+  const couche = tactile && paysage && !spectateur && etat?.etat === "en-jeu";
+
   const canvas = (index: number, pleineLargeur: boolean) => (
     <canvas
       ref={(element) => {
@@ -345,12 +358,16 @@ export function SalonLink({
       }}
       width={largeur}
       height={hauteur}
-      className="mx-auto block bg-black"
-      style={{
-        imageRendering: "pixelated",
-        aspectRatio: `${largeur} / ${hauteur}`,
-        width: pleineLargeur ? "100%" : `min(100%, calc(70vh * ${largeur} / ${hauteur}))`,
-      }}
+      className={couche ? "h-full w-full object-contain" : "mx-auto block bg-black"}
+      style={
+        couche
+          ? { imageRendering: "pixelated" }
+          : {
+              imageRendering: "pixelated",
+              aspectRatio: `${largeur} / ${hauteur}`,
+              width: pleineLargeur ? "100%" : `min(100%, calc(70vh * ${largeur} / ${hauteur}))`,
+            }
+      }
     />
   );
 
@@ -428,9 +445,18 @@ export function SalonLink({
     </div>
   );
 
+  /*
+    Une seule arborescence pour les deux dispositions : le serveur dessine
+    dans **ce** canvas, et tourner le téléphone ne doit pas en créer un
+    autre. Couché, le salon couvre tout l'écran par-dessus la page, avec les
+    marges sûres de Discord ; debout, il reprend sa place dans la page.
+  */
   return (
-    <div className="flex flex-col gap-4">
-      {bandeau}
+    <div
+      className={couche ? "fixed inset-0 z-20 flex flex-col bg-ink-950" : "flex flex-col gap-4"}
+      style={couche ? MARGES_SURES : undefined}
+    >
+      <div className={couche ? "hidden" : "contents"}>{bandeau}</div>
       {erreur && (
         <Alert tone="error">
           {erreur === "connexion" ? t.link.salon.connexionEchouee : texteErreurLink(t, erreur, erreur.message)}
@@ -448,17 +474,68 @@ export function SalonLink({
           )}
         </Alert>
       )}
-      {ecran}
-      {tactile && !spectateur && etat?.etat === "en-jeu" && (
-        <Manette gachettes={etat.jeu.gachettes} surBouton={bouton} />
-      )}
-      {actions}
-      {!tactile && !spectateur && (
-        <p className="text-xs text-ink-700">{t.link.salon.aide}</p>
-      )}
-      {spectateur && (
-        <p className="text-xs text-ink-700">{t.link.salon.sonSpectateur(etat?.joueurs[0]?.pseudo ?? null)}</p>
-      )}
+      <div
+        ref={zoneRef}
+        className={couche ? "relative flex min-h-0 flex-1 flex-col" : "contents"}
+        style={couche ? variablesCouche(zone) : undefined}
+      >
+        <div
+          className={couche ? "flex min-h-0 flex-1 items-center justify-center p-2" : "contents"}
+          style={
+            couche
+              ? {
+                  paddingLeft: `calc(var(--cote) + ${GARDE_COUCHE})`,
+                  paddingRight: `calc(var(--cote) + ${GARDE_COUCHE})`,
+                }
+              : undefined
+          }
+        >
+          {ecran}
+        </div>
+        {tactile && !spectateur && etat?.etat === "en-jeu" && (
+          // Couchée, la manette se pose par-dessus toute la zone ; le son et
+          // la fin de session, d'ordinaire dans les actions, passent sous la croix.
+          <div className={couche ? "pointer-events-none absolute inset-0" : "contents"}>
+            <Manette
+              gachettes={etat.jeu.gachettes}
+              surBouton={bouton}
+              paysage={couche}
+              basGauche={
+                couche ? (
+                  // L'un sous l'autre : la bande de la croix est étroite.
+                  <div className="flex flex-col items-center gap-1">
+                    <Commande
+                      onClick={() => {
+                        muetRef.current = !muet;
+                        setMuet(!muet);
+                      }}
+                      actif={muet}
+                    >
+                      {muet ? t.partie.son.coupe : t.partie.son.actif}
+                    </Commande>
+                    <Commande
+                      onClick={() => {
+                        if (confirm(t.link.salon.confirmerFin)) envoyer({ t: "terminer" });
+                      }}
+                    >
+                      {t.link.salon.terminerCourt}
+                    </Commande>
+                  </div>
+                ) : undefined
+              }
+            />
+          </div>
+        )}
+      </div>
+      <div className={couche ? "hidden" : "contents"}>
+        {actions}
+        {!tactile && !spectateur && (
+          <p className="text-xs text-ink-700">{t.link.salon.aide}</p>
+        )}
+        {spectateur && (
+          <p className="text-xs text-ink-700">{t.link.salon.sonSpectateur(etat?.joueurs[0]?.pseudo ?? null)}</p>
+        )}
+      </div>
     </div>
   );
 }
