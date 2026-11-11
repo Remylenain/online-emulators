@@ -411,6 +411,29 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
     [],
   );
 
+  /**
+   * Signale la partie en cours, au lancement puis chaque minute : le temps
+   * de jeu du compte, comme sur le site. Le menu de pause ne l'interrompt
+   * pas, pas plus que le menu du lecteur sur le site. Le serveur décide seul
+   * s'il s'agit d'une nouvelle partie ou de la suite de la précédente.
+   */
+  useEffect(() => {
+    if (etape !== "jeu") return;
+    const signaler = () => {
+      const courante = sessionRef.current;
+      if (!courante) return;
+      void fetch("/api/discord/partie", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${courante.jeton}` },
+      }).catch(() => {
+        // Une partie non comptée n'est pas un problème : on retentera.
+      });
+    };
+    signaler();
+    const battement = setInterval(signaler, 60 * 1000);
+    return () => clearInterval(battement);
+  }, [etape]);
+
   // -------------------------------------------------------------------------
   // 3. La partie : son, vitesse, clavier, manette, manette tactile
   // -------------------------------------------------------------------------

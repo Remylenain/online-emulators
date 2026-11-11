@@ -9,6 +9,7 @@ export const adminComptes: Dictionnaire["adminComptes"] = {
   ligne: {
     admin: "admin",
     desactive: "deactivated",
+    discord: "discord",
     mode: (mode: string, jeux: number) => `${mode.toLowerCase()} · ${jeux} game${s(jeux)}`,
     /** « save files » : ce qui est compté, ce sont les fichiers de sauvegarde du compte. */
     resume: (email: string | null, parties: number, depuis: string) =>

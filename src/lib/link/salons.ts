@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { games } from "@/db/schema";
 import { conditionAcces, jeuAccessible } from "@/lib/acces";
 import { paths } from "@/lib/paths";
+import { marquerPartie } from "@/lib/play";
 import { ecrireSauvegarde, lireSauvegarde } from "@/lib/saves";
 import { findConsole } from "@/lib/consoles";
 import type { Compte } from "./auth";
@@ -98,6 +99,8 @@ const ATTENTE_MAX_MS = 60 * 60 * 1000;
  * toute la session.
  */
 const SAUVEGARDE_MS = Number(process.env.LINK_RELEVE_MS) || 2 * 60 * 1000;
+/** Le même pas que le lecteur du site, qui signale sa partie chaque minute. */
+const BATTEMENT_MS = 60 * 1000;
 /**
  * Spectateurs par salon. Chacun reçoit les deux écrans : ce n'est pas du
  * calcul en plus pour le serveur, mais c'est de la bande passante.
@@ -111,6 +114,8 @@ type Interne = {
   spectateurs: Set<WebSocket>;
   /** La relève périodique des sauvegardes, tant que la partie tourne. */
   releve: ReturnType<typeof setInterval> | null;
+  /** Le battement de partie des joueurs présents : leur temps de jeu, comme en solo. */
+  battement: ReturnType<typeof setInterval> | null;
   /** Empreinte du contenu de jeu de la dernière sauvegarde écrite ou lue, par place. */
   corps: [string | null, string | null];
   geometrie: { largeur: number; hauteur: number } | null;
@@ -125,6 +130,7 @@ function interne(salon: Salon): Interne {
     prises: [new Set(), new Set()],
     spectateurs: new Set(),
     releve: null,
+    battement: null,
     corps: [null, null],
     geometrie: null,
     dernieresImages: [null, null],
@@ -432,6 +438,22 @@ async function demarrer(salon: Salon): Promise<void> {
     if (salon.etat === "en-jeu") etat.ouvrier?.postMessage({ t: "instantane" });
   }, SAUVEGARDE_MS);
   etat.releve.unref();
+
+  // Le temps de jeu : ce que le lecteur signale lui-même en solo, le serveur
+  // le fait ici pour chaque joueur encore connecté — pas pour qui est parti,
+  // ni pour les spectateurs.
+  const compterLaPartie = () => {
+    if (salon.etat !== "en-jeu") return;
+    for (const place of salon.places) {
+      if (!place || place.connexions === 0) continue;
+      void marquerPartie(place.userId, salon.jeu.id).catch(() => {
+        // Une minute non comptée n'est pas un problème : on retentera.
+      });
+    }
+  };
+  compterLaPartie();
+  etat.battement = setInterval(compterLaPartie, BATTEMENT_MS);
+  etat.battement.unref();
   ouvrier.postMessage({
     t: "demarrer",
     coeur,
@@ -496,6 +518,8 @@ export function terminer(salon: Salon, motif: string | Fin, enregistrer = true):
     salon.etat = "termine";
     if (etat.releve) clearInterval(etat.releve);
     etat.releve = null;
+    if (etat.battement) clearInterval(etat.battement);
+    etat.battement = null;
     let ecrit = false;
 
     const ouvrier = etat.ouvrier;

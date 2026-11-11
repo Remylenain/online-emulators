@@ -61,7 +61,12 @@ Le trajet d'un lancement :
    page affirme n'est jamais cru sur parole.
 5. Au premier lancement, un compte du site est créé : **restreint**, avec ce
    seul jeu attribué, sans mot de passe (`users.discord_id`). Les règles
-   d'accès ordinaires (`src/lib/acces.ts`) s'appliquent à ce compte.
+   d'accès ordinaires (`src/lib/acces.ts`) s'appliquent à ce compte. Son
+   pseudo est le nom Discord du joueur, et le suit s'il en change. Dans
+   l'administration, le compte porte l'étiquette « discord », et son temps de
+   jeu se compte comme sur le site (Temps de jeu, « qui joue ») : l'Activité
+   signale la partie chaque minute (`/api/discord/partie`), et le serveur du
+   câble link le fait pour les deux joueurs d'un salon.
 6. La page reçoit un jeton signé, valable douze heures, qu'elle renvoie en
    en-tête. Pas de cookie : dans un cadre tiers, les navigateurs les refusent.
 7. Le joueur appuie sur « Jouer » — un geste est nécessaire pour que le

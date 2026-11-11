@@ -24,6 +24,8 @@ export default async function ComptesPage() {
       isActive: users.isActive,
       accessMode: users.accessMode,
       createdAt: users.createdAt,
+      // Un compte venu de l'Activité Discord : son pseudo est son nom Discord.
+      discord: sql<number>`${users.discordId} is not null`,
       // Le nombre de parties sauvegardées dit en un coup d'œil si un compte
       // sert vraiment, ce qu'une date d'inscription ne dit pas. Jointure et
       // non sous-requête : sur une seule table, drizzle écrit les colonnes
@@ -47,6 +49,7 @@ export default async function ComptesPage() {
   const attributions = await db.select().from(userGames).all();
   const comptesAvecJeux = comptes.map((compte) => ({
     ...compte,
+    discord: Boolean(compte.discord),
     jeux: attributions.filter((a) => a.userId === compte.id).map((a) => a.gameId),
   }));
 

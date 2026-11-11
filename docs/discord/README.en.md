@@ -61,7 +61,12 @@ The path of a launch:
    page claims is never taken at its word.
 5. On first launch, a site account is created: **restricted**, with only this
    game assigned, and no password (`users.discord_id`). The ordinary access
-   rules (`src/lib/acces.ts`) apply to this account.
+   rules (`src/lib/acces.ts`) apply to this account. Its username is the
+   player's Discord name, and follows it when it changes. In the admin, the
+   account carries a "discord" tag, and its play time counts as on the site
+   (Play time, "who is playing"): the Activity reports the game every minute
+   (`/api/discord/partie`), and the link-cable server does it for both
+   players of a room.
 6. The page receives a signed token, valid for twelve hours, which it sends
    back in a header. No cookie: in a third-party frame, browsers refuse them.
 7. The player presses "Play" — a gesture is needed for the browser to let

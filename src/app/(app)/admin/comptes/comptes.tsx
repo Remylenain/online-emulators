@@ -33,6 +33,8 @@ export type Compte = {
   isActive: boolean;
   accessMode: ModeAcces;
   createdAt: Date;
+  /** Rattaché à un compte Discord : né de l'Activité, en général. */
+  discord: boolean;
   parties: number;
   /** Jeux attribués, pour un compte restreint ou testeur. */
   jeux: string[];
@@ -277,6 +279,7 @@ function FicheCompte({
             <span className="text-sm font-medium text-ink-50">{compte.pseudo}</span>
             {compte.role === "ADMIN" && <Badge tone="accent">{t.ligne.admin}</Badge>}
             {!compte.isActive && <Badge tone="danger">{t.ligne.desactive}</Badge>}
+            {compte.discord && <Badge>{t.ligne.discord}</Badge>}
             {compte.accessMode !== "normal" && (
               <Badge>{t.ligne.mode(t.modes[compte.accessMode].libelle, compte.jeux.length)}</Badge>
             )}

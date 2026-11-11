@@ -46,16 +46,37 @@ function pseudoLibre(souhaite: string): string {
 /**
  * Trouve le compte rattaché à cet utilisateur Discord, ou le crée, et lui
  * attribue le jeu de l'Activité. Rend `null` si le compte a été désactivé.
+ *
+ * Un compte né de Discord suit le nom Discord : changé là-bas, il change ici
+ * à la session suivante — c'est ce nom que l'administration affiche. Un
+ * compte du site simplement rattaché à Discord garde son pseudo, choisi.
  */
 export function compteDiscord(profil: ProfilDiscord, gameId: string): { id: string; pseudo: string } | null {
   let compte = db
-    .select({ id: users.id, pseudo: users.pseudo, isActive: users.isActive })
+    .select({ id: users.id, pseudo: users.pseudo, isActive: users.isActive, passwordHash: users.passwordHash })
     .from(users)
     .where(eq(users.discordId, profil.id))
     .get();
 
+  if (compte && compte.passwordHash === SANS_MOT_DE_PASSE) {
+    const souhaite = pseudoPropre(profil.pseudo);
+    // « Joueur » est le repli d'un nom que le site ne peut pas garder : pas un
+    // nom à suivre. Et un pseudo déjà porté par ce compte, à la casse près,
+    // reste le sien : `pseudoLibre` le croirait pris.
+    if (souhaite !== "Joueur" && souhaite.toLowerCase() !== compte.pseudo.toLowerCase()) {
+      const pseudo = pseudoLibre(souhaite);
+      db.update(users).set({ pseudo, updatedAt: new Date() }).where(eq(users.id, compte.id)).run();
+      compte = { ...compte, pseudo };
+    }
+  }
+
   if (!compte) {
-    const cree = { id: newId(), pseudo: pseudoLibre(pseudoPropre(profil.pseudo)), isActive: true };
+    const cree = {
+      id: newId(),
+      pseudo: pseudoLibre(pseudoPropre(profil.pseudo)),
+      isActive: true,
+      passwordHash: SANS_MOT_DE_PASSE,
+    };
     db.insert(users)
       .values({
         id: cree.id,

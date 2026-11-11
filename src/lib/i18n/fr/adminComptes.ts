@@ -16,9 +16,11 @@ export const adminComptes = {
 
   /** Une ligne de la liste, repliée. */
   ligne: {
-    /** Trois étiquettes, en minuscules, à côté du pseudo. */
+    /** Les étiquettes, en minuscules, à côté du pseudo. */
     admin: "admin",
     desactive: "désactivé",
+    /** Un compte rattaché à Discord : venu de l'Activité, son pseudo est son nom Discord. */
+    discord: "discord",
     /** Pour un compte restreint ou testeur ; `mode` est son libellé, pris dans `modes`. */
     mode: (mode: string, jeux: number) => `${mode.toLowerCase()} · ${jeux} jeu${jeux > 1 ? "x" : ""}`,
     /**
