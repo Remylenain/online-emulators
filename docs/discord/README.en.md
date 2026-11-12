@@ -12,9 +12,9 @@ hack, their translation — in their own Discord server.
 > **Status.** The Activity runs on a real Discord server, with an application
 > verified by Discord and a Game Boy Color game: launch from the app launcher
 > and from a typed command, progress kept per account, lock on several
-> servers, reserved roles, Android phone in portrait and landscape. Not yet
-> tested in Discord itself: two-player mode, a GBA game, iOS, cartridge
-> rumble.
+> servers, reserved roles, Android phone in portrait and landscape, cartridge
+> rumble on Android, a game marked "solo". Not yet tested in Discord itself:
+> two-player mode, a GBA game, iOS, rumble on a controller.
 
 ## In a nutshell
 
@@ -406,10 +406,9 @@ the picture and the sound.
 The site's player rumbles the same way, for those same games: it then takes
 this core instead of its own (see `docs/decisions.en.md`, item 1).
 
-Tried in a browser with Pokémon Pinball Generations, logging the calls to
-`navigator.vibrate` one by one. **Never felt on a real phone nor in the
-Discord app**, where the Activity runs in a web view that may or may not
-allow vibration; controllers and the GBA have not been tried either.
+Tried with Pokémon Pinball Generations on an Android phone: the rumble is
+felt in the Discord app as well as in the site's player. **Controllers and
+the GBA have not been tried.**
 
 ## Keys and controller
 
@@ -651,8 +650,8 @@ by some route other than the portal.
 - Pausing when the Activity goes into picture-in-picture.
 - Two-player mode and the controller in Discord itself (tested locally only);
   the latency of Discord's proxy on picture and sound.
-- Cartridge rumble, to be felt on a real phone and a controller (the orders
-  go out, checked locally only).
+- Cartridge rumble on a controller, and for a GBA game (felt on an Android
+  phone only).
 - Linking an existing site account to its Discord user, to find its progress
   there.
 - The test button doesn't say whether a host is actually relayed all the way

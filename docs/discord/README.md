@@ -12,9 +12,10 @@ hack, sa traduction — dans son propre serveur Discord.
 > **État.** L'Activité tourne sur un vrai serveur Discord, avec une application
 > vérifiée par Discord et un jeu Game Boy Color : lancement par le lanceur
 > d'applications et par une commande tapée, partie gardée par compte, verrou
-> sur plusieurs serveurs, rôles réservés, téléphone Android debout et couché.
-> Pas encore essayés dans Discord même : le jeu à deux, un jeu GBA, iOS, la
-> vibration des cartouches.
+> sur plusieurs serveurs, rôles réservés, téléphone Android debout et couché,
+> vibration des cartouches sur Android, jeu marqué « solo ». Pas encore
+> essayés dans Discord même : le jeu à deux, un jeu GBA, iOS, la vibration
+> d'une manette.
 
 ## En deux mots
 
@@ -413,11 +414,9 @@ son.
 Le lecteur du site vibre de la même façon, pour ces mêmes jeux : il prend
 alors ce cœur à la place du sien (voir `docs/decisions.md`, point 1).
 
-Essayé dans un navigateur avec Pokémon Pinball Generations, les appels à
-`navigator.vibrate` relevés un à un. **Jamais senti sur un vrai téléphone ni
-dans l'application Discord**, où l'Activité tourne dans une vue web dont on
-ne sait pas si elle laisse vibrer ; la manette et la GBA n'ont pas été
-essayées non plus.
+Essayé avec Pokémon Pinball Generations sur un téléphone Android : la
+vibration se sent dans l'application Discord comme dans le lecteur du site.
+**La manette et la GBA n'ont pas été essayées.**
 
 ## Touches et manette
 
@@ -659,8 +658,8 @@ utilisateurs par une autre voie que le portail.
 - Pause quand l'Activité passe en incrustation.
 - Le jeu à deux et la manette dans Discord même (essayés en local seulement) ;
   la latence du proxy de Discord sur l'image et le son.
-- La vibration des cartouches, à sentir sur un vrai téléphone et une manette
-  (les ordres partent, vérifié en local seulement).
+- La vibration des cartouches sur une manette, et pour un jeu GBA (sentie
+  sur téléphone Android seulement).
 - Rattacher un compte existant du site à son utilisateur Discord, pour y
   retrouver sa partie.
 - Le bouton d'essai ne dit pas si un hôte est bien relayé jusqu'au site.
