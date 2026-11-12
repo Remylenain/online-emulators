@@ -27,19 +27,29 @@ export function lireFichierCoeur(nom: FichierCoeur): Buffer {
 
 let version: string | null = null;
 
+function adresses(base: string): { js: string; wasm: string } {
+  version ??= createHash("sha1")
+    .update(lireFichierCoeur("mgs.js"))
+    .update(lireFichierCoeur("mgs.wasm"))
+    .digest("hex")
+    .slice(0, 12);
+  return { js: `${base}/mgs.js?v=${version}`, wasm: `${base}/mgs.wasm?v=${version}` };
+}
+
 /**
  * Les adresses du cœur, avec son empreinte : les fichiers sont servis avec un
  * cache d'un an, et c'est l'empreinte dans l'adresse qui fait retélécharger
  * un cœur recompilé.
  */
 export function adressesCoeur(): { js: string; wasm: string } {
-  version ??= createHash("sha1")
-    .update(lireFichierCoeur("mgs.js"))
-    .update(lireFichierCoeur("mgs.wasm"))
-    .digest("hex")
-    .slice(0, 12);
-  return {
-    js: `/api/discord/coeur/mgs.js?v=${version}`,
-    wasm: `/api/discord/coeur/mgs.wasm?v=${version}`,
-  };
+  return adresses("/api/discord/coeur");
+}
+
+/**
+ * Le même cœur, pour le lecteur du site : il le prend pour les jeux dont la
+ * cartouche vibre, ce que son cœur ordinaire ne rapporte pas. Une autre
+ * adresse, parce que `/api/discord` n'est servi que sur l'hôte d'une Activité.
+ */
+export function adressesCoeurDuSite(): { js: string; wasm: string } {
+  return adresses("/api/coeur");
 }

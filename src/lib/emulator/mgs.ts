@@ -9,6 +9,9 @@ import type { Bouton, Emulateur, OptionsDemarrage } from "./adapter";
  * dans l'iframe d'une Activité Discord, notamment. Un seul module couvre GB,
  * GBC et GBA (seuls GB et GBC ont été essayés ici).
  *
+ * Le lecteur du site le prend aussi, pour les jeux dont la cartouche vibre :
+ * c'est le seul des deux cœurs qui rapporte ce moteur (`surVibration`).
+ *
  * Ce cœur est nu : il calcule une image quand on le lui demande et rien
  * d'autre. Tout ce que l'autre fait seul est donc ici — le rythme, le dessin,
  * le son, et la surveillance de la sauvegarde.
@@ -235,6 +238,16 @@ export class EmulateurMgs implements Emulateur {
       // Pas de son sur ce navigateur : le jeu reste jouable.
       this.audio = null;
     }
+  }
+
+  /**
+   * Relance la sortie son que le navigateur a retenue. Là où le jeu démarre
+   * sans geste du joueur — le lecteur du site, à l'ouverture de la page —, le
+   * son reste suspendu jusqu'au premier appui : c'est à ce moment qu'on
+   * appelle ceci. Sans effet pendant une pause, qui suspend le son exprès.
+   */
+  reveillerSon(): void {
+    if (this.audio && this.audio.state === "suspended" && !this.enPause) void this.audio.resume().catch(() => {});
   }
 
   async demarrer(options: OptionsDemarrage): Promise<void> {
@@ -540,10 +553,17 @@ export class EmulateurMgs implements Emulateur {
   lireEtat(_emplacement: number, donnees: Uint8Array): boolean {
     const module = this.module;
     if (!module) return false;
-    const p = module._malloc(donnees.length);
+    // Le cœur lit autant d'octets que son propre état en compte, sans
+    // regarder ce qu'on lui tend : un état plus long n'est pas le sien, un
+    // état plus court (une version plus ancienne de mGBA) est complété de
+    // zéros, comme mGBA le fait lui-même en relisant ses fichiers.
+    const attendue = module._mgs_save_state(0);
+    if (!attendue || donnees.length > attendue) return false;
+    const p = module._malloc(attendue);
     try {
+      module.HEAPU8.fill(0, p, p + attendue);
       module.HEAPU8.set(donnees, p);
-      return module._mgs_load_state_bytes(0, p, donnees.length) === 0;
+      return module._mgs_load_state_bytes(0, p, attendue) === 0;
     } finally {
       module._free(p);
     }

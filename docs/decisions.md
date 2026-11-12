@@ -90,6 +90,30 @@ composants tiers, TGB Dual (GPL-2.0) compris, est dans
 (`src/lib/emulator/adapter.ts`). Si le cœur déçoit sur un `.gbc`, EmulatorJS
 peut être branché derrière la même interface sans toucher au reste du site.
 
+**Un second cœur, pour les cartouches qui vibrent.** La porte de sortie a
+servi : `@thenick775/mgba-wasm` ne rapporte pas le moteur de vibration des
+cartouches (Pokémon Pinball, par exemple), et ce paquet n'est pas le nôtre.
+Pour une cartouche Game Boy à moteur — son en-tête l'annonce, octet `0x147` —
+le lecteur prend donc le cœur « une console » de l'Activité Discord
+(`src/lib/emulator/mgs.ts`, `coeurs/mgba-splitscreen/`), que nous compilons et
+qui rapporte ce moteur ; `src/lib/emulator/vibration.ts` en fait vibrer le
+téléphone (Android) ou la manette. Tous les autres jeux gardent le cœur
+ordinaire.
+
+- **Le choix tient au jeu, jamais à l'appareil** : un même jeu passe par le
+  même cœur partout, et ses points de reprise aussi.
+- **Les points de reprise gardent leur format** : ce cœur rend un état brut,
+  que le lecteur range dans un PNG au format de mGBA — l'image de l'écran et
+  un bloc `gbAs` (`src/lib/emulator/etat-png.ts`). Routes, vignettes et
+  stockage de l'invité n'y voient aucune différence, et une reprise prise
+  avant le changement de cœur se relit : vérifié sur Pokémon Pinball
+  Generations, dans les deux sens d'écriture.
+- **Servi par `/api/coeur/`**, sans compte, comme le cœur de `public/mgba`.
+- **Le son** de ce cœur attend un geste du joueur dans la page : il part au
+  premier appui.
+- **Pas la GBA** : une cartouche GBA n'annonce pas son moteur dans son
+  en-tête ; elle reste sur le cœur ordinaire, sans vibration.
+
 ---
 
 ## 2. Link cable à distance : ce qui est réellement possible

@@ -11,7 +11,16 @@ import { useManette } from "./use-manette";
 import { INTERVALLE_AUTO, Savestates, type AccesEtats } from "./savestates";
 import { ChoixVitesse, Commande, lireVolumeRetenu, retenirVolume, Volume } from "./commandes";
 import { Accentue, useLangue, useT } from "@/components/langue";
+import { deballerEtat, emballerEtat, estPng } from "@/lib/emulator/etat-png";
 import { EmulateurMgba } from "@/lib/emulator/mgba";
+import { EmulateurMgs } from "@/lib/emulator/mgs";
+import {
+  appareilVibrant,
+  cartoucheAMoteur,
+  lireVibrationRetenue,
+  retenirVibration,
+  Vibreur,
+} from "@/lib/emulator/vibration";
 import { choisirHabillage } from "@/lib/bezel/actions";
 import {
   choisirHabillageInvite,
@@ -102,6 +111,7 @@ export function Lecteur({
   manettes: manettesInitiales,
   habillages,
   habillageInitial,
+  coeurVibrant,
   invite = false,
 }: {
   jeu: JeuLecteur;
@@ -115,6 +125,13 @@ export function Lecteur({
   habillages: Habillage[];
   /** Celui du compte, ou `null` pour aucun. */
   habillageInitial: string | null;
+  /**
+   * Où charger le cœur « une console », celui de l'Activité Discord. Le
+   * lecteur le prend à la place du cœur ordinaire pour un jeu dont la
+   * cartouche vibre : lui seul rapporte le moteur. Sans ces adresses, tous les
+   * jeux gardent le cœur ordinaire.
+   */
+  coeurVibrant?: { js: string; wasm: string };
   /**
    * Un invité de la vitrine, sans compte : sauvegarde, points de reprise et
    * réglages restent dans son navigateur (`src/lib/invite/stockage.ts`), et
@@ -149,6 +166,16 @@ export function Lecteur({
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const emulateurRef = useRef<Emulateur | null>(null);
+  /**
+   * Le cœur « une console », quand c'est lui qui tourne (jeu dont la cartouche
+   * vibre) ; `null` avec le cœur ordinaire. Ses états sont bruts, et son son
+   * attend un geste du joueur : le lecteur fait la différence par cette ref.
+   */
+  const mgsRef = useRef<EmulateurMgs | null>(null);
+  const vibreurRef = useRef<Vibreur | null>(null);
+  /** Le réglage de l'appareil, comme le volume ; `moteur` : ce jeu-ci vibre. */
+  const [vibration, setVibration] = useState(true);
+  const [moteur, setMoteur] = useState(false);
   const demarrage = useRef(false);
 
   const [etat, setEtat] = useState<Etat>("chargement");
@@ -168,6 +195,7 @@ export function Lecteur({
   const [volume, setVolume] = useState(100);
   const volumeRef = useRef(100);
   useEffect(() => {
+    setVibration(lireVibrationRetenue());
     // Rien d'enregistré, ou stockage indisponible : 100 % fera l'affaire.
     const retenu = lireVolumeRetenu();
     if (retenu === null) return;
@@ -465,11 +493,30 @@ export function Lecteur({
         const rom = new Uint8Array(await reponse.arrayBuffer());
 
         setProgression(t.lecteur.chargement.console);
-        const emulateur = new EmulateurMgba(t.link.coeur);
+        /**
+         * Deux cœurs. L'ordinaire, pour presque tout. Et pour une cartouche
+         * Game Boy à moteur — son en-tête l'annonce — celui de l'Activité
+         * Discord, le seul qui rapporte la vibration. Le choix tient au jeu,
+         * jamais à l'appareil : les points de reprise d'un jeu passent ainsi
+         * toujours par le même cœur, sur le téléphone comme sur l'ordinateur.
+         */
+        let emulateur: Emulateur;
+        if (coeurVibrant && jeu.consoleSlug !== "gba" && cartoucheAMoteur(rom)) {
+          const vibreur = new Vibreur();
+          vibreur.activer(lireVibrationRetenue());
+          vibreurRef.current = vibreur;
+          const mgs = new EmulateurMgs(coeurVibrant, t.link.coeur);
+          mgsRef.current = mgs;
+          emulateur = mgs;
+          setMoteur(true);
+        } else {
+          emulateur = new EmulateurMgba(t.link.coeur);
+        }
         await emulateur.demarrer({
           canvas,
           rom: { nom: jeu.fichier, donnees: rom },
           sauvegarde: ancienne,
+          surVibration: (intensite) => vibreurRef.current?.regler(intensite),
           surSauvegardeModifiee: () => {
             if (invite) noterAEmporter(true);
             if (minuterieRef.current) clearTimeout(minuterieRef.current);
@@ -502,6 +549,7 @@ export function Lecteur({
       if (minuterieRef.current) clearTimeout(minuterieRef.current);
       emulateurRef.current?.arreter();
       emulateurRef.current = null;
+      mgsRef.current = null;
     };
     // Le lecteur ne redémarre pas sur changement de props : changer de jeu
     // passe par une navigation, donc un nouveau montage.
@@ -741,6 +789,52 @@ export function Lecteur({
   }, [etat, jeu.id, requete]);
 
   /**
+   * Un point de reprise, tel que le site le range : un PNG qui porte l'état
+   * et l'image de l'écran. Le cœur ordinaire l'écrit ainsi de lui-même ; le
+   * cœur « une console » rend un état brut, qu'on range dans ce même format
+   * (`etat-png.ts`) — routes, vignettes et stockage de l'invité n'y voient
+   * aucune différence.
+   */
+  const ecrireEtat = useCallback((): Uint8Array | null => {
+    const etat = emulateurRef.current?.ecrireEtat(PASSAGE) ?? null;
+    if (!etat || !mgsRef.current) return etat;
+    const canvas = canvasRef.current;
+    return canvas ? emballerEtat(canvas, etat) : null;
+  }, []);
+
+  /** L'inverse : le cœur « une console » reprend l'état brut tiré du PNG. */
+  const lireEtat = useCallback(async (donnees: Uint8Array): Promise<boolean> => {
+    const emulateur = emulateurRef.current;
+    if (!emulateur) return false;
+    if (!mgsRef.current || !estPng(donnees)) return emulateur.lireEtat(PASSAGE, donnees);
+    const brut = await deballerEtat(donnees);
+    return brut ? emulateur.lireEtat(PASSAGE, brut) : false;
+  }, []);
+
+  /**
+   * Le son du cœur « une console » ne part qu'après un geste du joueur dans
+   * la page, et le jeu démarre ici sans en attendre : on le relance au
+   * premier appui, quel qu'il soit.
+   */
+  useEffect(() => {
+    if (etat !== "en-jeu" && etat !== "en-pause") return;
+    if (!mgsRef.current) return;
+    const reveiller = () => mgsRef.current?.reveillerSon();
+    window.addEventListener("pointerdown", reveiller);
+    window.addEventListener("keydown", reveiller);
+    return () => {
+      window.removeEventListener("pointerdown", reveiller);
+      window.removeEventListener("keydown", reveiller);
+    };
+  }, [etat]);
+
+  const changerVibration = useCallback((allumee: boolean) => {
+    setVibration(allumee);
+    retenirVibration(allumee);
+    vibreurRef.current?.activer(allumee);
+  }, []);
+
+  /**
    * Rotation automatique des points de reprise.
    *
    * Elle vit dans le lecteur et non dans le panneau qui les affiche : sur
@@ -774,7 +868,7 @@ export function Lecteur({
             Date.parse(e.creeLe) < Date.parse(vieux.creeLe) ? e : vieux,
           ).emplacement;
 
-        const donnees = emulateur.ecrireEtat(PASSAGE);
+        const donnees = ecrireEtat();
         if (!donnees) return;
 
         await requete(`/api/state/${jeu.id}/a${cible}`, {
@@ -789,7 +883,7 @@ export function Lecteur({
     }, INTERVALLE_AUTO);
 
     return () => clearInterval(minuterie);
-  }, [etat, jeu.id, requete]);
+  }, [etat, jeu.id, requete, ecrireEtat]);
 
   const basculerPause = useCallback(() => {
     const emulateur = emulateurRef.current;
@@ -895,6 +989,12 @@ export function Lecteur({
         toucheAcceleration={tactile ? null : touches.FAST}
       />
       <Volume valeur={volume} muet={muet} surChangement={changerVolume} surMuet={basculerSon} />
+      {/* Seulement pour un jeu dont la cartouche vibre, et là où quelque chose peut vibrer. */}
+      {moteur && appareilVibrant(tactile) && (
+        <Commande onClick={() => changerVibration(!vibration)} actif={vibration}>
+          {vibration ? t.lecteur.vibration.allumee : t.lecteur.vibration.coupee}
+        </Commande>
+      )}
     </div>
   );
 
@@ -961,8 +1061,8 @@ export function Lecteur({
       <Savestates
         gameId={jeu.id}
         acces={accesEtats}
-        surEcrire={() => emulateurRef.current?.ecrireEtat(PASSAGE) ?? null}
-        surLire={(donnees) => emulateurRef.current?.lireEtat(PASSAGE, donnees) ?? false}
+        surEcrire={ecrireEtat}
+        surLire={lireEtat}
       />
     </>
   );

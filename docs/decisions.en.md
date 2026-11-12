@@ -90,6 +90,31 @@ components, TGB Dual (GPL-2.0) included, are in `THIRD_PARTY_NOTICES.md`.
 EmulatorJS can be plugged in behind the same interface without touching the
 rest of the site.
 
+**A second core, for cartridges that rumble.** The escape hatch has been
+used: `@thenick775/mgba-wasm` does not report the cartridge's rumble motor
+(Pokémon Pinball, for instance), and that package is not ours. For a Game Boy
+cartridge with a motor — its header says so, byte `0x147` — the player
+therefore takes the Discord Activity's “single console” core
+(`src/lib/emulator/mgs.ts`, `coeurs/mgba-splitscreen/`), which we build and
+which reports that motor; `src/lib/emulator/vibration.ts` turns it into a
+vibration of the phone (Android) or the controller. Every other game keeps
+the regular core.
+
+- **The choice depends on the game, never on the device**: a given game goes
+  through the same core everywhere, and so do its save states.
+- **Save states keep their format**: this core returns a raw state, which the
+  player stores in a PNG in mGBA's format — the picture of the screen and a
+  `gbAs` chunk (`src/lib/emulator/etat-png.ts`). Routes, thumbnails and the
+  guest's storage see no difference, and a save state taken before the change
+  of core still loads: verified on Pokémon Pinball Generations, with states
+  written by either core.
+- **Served by `/api/coeur/`**, without an account, like the core in
+  `public/mgba`.
+- **Sound** from this core waits for a gesture from the player in the page:
+  it starts at the first press.
+- **Not the GBA**: a GBA cartridge does not announce its motor in its header;
+  it stays on the regular core, without rumble.
+
 ---
 
 ## 2. Remote link cable: what is actually possible

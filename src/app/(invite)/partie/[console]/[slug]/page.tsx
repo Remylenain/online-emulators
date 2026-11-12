@@ -8,6 +8,7 @@ import { LecteurInvite } from "@/components/player/lecteur-invite";
 import { jeuAccessible } from "@/lib/acces";
 import { getCurrentUser } from "@/lib/auth/session";
 import { findConsole } from "@/lib/consoles";
+import { adressesCoeurDuSite } from "@/lib/discord/coeur";
 import { langueDuCode } from "@/lib/i18n/langues";
 import { langueChoisie, langueDeLaRequete } from "@/lib/i18n/serveur";
 import { jeuInviteParSlug } from "@/lib/vitrine";
@@ -73,6 +74,7 @@ export default async function PartieInvite({ params }: { params: Promise<Params>
         empreinte: game.romSha1.slice(0, 16),
         retour: "/",
       }}
+      coeurVibrant={adressesCoeurDuSite()}
       console={{
         nom: console.name,
         largeur: console.screenWidth,

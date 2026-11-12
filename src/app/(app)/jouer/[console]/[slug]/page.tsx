@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { getCurrentUser } from "@/lib/auth/session";
 import { gameBySlug } from "@/lib/catalog";
 import { findConsole } from "@/lib/consoles";
+import { adressesCoeurDuSite } from "@/lib/discord/coeur";
 import { dispositionsDuCompte } from "@/lib/keymap/lecture";
 
 type Params = { console: string; slug: string };
@@ -110,6 +111,7 @@ export default async function PlayPage({ params }: { params: Promise<Params> }) 
       touches={touches}
       manette={manette}
       manettes={manettes}
+      coeurVibrant={adressesCoeurDuSite()}
       habillages={habillages}
       habillageInitial={habillageInitial}
     />

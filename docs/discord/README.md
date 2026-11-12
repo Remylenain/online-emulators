@@ -394,6 +394,9 @@ connaît `navigator.vibrate`, ou une manette à moteurs. Solo seulement : à
 deux, l'émulation tourne sur le serveur, qui ne transmet que l'image et le
 son.
 
+Le lecteur du site vibre de la même façon, pour ces mêmes jeux : il prend
+alors ce cœur à la place du sien (voir `docs/decisions.md`, point 1).
+
 Essayé dans un navigateur avec Pokémon Pinball Generations, les appels à
 `navigator.vibrate` relevés un à un. **Jamais senti sur un vrai téléphone ni
 dans l'application Discord**, où l'Activité tourne dans une vue web dont on

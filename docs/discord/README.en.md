@@ -387,6 +387,9 @@ touch screen that knows `navigator.vibrate`, or a controller with motors.
 Solo only: with two players, emulation runs on the server, which only sends
 the picture and the sound.
 
+The site's player rumbles the same way, for those same games: it then takes
+this core instead of its own (see `docs/decisions.en.md`, item 1).
+
 Tried in a browser with Pokémon Pinball Generations, logging the calls to
 `navigator.vibrate` one by one. **Never felt on a real phone nor in the
 Discord app**, where the Activity runs in a web view that may or may not

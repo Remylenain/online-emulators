@@ -27,6 +27,9 @@ const PUBLIC_PATHS = [
   // contrôlent elles-mêmes un jeton porté en en-tête (`src/lib/discord`).
   "/discord",
   "/api/discord",
+  // Le cœur d'émulation « une console », pour le lecteur : un logiciel libre,
+  // servi sans compte comme celui de `public/mgba`.
+  "/api/coeur",
 ];
 
 /**

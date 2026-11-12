@@ -55,7 +55,9 @@ depuis la même révision et le même `mgba_splitscreen_web.c`, pour un autre
 usage : une seule console, dans le **navigateur**. C'est le lecteur de
 l'Activité Discord (`src/lib/emulator/mgs.ts`), servi par
 `/api/discord/coeur/` — l'iframe de Discord n'a pas d'isolation cross-origin,
-et le cœur à threads du lecteur ordinaire ne peut pas y tourner.
+et le cœur à threads du lecteur ordinaire ne peut pas y tourner. Le lecteur du
+site le prend aussi, par `/api/coeur/`, pour les jeux dont la cartouche vibre
+(voir `docs/decisions.md`, point 1).
 
 - **Recompiler :** comme ci-dessus, mais avec `build-une-console.sh` (copié
   lui aussi dans `mgba-splitscreen/web/`). Le `.js` produit est rangé ici en

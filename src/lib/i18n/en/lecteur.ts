@@ -8,6 +8,7 @@ export const lecteur: Dictionnaire["lecteur"] = {
   reprendre: "Resume",
   redemarrer: "Restart the console",
   envoyerAuServeur: "Send to server",
+  vibration: { allumee: "Rumble on", coupee: "Rumble off" },
   pleinEcran: "Full screen",
   quitterPleinEcran: "Exit full screen",
 

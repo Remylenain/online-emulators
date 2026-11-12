@@ -74,7 +74,7 @@ export function Savestates({
 }: {
   gameId: string;
   surEcrire: () => Uint8Array | null;
-  surLire: (donnees: Uint8Array) => boolean;
+  surLire: (donnees: Uint8Array) => boolean | Promise<boolean>;
   /** L'image de l'écran au moment de la capture, pour un cœur dont l'état n'en porte pas. */
   surVignette?: () => Promise<Blob | null>;
   /** À défaut, les routes du site. */
@@ -159,7 +159,7 @@ export function Savestates({
         setMessage(t.partie.etats.erreurs.introuvable);
         return;
       }
-      if (!surLire(new Uint8Array(await reponse.arrayBuffer()))) {
+      if (!(await surLire(new Uint8Array(await reponse.arrayBuffer())))) {
         setMessage(t.partie.etats.erreurs.refusee);
       }
     } finally {

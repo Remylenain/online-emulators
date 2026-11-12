@@ -16,6 +16,12 @@ export const lecteur = {
   redemarrer: "Redémarrer la console",
   /** Et non « Enregistrer » : ce bouton transmet la sauvegarde du jeu, il ne la fait pas. */
   envoyerAuServeur: "Envoyer au serveur",
+  /**
+   * Le bouton qui coupe ou rétablit la vibration de la cartouche (téléphone,
+   * manette), pour les jeux qui en ont une. Son libellé dit l'état : le
+   * bouton est allumé quand la vibration l'est.
+   */
+  vibration: { allumee: "Vibration activée", coupee: "Vibration coupée" },
   pleinEcran: "Plein écran",
   quitterPleinEcran: "Quitter le plein écran",
 

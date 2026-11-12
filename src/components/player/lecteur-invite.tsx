@@ -39,10 +39,13 @@ export function LecteurInvite({
   jeu,
   console: consoleInfo,
   habillages,
+  coeurVibrant,
 }: {
   jeu: JeuLecteur;
   console: ConsoleLecteur;
   habillages: Habillage[];
+  /** Transmis tel quel au lecteur : le cœur des jeux dont la cartouche vibre. */
+  coeurVibrant?: { js: string; wasm: string };
 }) {
   const t = useT();
   // `null` au rendu serveur et à l'hydratation, les réglages ensuite.
@@ -77,6 +80,7 @@ export function LecteurInvite({
       manettes={reglages.manettes}
       habillages={habillages}
       habillageInitial={habillageInitial}
+      coeurVibrant={coeurVibrant}
       invite
     />
   );

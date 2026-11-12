@@ -53,7 +53,9 @@ compiled from the same revision and the same `mgba_splitscreen_web.c`, for a
 different use: a single console, in the **browser**. It is the Discord
 Activity's player (`src/lib/emulator/mgs.ts`), served by
 `/api/discord/coeur/` — Discord's iframe has no cross-origin isolation, and
-the regular player's threaded core cannot run in it.
+the regular player's threaded core cannot run in it. The site's player takes
+it too, through `/api/coeur/`, for games whose cartridge rumbles (see
+`docs/decisions.en.md`, item 1).
 
 - **Rebuilding:** as above, but with `build-une-console.sh` (also copied
   into `mgba-splitscreen/web/`). The resulting `.js` is stored here as
