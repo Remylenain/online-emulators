@@ -10,6 +10,13 @@ import { useManette } from "@/components/player/use-manette";
 import { DEFAULT_KEYMAP, toucheDeEvenement, type Touche } from "@/lib/consoles";
 import type { Bouton } from "@/lib/emulator/adapter";
 import { EmulateurMgs } from "@/lib/emulator/mgs";
+import {
+  appareilVibrant,
+  cartoucheAMoteur,
+  lireVibrationRetenue,
+  retenirVibration,
+  Vibreur,
+} from "@/lib/emulator/vibration";
 import type { Dictionnaire } from "@/lib/i18n/dictionnaires";
 import { REGION } from "@/lib/i18n/langues";
 import type { Enregistreur, ResultatTouches } from "@/lib/keymap/actions";
@@ -155,6 +162,16 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
   const [muet, setMuet] = useState(false);
   const [volume, setVolume] = useState(100);
   const volumeRef = useRef(100);
+  /**
+   * La vibration de la cartouche, pour les jeux qui en ont une. Le réglage est
+   * celui de l'appareil, comme le volume ; `moteur` dit si ce jeu-ci vibre —
+   * son en-tête l'annonce, ou on l'a senti vibrer —, et le menu de pause ne
+   * montre le réglage que dans ce cas.
+   */
+  const vibreurRef = useRef<Vibreur | null>(null);
+  const [vibration, setVibration] = useState(true);
+  const [moteur, setMoteur] = useState(false);
+  const moteurRef = useRef(false);
   /** La vitesse choisie dans la liste ; la touche d'accélération passe par-dessus le temps d'un appui. */
   const [vitesse, setVitesse] = useState(1);
   const vitesseRef = useRef(1);
@@ -191,6 +208,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
         volumeRef.current = volumeRetenu;
         setVolume(volumeRetenu);
       }
+      setVibration(lireVibrationRetenue());
       setTactile(window.matchMedia("(pointer: coarse)").matches);
 
       // Discord ouvre l'iframe avec `frame_id` dans l'adresse ; le SDK refuse
@@ -380,12 +398,26 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
       if (!reponseRom.ok) throw new Error(t.activite.erreurs.jeuIndisponible(reponseRom.status));
       const rom = new Uint8Array(await reponseRom.arrayBuffer());
 
+      const vibreur = new Vibreur();
+      vibreur.activer(lireVibrationRetenue());
+      vibreurRef.current = vibreur;
+      const annonce = courante.jeu.console !== "gba" && cartoucheAMoteur(rom);
+      moteurRef.current = annonce;
+      setMoteur(annonce);
+
       setProgression(t.activite.lancement.console);
       await emulateur.demarrer({
         canvas,
         rom: { nom: `jeu.${courante.jeu.console}`, donnees: rom },
         sauvegarde,
         surSauvegardeModifiee: planifierEnvoi,
+        surVibration: (intensite) => {
+          if (intensite > 0 && !moteurRef.current) {
+            moteurRef.current = true;
+            setMoteur(true);
+          }
+          vibreur.regler(intensite);
+        },
         surPlantage: () => {
           setErreur(t.activite.erreurs.coeur);
           setEtape("erreur");
@@ -445,6 +477,12 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
     volumeRef.current = pourcentage;
     setVolume(pourcentage);
     retenirVolume(pourcentage);
+  }, []);
+
+  const changerVibration = useCallback((allumee: boolean) => {
+    setVibration(allumee);
+    retenirVibration(allumee);
+    vibreurRef.current?.activer(allumee);
   }, []);
 
   const changerVitesse = useCallback((multiplicateur: number) => {
@@ -721,6 +759,12 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
               {session.accueil.astuces.length > 0 && <AstucesQuiDefilent liste={session.accueil.astuces} />}
               {/* Les mêmes réglages qu'à l'accueil, sans quitter la partie. */}
               <Commande onClick={() => ouvrirPanneau("reglages")}>{t.activite.reglages.titre}</Commande>
+              {/* Seulement pour un jeu dont la cartouche vibre, et là où quelque chose peut vibrer. */}
+              {moteur && appareilVibrant(tactile) && (
+                <Commande onClick={() => changerVibration(!vibration)} actif={vibration}>
+                  {vibration ? t.activite.pause.vibration.allumee : t.activite.pause.vibration.coupee}
+                </Commande>
+              )}
               <p className="text-xs text-ink-400">{t.activite.pause.explication}</p>
               <Savestates
                 gameId={session.jeu.id}

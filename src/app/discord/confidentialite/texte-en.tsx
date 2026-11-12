@@ -115,7 +115,7 @@ export function TexteConfidentialiteEn({ mentions }: { mentions: Mentions }) {
             are used for nothing other than making it work.
           </li>
           <li>
-            On your device, only convenience settings (the volume, a controller layout) are kept in the
+            On your device, only convenience settings (the volume, rumble, a controller layout) are kept in the
             browser&apos;s local storage.
           </li>
         </ul>

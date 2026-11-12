@@ -365,6 +365,32 @@ menu:
 - **Speed** (×1 to ×5, with the fast-forward key on top of that) and
   **sound** (button and slider, remembered in the browser) are at the bottom
   of the screen, during the game.
+- **Rumble**, for a game whose cartridge has a motor (Pokémon Pinball and its
+  derivatives, for instance): a button turns it on or off, remembered in the
+  browser. See below.
+
+### Cartridge rumble
+
+The core reports, frame by frame, the share of the time the cartridge's
+motor ran (`mgs_get_rumble`); `src/lib/emulator/vibration.ts` turns it into a
+vibration of whatever the player is holding:
+
+- **the phone**, through `navigator.vibrate`: on Android. iOS offers that
+  call in no browser; nothing vibrates, nothing breaks;
+- **the connected controller**, when the browser can drive its motors
+  (`vibrationActuator`).
+
+The button in the pause menu only shows up if the game rumbles — a Game Boy
+cartridge says so in its header (MBC5 with a motor), a GBA cartridge is
+recognised at its first rumble — and if there is something to vibrate: a
+touch screen that knows `navigator.vibrate`, or a controller with motors.
+Solo only: with two players, emulation runs on the server, which only sends
+the picture and the sound.
+
+Tried in a browser with Pokémon Pinball Generations, logging the calls to
+`navigator.vibrate` one by one. **Never felt on a real phone nor in the
+Discord app**, where the Activity runs in a web view that may or may not
+allow vibration; controllers and the GBA have not been tried either.
 
 ## Keys and controller
 

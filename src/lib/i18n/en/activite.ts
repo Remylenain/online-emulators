@@ -32,6 +32,7 @@ export const activite: Dictionnaire["activite"] = {
     ouvrir: "Pause",
     fermer: "Resume",
     reprendre: "Resume game",
+    vibration: { allumee: "Rumble on", coupee: "Rumble off" },
     explication:
       "A save state is the exact moment you took it: it follows your account, like your progress. " +
       "Five slots you fill whenever you like.",

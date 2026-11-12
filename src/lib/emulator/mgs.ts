@@ -73,6 +73,8 @@ type ModuleMgs = {
   _mgs_save_state(joueur: number): number;
   _mgs_state_ptr(): number;
   _mgs_load_state_bytes(joueur: number, pointeur: number, taille: number): number;
+  /** Le moteur de la cartouche depuis le dernier appel : de 0 à 255. */
+  _mgs_get_rumble(joueur: number): number;
   _mgs_quit(): void;
 };
 
@@ -354,6 +356,7 @@ export class EmulateurMgs implements Emulateur {
 
     this.dessiner();
     this.jouerSon();
+    this.options?.surVibration?.(module._mgs_get_rumble(0) / 255);
 
     this.imagesDepuisControle += calculees;
     if (this.imagesDepuisControle >= IMAGES_ENTRE_CONTROLES) {
@@ -443,6 +446,7 @@ export class EmulateurMgs implements Emulateur {
 
   arreter(): void {
     cancelAnimationFrame(this.animation);
+    this.options?.surVibration?.(0);
     void this.audio?.close().catch(() => {});
     this.audio = null;
     this.gain = null;
@@ -456,6 +460,8 @@ export class EmulateurMgs implements Emulateur {
 
   pause(): void {
     this.enPause = true;
+    // Le moteur de la cartouche s'arrête avec la console, où qu'il en soit.
+    this.options?.surVibration?.(0);
     void this.audio?.suspend().catch(() => {});
   }
 

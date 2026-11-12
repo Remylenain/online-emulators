@@ -68,7 +68,14 @@ the regular player's threaded core cannot run in it.
   the `.sav` (48 bytes): without it, an MBC3 game with a clock starts from
   zero at every launch and asks for the time again. Verified on a save that
   came from the site's player: the clock resumes to the second.
-- **The link cable build has not been recompiled**: its binary does not
-  contain `mgs_load_save_file`, and does not need it.
+- **Our third modification**, `mgs_get_rumble`: the cartridge's rumble motor
+  (MBC5 with a motor on Game Boy, the rumble pin on GBA). Each console gets
+  an `mRumbleIntegrator`, plugged in as `mPERIPH_RUMBLE`; the function
+  returns how hard the motor ran since the last call, from 0 to 255, averaged
+  over the frames run in between. The Activity reads it once per display
+  refresh (`src/lib/emulator/vibration.ts`). Verified with Pokémon Pinball
+  Generations, on GB Color.
+- **The link cable build has not been recompiled**: its binary contains
+  neither `mgs_load_save_file` nor `mgs_get_rumble`, and needs neither.
 - Tried on GB Color only. The GBA goes through the same path, but has not
   been tried with this build.

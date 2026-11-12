@@ -372,6 +372,33 @@ En solo, « Pause » en bas de l'écran arrête la console et ouvre le menu :
 - **La vitesse** (×1 à ×5, et la touche d'accélération par-dessus) et **le
   son** (bouton et curseur, retenu dans le navigateur) sont en bas de
   l'écran, pendant le jeu.
+- **La vibration**, pour un jeu dont la cartouche a un moteur (Pokémon
+  Pinball et ses dérivés, par exemple) : un bouton l'allume ou la coupe,
+  retenu dans le navigateur. Voir ci-dessous.
+
+### La vibration des cartouches
+
+Le cœur rapporte, image par image, la part du temps où le moteur de la
+cartouche a tourné (`mgs_get_rumble`) ; `src/lib/emulator/vibration.ts` en
+fait vibrer ce que le joueur tient :
+
+- **le téléphone**, par `navigator.vibrate` : sur Android. iOS ne propose cet
+  appel dans aucun navigateur ; rien ne vibre, rien ne casse ;
+- **la manette branchée**, quand le navigateur sait commander ses moteurs
+  (`vibrationActuator`).
+
+Le bouton du menu de pause n'apparaît que si le jeu vibre — l'en-tête d'une
+cartouche Game Boy l'annonce (MBC5 à moteur), une cartouche GBA se reconnaît
+à sa première vibration — et s'il y a de quoi vibrer : un écran tactile qui
+connaît `navigator.vibrate`, ou une manette à moteurs. Solo seulement : à
+deux, l'émulation tourne sur le serveur, qui ne transmet que l'image et le
+son.
+
+Essayé dans un navigateur avec Pokémon Pinball Generations, les appels à
+`navigator.vibrate` relevés un à un. **Jamais senti sur un vrai téléphone ni
+dans l'application Discord**, où l'Activité tourne dans une vue web dont on
+ne sait pas si elle laisse vibrer ; la manette et la GBA n'ont pas été
+essayées non plus.
 
 ## Touches et manette
 

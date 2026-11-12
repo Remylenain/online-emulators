@@ -31,7 +31,7 @@ export type Mentions = {
  * La date de la dernière retouche des textes, la même pour les deux pages et
  * pour toutes les langues : une traduction ne change pas ce que le texte dit.
  */
-const MISE_A_JOUR = new Date(Date.UTC(2026, 10, 10));
+const MISE_A_JOUR = new Date(Date.UTC(2026, 10, 12));
 
 export function miseAJour(langue: Langue): string {
   return new Intl.DateTimeFormat(REGION[langue], { dateStyle: "long", timeZone: "UTC" }).format(MISE_A_JOUR);

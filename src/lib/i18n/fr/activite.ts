@@ -43,6 +43,12 @@ export const activite = {
     fermer: "Reprendre",
     /** Lever la pause depuis le menu — à ne pas confondre avec `partie.etats.reprendre`, qui revient à un point de reprise. */
     reprendre: "Reprendre la partie",
+    /**
+     * Le bouton qui coupe ou rétablit la vibration de la cartouche (téléphone,
+     * manette). Son libellé dit l'état, pas ce qu'un appui fera : le bouton
+     * est allumé quand la vibration l'est.
+     */
+    vibration: { allumee: "Vibration activée", coupee: "Vibration coupée" },
     /** Ici, pas de reprises automatiques : cinq emplacements, posés à la main seulement. */
     explication:
       "Une reprise est l'instant exact où tu l'as prise : elle suit ton compte, comme ta partie. " +

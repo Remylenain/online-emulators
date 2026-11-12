@@ -118,7 +118,7 @@ export function TexteConfidentialiteFr({ mentions }: { mentions: Mentions }) {
             l&apos;Activité et ne servent à rien d&apos;autre qu&apos;à la faire fonctionner.
           </li>
           <li>
-            Sur ton appareil, seuls des réglages de confort (le volume, une disposition de manette) sont retenus
+            Sur ton appareil, seuls des réglages de confort (le volume, la vibration, une disposition de manette) sont retenus
             dans le stockage local du navigateur.
           </li>
         </ul>

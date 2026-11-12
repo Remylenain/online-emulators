@@ -2,12 +2,13 @@
 # Compile la variante « une console » du cœur : celle que le navigateur charge
 # dans l'Activité Discord (src/lib/emulator/mgs.ts).
 #
-# Même source et mêmes options que le build du câble link (build.sh), à trois
+# Même source et mêmes options que le build du câble link (build.sh), à quatre
 # différences près :
 #   - la mémoire n'est plus fixée à 256 Mio (quatre consoles et leurs ROMs) :
 #     elle part de 32 Mio et grandit au besoin, ce qu'un téléphone supporte ;
 #   - `mgs_load_save_file` est exportée (sauvegarde chargée comme un fichier,
 #     horloge temps réel comprise) ;
+#   - `mgs_get_rumble` est exportée (le moteur de vibration de la cartouche) ;
 #   - la sortie s'appelle mgba-une-console.{js,wasm}.
 #
 # À lancer comme build.sh : depuis un clone de mgba-splitscreen à la révision
@@ -36,7 +37,7 @@ emmake make -C "$BUILD_DIR" -j"$(nproc)" >/dev/null
 emcc -O3 -D_GNU_SOURCE -DNDEBUG $DEFINES \
   -Iinclude -I"$BUILD_DIR/include" -I"$BUILD_DIR" \
   -sENVIRONMENT=web \
-  -sEXPORTED_FUNCTIONS=_mgs_init,_mgs_load_rom,_mgs_run_frame,_mgs_get_video_width,_mgs_get_video_height,_mgs_get_platform,_mgs_get_video,_mgs_set_keys,_mgs_get_audio,_mgs_audio_frames,_mgs_get_audio_rate,_mgs_set_audio_source,_mgs_save_state,_mgs_state_ptr,_mgs_load_state,_mgs_load_state_bytes,_mgs_export_save,_mgs_save_ptr,_mgs_import_save,_mgs_load_save_file,_mgs_quit,_malloc,_free \
+  -sEXPORTED_FUNCTIONS=_mgs_init,_mgs_load_rom,_mgs_run_frame,_mgs_get_video_width,_mgs_get_video_height,_mgs_get_platform,_mgs_get_video,_mgs_set_keys,_mgs_get_audio,_mgs_audio_frames,_mgs_get_audio_rate,_mgs_set_audio_source,_mgs_save_state,_mgs_state_ptr,_mgs_load_state,_mgs_load_state_bytes,_mgs_export_save,_mgs_save_ptr,_mgs_import_save,_mgs_load_save_file,_mgs_get_rumble,_mgs_quit,_malloc,_free \
   -sEXPORTED_RUNTIME_METHODS=HEAP16,HEAPU8 \
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=33554432 -sMAXIMUM_MEMORY=268435456 -sSTACK_SIZE=1048576 \
   -sMODULARIZE=1 -sEXPORT_NAME=MgbaUneConsole \

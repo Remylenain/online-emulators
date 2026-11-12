@@ -37,6 +37,12 @@ export type OptionsDemarrage = {
   surSauvegardeModifiee?: () => void;
   /** Prévient si le cœur s'arrête brutalement. */
   surPlantage?: () => void;
+  /**
+   * Le moteur de vibration de la cartouche, pour les cœurs qui le rapportent :
+   * appelé à chaque passe avec la part du temps où il a tourné, de 0 à 1, et
+   * avec 0 quand le jeu s'arrête (pause, fin). Voir `./vibration.ts`.
+   */
+  surVibration?: (intensite: number) => void;
 };
 
 export interface Emulateur {

@@ -70,7 +70,14 @@ et le cœur à threads du lecteur ordinaire ne peut pas y tourner.
   (48 octets) : sans elle, un jeu MBC3 à horloge repart de zéro à chaque
   lancement et redemande l'heure. Vérifié sur une sauvegarde venue du lecteur
   du site : l'horloge reprend à la seconde près.
+- **Notre troisième modification**, `mgs_get_rumble` : le moteur de vibration
+  de la cartouche (MBC5 à moteur sur Game Boy, broche de vibration sur GBA).
+  Chaque console reçoit un `mRumbleIntegrator`, branché en `mPERIPH_RUMBLE` ;
+  la fonction rend la force du moteur depuis le dernier appel, de 0 à 255,
+  moyennée sur les images calculées entre-temps. L'Activité la lit une fois
+  par rafraîchissement de l'écran (`src/lib/emulator/vibration.ts`). Vérifié
+  avec Pokémon Pinball Generations, en GB Color.
 - **Le build du câble link n'a pas été recompilé** : son binaire ne contient
-  pas `mgs_load_save_file`, et n'en a pas besoin.
+  ni `mgs_load_save_file` ni `mgs_get_rumble`, et n'a besoin d'aucune.
 - Essayé en GB Color seulement. La GBA passe par le même chemin, mais n'a pas
   été essayée avec ce build.

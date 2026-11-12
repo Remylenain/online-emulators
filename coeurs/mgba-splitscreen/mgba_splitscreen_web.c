@@ -110,6 +110,26 @@ void mgs_enable_debug(void) {
 
 static struct Player g_players[MAX_PLAYERS];
 static int g_count = 0;
+
+/* Rumble.
+ *
+ * A rumble cartridge (MBC5 with a motor on Game Boy, the GPIO rumble pin on
+ * GBA) switches its motor on and off many times per frame. mGBA's integrator
+ * turns that into one figure per frame: the share of the frame the motor was
+ * on. We keep the sum since the frontend last asked, so a frontend that runs
+ * several frames per display refresh (fast-forward) still gets one average. */
+struct RumbleTap {
+	struct mRumbleIntegrator d;
+	float sum;
+	int frames;
+};
+static struct RumbleTap g_rumble[MAX_PLAYERS];
+
+static void rumble_frame(struct mRumbleIntegrator* integrator, float value) {
+	struct RumbleTap* tap = (struct RumbleTap*) integrator;
+	tap->sum += value;
+	++tap->frames;
+}
 static enum mPlatform g_platform = mPLATFORM_NONE;
 
 /* Per-frame stepping stats, for profiling the cooperative loop. */
@@ -368,6 +388,11 @@ int mgs_load_rom(const uint8_t* rom, size_t len) {
 		/* Use a fixed maximum stride; currentVideoSize tells the frontend how
 		 * many pixels in each row are meaningful. */
 		p->core->setVideoBuffer(p->core, p->video, MAX_W);
+		mRumbleIntegratorInit(&g_rumble[i].d);
+		g_rumble[i].d.setRumble = rumble_frame;
+		g_rumble[i].sum = 0;
+		g_rumble[i].frames = 0;
+		p->core->setPeripheral(p->core, mPERIPH_RUMBLE, &g_rumble[i].d.d);
 		if (g_has_coord && platform == mPLATFORM_GBA) {
 			p->core->setPeripheral(p->core, 0x1001 /* mPERIPH_GBA_LINK_PORT */, &g_drivers[i]);
 		} else if (g_has_gb_coord && platform == mPLATFORM_GB) {
@@ -506,6 +531,27 @@ unsigned mgs_get_video_height(int player) {
 EMSCRIPTEN_KEEPALIVE
 int mgs_get_platform(int player) {
 	return player >= 0 && player < g_count ? g_players[player].platform : mPLATFORM_NONE;
+}
+
+/* How hard the cartridge's motor ran since the last call: 0 (off) to 255 (on
+ * the whole time), averaged over the frames run in between. Always 0 for a
+ * cartridge without a motor. Reading it resets the average. */
+EMSCRIPTEN_KEEPALIVE
+int mgs_get_rumble(int player) {
+	if (player < 0 || player >= g_count) {
+		return 0;
+	}
+	struct RumbleTap* tap = &g_rumble[player];
+	if (tap->frames <= 0) {
+		return 0;
+	}
+	float mean = tap->sum / (float) tap->frames;
+	tap->sum = 0;
+	tap->frames = 0;
+	if (mean <= 0.0f) {
+		return 0;
+	}
+	return mean >= 1.0f ? 255 : (int) (mean * 255.0f + 0.5f);
 }
 
 EMSCRIPTEN_KEEPALIVE
