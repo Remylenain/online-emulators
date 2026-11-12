@@ -44,7 +44,7 @@ export const retoucheSchema = manifestSchema
     annee: true,
   })
   .partial()
-  .extend({ publie: z.boolean().optional() });
+  .extend({ publie: z.boolean().optional(), solo: z.boolean().optional() });
 
 export type Retouche = z.infer<typeof retoucheSchema>;
 

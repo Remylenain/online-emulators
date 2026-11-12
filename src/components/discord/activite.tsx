@@ -53,7 +53,10 @@ type Session = {
   pseudo: string;
   jeu: { id: string; titre: string; console: string; taille: number; empreinte: string };
   coeur: { js: string; wasm: string };
-  /** La clé du salon de cette instance, pour jouer à deux ; `null` hors de Discord sans essai. */
+  /**
+   * La clé du salon de cette instance, pour jouer à deux ; `null` hors de
+   * Discord sans essai, et pour un jeu à un seul joueur.
+   */
   instance: string | null;
   /** Le mot de l'administrateur, et ses astuces dans un ordre tiré au sort pour ce lancement. */
   accueil: { mot: string; astuces: string[] };
@@ -681,7 +684,7 @@ export function Activite({ clientId, essaiLocal }: { clientId: string; essaiLoca
                       onClick={() => void jouer()}
                       className="rounded-xl bg-accent-500 px-8 py-3 text-lg font-semibold text-ink-950 transition-colors hover:bg-accent-400"
                     >
-                      {t.activite.accueil.jouerSeul}
+                      {session.instance ? t.activite.accueil.jouerSeul : t.activite.accueil.jouer}
                     </button>
                     {session.instance && (
                       <button

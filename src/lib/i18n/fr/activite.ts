@@ -19,6 +19,8 @@ export const activite = {
     /** La partie est celle du compte Discord : le dire avec son pseudo, pour qu'il sache où elle est. */
     partieGardee: (pseudo: string) => `Ta partie est gardée pour ${pseudo}.`,
     jouerSeul: "Jouer seul",
+    /** Le même bouton quand il est le seul : un jeu à un seul joueur n'a pas de « à deux » à côté. */
+    jouer: "Jouer",
     jouerADeux: "Jouer à deux",
     explicationADeux:
       "À deux : avec quelqu'un de ce salon vocal, par le câble link. " +

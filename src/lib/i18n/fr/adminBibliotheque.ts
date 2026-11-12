@@ -148,6 +148,7 @@ renommée ne retrouvera pas la sienne.
   fiche: {
     /** Les détails à droite du titre, en minuscules et séparés par des points médians. */
     officiel: "officiel",
+    solo: "solo",
     langueARenseigner: "langue à renseigner",
     /** La taille de la ROM, en mébioctets. */
     taille: (mio: string) => `${mio} Mio`,
@@ -164,7 +165,11 @@ renommée ne retrouvera pas la sienne.
       jeuDeBase: "Jeu de base",
       annee: "Année",
       description: "Description",
+      solo: "Jeu à un seul joueur",
     },
+    /** Sous la case « Jeu à un seul joueur » : ce qu'elle retire. */
+    soloExplication:
+      "Pas de câble link : ni salon sur la fiche du jeu, ni « Jouer à deux » dans une Activité Discord.",
     /** L'étiquette d'un champ qui s'écarte du manifeste, et son infobulle. */
     retouche: "retouché",
     retoucheExplication: "Cette valeur est saisie ici, elle ne vient pas du game.json.",

@@ -68,6 +68,8 @@ export type CodeErreur =
   | "deja-dans-le-salon"
   | "jeu-introuvable"
   | "console-sans-link"
+  /** Le jeu est marqué « solo » dans la bibliothèque. */
+  | "jeu-solo"
   | "marge-insuffisante"
   /** `salons` : le nombre de salons en cours. */
   | "serveur-complet"

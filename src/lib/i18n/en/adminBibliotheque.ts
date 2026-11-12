@@ -124,6 +124,7 @@ its own.
 
   fiche: {
     officiel: "official",
+    solo: "single-player",
     langueARenseigner: "language missing",
     taille: (mio: string) => `${mio} MiB`,
     sansJaquette: "no cover",
@@ -138,7 +139,10 @@ its own.
       jeuDeBase: "Base game",
       annee: "Year",
       description: "Description",
+      solo: "Single-player game",
     },
+    soloExplication:
+      "No link cable: no room on the game's page, and no “Play two-player” in a Discord Activity.",
     retouche: "edited",
     retoucheExplication: "This value was entered here; it does not come from the game.json.",
     enregistrer: "Save",

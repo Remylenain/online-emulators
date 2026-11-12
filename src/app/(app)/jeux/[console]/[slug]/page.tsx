@@ -218,8 +218,11 @@ export default async function GamePage({ params }: { params: Promise<Params> }) 
 
           <TaPartie stats={stats} t={t} langue={langue} />
 
-          {/* Le câble link, pour les consoles dont le serveur sait relier deux consoles. */}
-          {CONSOLES_LINK.has(console.slug) && <SalonsJeu jeuId={game.id} consoleSlug={console.slug} />}
+          {/* Le câble link, pour les consoles dont le serveur sait relier deux
+              consoles — sauf pour un jeu à un seul joueur, qui n'a rien à relier. */}
+          {CONSOLES_LINK.has(console.slug) && !game.isSolo && (
+            <SalonsJeu jeuId={game.id} consoleSlug={console.slug} />
+          )}
 
           <div className="flex flex-col gap-2">
             <h2 className="text-sm font-semibold text-ink-200">{t.fiche.tonAvis}</h2>

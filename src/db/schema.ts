@@ -258,6 +258,11 @@ export const games = sqliteTable(
      * catalogue et tient ces jeux hors des nouveautés.
      */
     isOfficial: integer("is_official", { mode: "boolean" }).notNull().default(false),
+    /**
+     * Jeu à un seul joueur : pas de câble link, ni sur la fiche du site ni dans
+     * une Activité Discord. Vient du manifeste (`solo`) ou d'une retouche.
+     */
+    isSolo: integer("is_solo", { mode: "boolean" }).notNull().default(false),
     releasedAt: integer("released_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),

@@ -134,7 +134,8 @@ export async function POST(request: Request) {
       jeu: { id: jeu.id, titre: jeu.titre, console: jeu.console, taille: jeu.taille, empreinte: jeu.empreinte },
       coeur: adressesCoeur(),
       // Pour jouer à deux : la clé du salon de cette instance (voir `src/lib/link`).
-      instance: typeof corps.instance === "string" ? cleInstance(corps.instance) : null,
+      // Aucune pour un jeu à un seul joueur : l'Activité ne propose alors que la partie solo.
+      instance: !jeu.solo && typeof corps.instance === "string" ? cleInstance(corps.instance) : null,
       // Le mot d'accueil de l'administrateur, et ses astuces dans un ordre
       // tiré au sort : la première pour l'accueil, toutes pour la pause.
       accueil: { mot: application.welcome, astuces: astucesMelangees(application.id) },

@@ -72,6 +72,7 @@ export default async function BibliothequePage({
       year: games.year,
       isPublished: games.isPublished,
       isOfficial: games.isOfficial,
+      isSolo: games.isSolo,
       coverPath: games.coverPath,
       romSize: games.romSize,
       searchText: games.searchText,

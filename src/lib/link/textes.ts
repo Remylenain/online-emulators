@@ -51,6 +51,7 @@ const ERREURS: Record<CodeErreur, Redaction> = {
   "deja-dans-le-salon": (t, v) => avec(v.texte("salon"), t.erreurs.dejaDansLeSalon),
   "jeu-introuvable": (t) => t.erreurs.jeuIntrouvable,
   "console-sans-link": (t) => t.erreurs.consoleSansLink,
+  "jeu-solo": (t) => t.erreurs.jeuSolo,
   "marge-insuffisante": (t) => t.erreurs.margeInsuffisante,
   "serveur-complet": (t, v) => avec(v.nombre("salons"), t.erreurs.serveurComplet),
   "file-d-attente": (t) => t.erreurs.fileDAttente,

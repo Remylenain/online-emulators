@@ -229,6 +229,21 @@ leave behind files that the service could no longer write to. The scan is
 idempotent, and every warning it prints points to a folder it has skipped —
 missing ROM, ambiguous ROM, dead symbolic link, or invalid `game.json`.
 
+### Single-player games
+
+The link cable is offered for every Game Boy, Game Boy Color or Game Boy
+Advance game: nothing in a ROM says whether it uses it. For a game played
+alone — a pinball game, for instance — you say so yourself:
+
+- in its `game.json`, `"solo": true`, then a scan;
+- or in **Administration → Library**, by opening the game: the
+  "Single-player game" checkbox. It applies at once and survives the next
+  scan, like the other edits.
+
+A single-player game no longer has a "Link cable" section on its page, the
+server refuses to open a room for it, and a Discord Activity that serves it
+only shows "Play" (see [the Discord Activity](discord/README.en.md#two-player-mode)).
+
 ### Fill in the entries for official games
 
 A commercial game stored in the library (`"officiel": true` in its

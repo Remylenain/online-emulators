@@ -1,0 +1,1 @@
+ALTER TABLE `games` ADD `is_solo` integer DEFAULT false NOT NULL;

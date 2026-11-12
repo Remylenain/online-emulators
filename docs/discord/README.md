@@ -325,6 +325,10 @@ le jeton de l'Activité à la place du cookie.
   l'écran dit sa position, et le salon s'ouvre à son tour. Une instance qui
   ferme sa page sort de la file en vingt secondes.
 - **GB, GBC et GBA** : les mêmes cœurs que le câble link du site.
+- **Pas pour un jeu à un seul joueur.** Un jeu marqué `solo` dans la
+  bibliothèque (voir [le déploiement](../deploiement.md#les-jeux-à-un-seul-joueur))
+  n'a pas de câble link : la session ne donne pas de clé d'instance, et
+  l'accueil ne montre qu'un bouton, « Jouer ».
 - Sans verrou par serveur, la clé d'instance est la seule porte : qui la
   connaît peut s'asseoir dans le salon. Elle ne circule qu'entre la page et
   le site, mais ce n'est pas une preuve d'appartenance au salon vocal ; le

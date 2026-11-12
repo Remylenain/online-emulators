@@ -82,6 +82,13 @@ export const manifestSchema = z.object({
 
   /** Jeu du commerce tel qu'il est sorti, et non un rom hack ou une traduction. */
   officiel: z.boolean().default(false),
+
+  /**
+   * Jeu à un seul joueur : la cartouche n'a rien à échanger par le câble link.
+   * Le site ne propose alors pas de salon sur sa fiche, et une Activité Discord
+   * qui sert ce jeu n'offre pas de jouer à deux.
+   */
+  solo: z.boolean().default(false),
 });
 
 export type Manifest = z.infer<typeof manifestSchema>;
@@ -108,5 +115,6 @@ export function manifestToColumns(manifest: Manifest) {
     partNumber: manifest.groupe?.partie ?? null,
     isPublished: manifest.publie,
     isOfficial: manifest.officiel,
+    isSolo: manifest.solo,
   };
 }

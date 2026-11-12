@@ -195,11 +195,15 @@ export async function creerSalon(
       slug: games.slug,
       consoleSlug: games.consoleSlug,
       romPath: games.romPath,
+      solo: games.isSolo,
     })
     .from(games)
     .where(and(eq(games.id, jeuId), conditionAcces(compte)))
     .get();
   if (!jeu) return refus("jeu-introuvable", "Jeu introuvable.");
+  // La fiche et l'Activité ne le proposent pas ; ce refus tient pour qui
+  // demanderait quand même, une page restée ouverte par exemple.
+  if (jeu.solo) return refus("jeu-solo", "Ce jeu se joue seul : il n'a pas de câble link.");
   if (!COEURS[jeu.consoleSlug]) {
     return refus("console-sans-link", "Le câble link n'est pas encore disponible pour cette console.");
   }

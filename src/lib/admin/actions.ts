@@ -852,6 +852,15 @@ export async function enregistrerRetouches(
     else Object.assign(retouche, { [champ]: valeur });
   }
 
+  // La case « solo » n'est proposée que pour les consoles à câble link, et une
+  // case décochée n'envoie rien : `soloPropose` dit qu'elle était à l'écran.
+  // Comme le reste, elle n'est une retouche que si elle contredit le manifeste.
+  if (donnees.get("soloPropose") === "1") {
+    const solo = donnees.get("solo") === "on";
+    if (solo === (jeu.manifeste?.solo ?? false)) delete retouche.solo;
+    else retouche.solo = solo;
+  }
+
   try {
     await ecrireRetouche(jeu.consoleSlug, jeu.slug, retouche);
   } catch {
@@ -859,7 +868,7 @@ export async function enregistrerRetouches(
   }
 
   const colonnes = manifestToColumns(
-    appliquerRetouche(jeu.manifeste ?? { titre: jeu.title, publie: true, officiel: false }, retouche),
+    appliquerRetouche(jeu.manifeste ?? { titre: jeu.title, publie: true, officiel: false, solo: false }, retouche),
   );
 
   db.update(games)
@@ -871,6 +880,7 @@ export async function enregistrerRetouches(
       language: colonnes.language,
       baseGame: colonnes.baseGame,
       year: colonnes.year,
+      isSolo: colonnes.isSolo,
       // Le texte de recherche est dérivé : le laisser en arrière ferait
       // chercher un titre corrigé sans jamais le trouver.
       searchText: normalizeForSearch(

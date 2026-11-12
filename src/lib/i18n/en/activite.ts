@@ -13,6 +13,7 @@ export const activite: Dictionnaire["activite"] = {
     connexion: "Connecting to Discord…",
     partieGardee: (pseudo: string) => `Your progress is saved under ${pseudo}.`,
     jouerSeul: "Play solo",
+    jouer: "Play",
     /** « two-player », le mot des jaquettes ; « Play » en tête, pour que « the next “Play” » vaille pour les deux boutons. */
     jouerADeux: "Play two-player",
     explicationADeux:

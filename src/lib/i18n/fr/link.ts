@@ -140,6 +140,7 @@ export const link = {
     dejaDansLeSalon: (code: string) => `Tu es déjà dans le salon ${code}.`,
     jeuIntrouvable: "Jeu introuvable.",
     consoleSansLink: "Le câble link n'est pas encore disponible pour cette console.",
+    jeuSolo: "Ce jeu se joue seul : il n'a pas de câble link.",
     /** Le budget de processeur réservé au câble link ne tient même pas un salon de cette console. */
     margeInsuffisante:
       "Le câble link n'a pas assez de processeur réservé pour cette console. " +

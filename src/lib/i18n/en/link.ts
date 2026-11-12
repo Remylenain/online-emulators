@@ -107,6 +107,7 @@ export const link: Dictionnaire["link"] = {
     dejaDansLeSalon: (code: string) => `You are already in room ${code}.`,
     jeuIntrouvable: "Game not found.",
     consoleSansLink: "The link cable is not available for this console yet.",
+    jeuSolo: "This is a single-player game: it has no link cable.",
     /** « CPU », plus courant que « processor » ; « margin », le nom du réglage dans l'administration. */
     margeInsuffisante:
       "The link cable does not have enough CPU set aside for this console. " +

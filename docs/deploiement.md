@@ -226,6 +226,21 @@ scan est idempotent, et chaque avertissement qu'il affiche désigne un dossier
 qu'il a écarté — ROM absente, ambiguë, lien symbolique mort, ou `game.json`
 invalide.
 
+### Les jeux à un seul joueur
+
+Le câble link est proposé pour tout jeu Game Boy, Game Boy Color ou Game Boy
+Advance : rien dans une ROM ne dit si elle s'en sert. Pour un jeu qui se joue
+seul — un flipper, par exemple —, on le dit soi-même :
+
+- dans son `game.json`, `"solo": true`, puis un scan ;
+- ou dans **Administration → Bibliothèque**, en ouvrant le jeu : la case
+  « Jeu à un seul joueur ». Elle s'applique tout de suite et tient au scan
+  suivant, comme les autres retouches.
+
+Un jeu solo n'a plus de section « Câble link » sur sa fiche, le serveur refuse
+d'y ouvrir un salon, et une Activité Discord qui le sert ne montre que
+« Jouer » (voir [l'Activité Discord](discord/README.md#jouer-à-deux)).
+
 ### Compléter les fiches des jeux officiels
 
 Un jeu du commerce rangé dans la bibliothèque (`"officiel": true` dans son

@@ -16,6 +16,8 @@ export type JeuDiscord = {
   taille: number;
   empreinte: string;
   cheminRom: string;
+  /** Jeu à un seul joueur : l'Activité ne propose pas de jouer à deux. */
+  solo: boolean;
 };
 
 export async function jeuDeLActivite(gameId: string): Promise<JeuDiscord | null> {
@@ -28,6 +30,7 @@ export async function jeuDeLActivite(gameId: string): Promise<JeuDiscord | null>
       taille: games.romSize,
       empreinte: games.romSha1,
       cheminRom: games.romPath,
+      solo: games.isSolo,
     })
     .from(games)
     .where(eq(games.id, gameId))

@@ -318,6 +318,10 @@ token in place of the cookie.
   its position, and the room opens when its turn comes. An instance that
   closes its page leaves the queue within twenty seconds.
 - **GB, GBC and GBA**: the same cores as the site's link cable.
+- **Not for a single-player game.** A game marked `solo` in the library (see
+  [deployment](../deploiement.en.md#single-player-games)) has no link cable:
+  the session gives no instance key, and the home screen shows a single
+  button, "Play".
 - Without a per-server lock, the instance key is the only door: whoever knows
   it can take a seat in the room. It only travels between the page and the
   site, but it is not proof of belonging to the voice channel; the lock is.

@@ -34,6 +34,7 @@ export type JeuAdmin = {
   year: number | null;
   isPublished: boolean;
   isOfficial: boolean;
+  isSolo: boolean;
   coverPath: string | null;
   romSize: number;
   /** Champs que ce jeu retouche par rapport à son `game.json`. */
@@ -653,6 +654,7 @@ function FicheJeu({
   // Les détails à droite du titre : chacun est une étiquette, pas un morceau de phrase.
   const details = [
     ...(jeu.isOfficial ? [t.officiel] : []),
+    ...(jeu.isSolo ? [t.solo] : []),
     jeu.language ? nomDeLangue(jeu.language, langue) : t.langueARenseigner,
     t.taille((jeu.romSize / 1048576).toFixed(0)),
     ...(jeu.coverPath ? [] : [t.sansJaquette]),
@@ -798,6 +800,29 @@ function FicheJeu({
             />
           </Retouchable>
 
+          {/* Le câble link ne concerne que ces consoles : ailleurs, la case
+              n'aurait rien à retirer. */}
+          {CONSOLES_LINK.has(jeu.consoleSlug) && (
+            <label className="flex items-start gap-2 text-sm text-ink-200">
+              <input type="hidden" name="soloPropose" value="1" />
+              <input type="checkbox" name="solo" defaultChecked={jeu.isSolo} className="mt-0.5" />
+              <span className="flex flex-col gap-0.5">
+                <span className="flex items-center gap-2">
+                  {t.champs.solo}
+                  {retouche("solo") && (
+                    <span
+                      className="rounded bg-accent-600/20 px-1.5 py-0.5 text-[10px] text-accent-400"
+                      title={t.retoucheExplication}
+                    >
+                      {t.retouche}
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs text-ink-400">{t.soloExplication}</span>
+              </span>
+            </label>
+          )}
+
           <div className="flex items-center gap-3">
             <Button type="submit" disabled={enCours}>
               {enCours ? t.enregistrement : t.enregistrer}
@@ -821,6 +846,9 @@ function FicheJeu({
     </li>
   );
 }
+
+/** Les consoles dont le serveur sait relier deux exemplaires : les seules où « solo » change quelque chose. */
+const CONSOLES_LINK = new Set(["gb", "gbc", "gba"]);
 
 const champClasses =
   "w-full rounded-lg border border-ink-700 bg-ink-950/60 px-3 py-2 text-sm text-ink-50 placeholder:text-ink-700 focus:border-accent-500 focus:outline-none";
