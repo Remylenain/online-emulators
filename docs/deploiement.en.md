@@ -28,7 +28,8 @@ one, all of whose names get a suffix: see
 ## Prerequisites
 
 - Debian 12, Apache 2.4.47 or later (for `upgrade=websocket`)
-- Node 20 or later, `npm`, `git`
+- Node 22.18 or later, `npm`, `git` — the project's scripts are written in
+  TypeScript, which Node runs as is from that version on
 - `certbot` and its Apache plugin: `apt install certbot python3-certbot-apache`
 - a DNS A record from the domain to the server, already in place
 
@@ -70,7 +71,8 @@ git push serveur main
 ```
 
 The `post-receive` hook runs, in order: `git checkout`, `npm ci`, the Drizzle
-migrations, `next build`, then a restart of the service. The server has **no
+migrations, the installation of the emulation core, `next build`, then a
+restart of the service. The server has **no
 access to the forge**: nothing to configure on the GitHub side, no deploy key
 to entrust to it.
 
@@ -114,9 +116,12 @@ players, that did not seem worth the complexity of a zero-downtime deployment.
 
 ### Create an account
 
-Sign-up is closed. Once the first administrator is in place, further accounts
-are created **from the site's Administration page**. The command line is for
-the first account, and as a fallback.
+Sign-up is closed until you open it. Once the first administrator is in
+place, everything is done in **Administration → Accounts**: create an account
+directly, hand out an invitation link (valid for a day, a week or a month, for
+one or several accounts), or open sign-ups to everyone — which requires the
+SMTP relay and the captcha described below. The command line is for the first
+account, and as a fallback.
 
 ```sh
 cd /opt/online-emulators
@@ -161,13 +166,15 @@ Then `sudo systemctl restart online-emulators`.
 Same choice as for the relay: both keys are entered in
 **Administration → Settings → Captcha**, or in the environment file.
 
-The forgotten-password form accepts a Cloudflare Turnstile captcha. As long as
-`TURNSTILE_SECRET_KEY` is empty, it is bypassed. Filling in both keys from the
-Cloudflare dashboard is enough to enable it.
+The forgotten-password form accepts a Cloudflare Turnstile captcha, and open
+sign-ups require it: without both keys, they stay closed. As long as
+`TURNSTILE_SECRET_KEY` is empty, the forgotten-password captcha is bypassed.
+Filling in both keys from the Cloudflare dashboard is enough to enable it.
 
-The cross-origin isolation headers (`COOP`/`COEP`) cover only `/jouer` and
-`/mgba`, precisely so that the Turnstile widget, loaded from Cloudflare,
-remains allowed on the authentication pages.
+The cross-origin isolation headers (`COOP`/`COEP`) cover only the player
+(`/jouer`, `/partie` for guests) and its core (`/mgba`), precisely so that the
+Turnstile widget, loaded from Cloudflare, remains allowed on the
+authentication pages.
 
 ### Add the games
 
@@ -326,6 +333,26 @@ records the measured cost in the settings: the limit applies immediately. The
 share of the processor left to the link cable (65% by default) is set in
 Administration → Settings, which also shows how many rooms are still possible
 right now. Redo this after a change of machine or of emulation core.
+
+### Offer a game in Discord
+
+A game from the library can be played in Discord, as an Activity: see
+[discord/README.en.md](discord/README.en.md), which gives the full
+walkthrough. Most of it is set up in **Administration → Discord** and in
+Discord's portal. A single step belongs to the server, and it is the one
+people forget: each Activity has its own host name, which needs a DNS record,
+a vhost and a certificate.
+
+```sh
+cd /opt/online-emulators
+sudo ./deploiement/scripts/hote-activite.sh \
+    --domaine prism.exemple.com --mail admin@exemple.com
+```
+
+On a named instance, run it from that instance's working tree with
+`--instance <name>` (see [Day to day](#day-to-day)). The administration
+writes the exact command in each application's "Step-by-step". An Activity
+declared on the site's own host does not need it.
 
 ## Backups
 

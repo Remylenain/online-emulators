@@ -9,12 +9,12 @@ account. No sign-up, no password, nothing to install.
 This page is for whoever hosts the site and wants to offer a game — their ROM
 hack, their translation — in their own Discord server.
 
-> **Status: prototype.** Tested with a Game Boy Color ROM, locally and then in
-> Discord on desktop: sign-in, gameplay, saving and the clock all work.
-> Not yet tested on a phone, nor with a GBA game. The per-server lock has been
-> tested against simulated Discord responses, not against a real instance.
-> Two-player mode, keys and the controller have been tested locally (two test
-> accounts), not yet in Discord.
+> **Status.** The Activity runs on a real Discord server, with an application
+> verified by Discord and a Game Boy Color game: launch from the app launcher
+> and from a typed command, progress kept per account, lock on several
+> servers, reserved roles, Android phone in portrait and landscape. Not yet
+> tested in Discord itself: two-player mode, a GBA game, iOS, cartridge
+> rumble.
 
 ## In a nutshell
 
@@ -192,16 +192,26 @@ As long as no Activity is configured for a host, `/discord` and
 
 1. At the registrar: an `A` (or `CNAME`) record pointing the hostname at the
    server. Wait until it is visible (`nslookup`).
-2. On the server, as root, from the clone of the repository:
+2. On the server, as root, from the site's working tree
+   (`/opt/online-emulators`):
    `sudo ./deploiement/scripts/hote-activite.sh --domaine prism.exemple.com --mail toi@exemple.com`
    — same vhost template as the site, everything is relayed to the same Next
    server, then certbot. On a named instance (see
    [deploiement.en.md](../deploiement.en.md#a-second-instance-on-the-same-server)),
    add `--instance <name>`: without it, the host would relay to the default
-   instance.
+   instance. In the administration, the application's "Step-by-step" gives
+   this command fully written out for the server: folder, instance and host
+   name, with only the contact address left to fill in.
 3. Check: `https://prism.exemple.com/` must display the Activity (the
    "This page opens from Discord" page) and `…/connexion` must answer
    "Introuvable" (Not found).
+
+**This is the step people forget**, because it is done neither in the
+administration nor at Discord. Without it, the host name does not answer over
+HTTPS: the Activity stays blank in Discord, and the typed command refuses to
+be enabled ("Discord could not verify the site's address"). It does not apply
+to an Activity declared on the site's own host, which already has its vhost
+and certificate.
 
 ### 7. Launch it in Discord
 
@@ -229,8 +239,10 @@ As long as no Activity is configured for a host, `/discord` and
 ### 9. When it doesn't work
 
 - **White or black screen**: the URL Mapping doesn't point to the right host,
-  the DNS isn't visible yet, or the certificate is missing. Open the host in a
-  browser to see which.
+  the DNS isn't visible yet, or the vhost and the certificate are missing
+  (step 6). Open the host in a browser to see which.
+- **"Discord could not verify the site's address"**, when enabling the typed
+  command: same cause, the host does not answer over HTTPS yet (step 6).
 - `invalid_client` in the server log: wrong ID, or the Public Key put in
   place of the secret. `invalid_grant`: expired code, relaunch the Activity.
 - "This Activity can only be played in the Discord servers it is restricted
@@ -634,13 +646,13 @@ by some route other than the portal.
 
 ## What remains to be done
 
-- Testing on iOS and Android.
-- Testing the lock on a real instance.
+- Testing on iOS (Android has been tested).
 - GBA (the core handles it, nothing has been tested).
-- Pausing when the Activity goes into picture-in-picture; orientation on
-  phones.
+- Pausing when the Activity goes into picture-in-picture.
 - Two-player mode and the controller in Discord itself (tested locally only);
   the latency of Discord's proxy on picture and sound.
+- Cartridge rumble, to be felt on a real phone and a controller (the orders
+  go out, checked locally only).
 - Linking an existing site account to its Discord user, to find its progress
   there.
 - The test button doesn't say whether a host is actually relayed all the way

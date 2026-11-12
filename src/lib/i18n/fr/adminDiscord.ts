@@ -248,10 +248,19 @@ export const adminDiscord = {
       enPlace: (hote: string) =>
         `*Le nom d'hôte.* Rien à faire : \`${hote}\` est l'hôte du site, déjà en place. ` +
         "Le site continue d'y répondre ; Discord, lui, y trouve l'Activité.",
-      aPreparer: (hote: string) =>
-        `*Le nom d'hôte.* Faire pointer \`${hote}\` vers ce serveur (DNS), puis lui donner un certificat et un vhost ` +
-        "qui relaie vers le site, comme l'hôte principal — voir `docs/discord/README.md`. " +
-        "Tant que ce n'est pas fait, Discord n'atteint pas l'Activité.",
+      /**
+       * `commande` : celle du vhost, écrite pour ce serveur (dossier, instance, hôte).
+       * C'est l'étape qu'on oublie : elle ne se fait ni ici ni chez Discord.
+       */
+      aPreparer: (hote: string, commande: string) =>
+        `*Le nom d'hôte.* \`${hote}\` doit répondre en HTTPS et relayer vers ce site, ce qui ne se règle ni ici ni ` +
+        "chez Discord. D'abord le DNS, chez le registrar : le faire pointer vers ce serveur. " +
+        `Puis sur le serveur, en root : \`${commande}\` — le script pose le vhost Apache et demande le certificat ; ` +
+        "mettre sa propre adresse après `--mail`. " +
+        "Tant que ce n'est pas fait, Discord n'atteint pas l'Activité et la commande tapée ne peut pas être activée. " +
+        "Le détail est à l'étape 6 du pas à pas.",
+      /** L'adresse de contact à remplacer dans la commande. */
+      adresseExemple: "toi@exemple.com",
     },
     portail: {
       titre: (application: string) => `*Le portail Discord* (discord.com/developers, application ${application}) :`,
@@ -441,9 +450,13 @@ export const adminDiscord = {
       points: liste(
         "Chez le registrar : un enregistrement `A` (ou `CNAME`) qui fait pointer le nom d'hôte vers ce serveur. " +
           "Attendre qu'il soit visible (`nslookup`).",
-        "Sur le serveur, en root, depuis le clone du dépôt : " +
+        "Sur le serveur, en root, depuis l'arbre de travail du site : " +
           "`sudo ./deploiement/scripts/hote-activite.sh --domaine prism.exemple.com --mail toi@exemple.com`. " +
-          "Le script pose le vhost Apache et demande le certificat.",
+          "Le script pose le vhost Apache et demande le certificat. Sur une instance nommée, ajouter " +
+          "`--instance <nom>` : sans lui, l'hôte relaierait vers l'instance par défaut. " +
+          `La « ${MARCHE} » de l'application donne la commande toute écrite pour ce serveur.`,
+        "Cette étape ne se fait ni ici ni chez Discord, et rien ne marche sans elle : l'Activité reste blanche, " +
+          "et la commande tapée refuse de s'activer (« Discord n'a pas pu vérifier l'adresse du site »).",
         // Les deux textes cités sont ceux que montre l'hôte : l'Activité hors de Discord, et le refus du reste du site.
         "Vérifier dans un navigateur : `https://prism.exemple.com/` doit afficher l'Activité " +
           "(page « Cette page s'ouvre depuis Discord ») et `https://prism.exemple.com/connexion` répondre « Introuvable ».",
@@ -466,7 +479,9 @@ export const adminDiscord = {
       titre: "8. Quand ça ne marche pas",
       points: liste(
         "*Écran blanc ou noir* : l'URL Mapping ne pointe pas vers le bon hôte, le DNS n'est pas encore visible, " +
-          "ou le certificat manque. Ouvrir l'hôte dans un navigateur pour voir lequel.",
+          "ou le vhost et le certificat manquent (étape 6). Ouvrir l'hôte dans un navigateur pour voir lequel.",
+        "*« Discord n'a pas pu vérifier l'adresse du site »*, en activant la commande tapée : même cause, " +
+          "l'hôte ne répond pas encore en HTTPS (étape 6).",
         "`invalid_client` dans le journal du serveur : identifiant faux, ou Public Key mise à la place du secret. " +
           "`invalid_grant` : code périmé, relancer l'Activité.",
         // Le refus du verrou, tel que l'Activité l'affiche au joueur.
@@ -558,7 +573,8 @@ export const adminDiscord = {
     commandeTapeeAdresseRefusee: (detail?: string, adresse?: string) =>
       "Discord n'a pas pu vérifier l'adresse du site" +
       (adresse ? ` (${adresse})` : "") +
-      ". Elle doit répondre depuis internet, en HTTPS, sous le nom d'hôte de l'application." +
+      ". Elle doit répondre depuis internet, en HTTPS, sous le nom d'hôte de l'application. " +
+      `Pour un nom d'hôte nouveau, c'est le plus souvent le vhost et le certificat qui manquent : voir « ${MARCHE} », premier point.` +
       (detail ? ` Discord dit : ${detail}` : ""),
     commandeTapeeActivee: (nom: string) =>
       `/${nom} se tape maintenant dans un salon. Discord peut mettre quelques minutes à la proposer ; relancer Discord l'accélère.`,

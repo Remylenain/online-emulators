@@ -45,11 +45,14 @@ export function Discord({
   applications,
   jeux,
   hoteDuSite,
+  installation,
   repli,
 }: {
   applications: ApplicationDiscord[];
   jeux: Jeu[];
   hoteDuSite: string;
+  /** L'arbre de travail et l'instance du site, pour écrire la commande du vhost ; `null` hors d'une installation. */
+  installation: Installation | null;
   /** L'Activité configurée par l'environnement du serveur, s'il y en a une. */
   repli: { jeu: string; verrou: boolean } | null;
 }) {
@@ -102,6 +105,7 @@ export function Discord({
             key={application.id}
             application={application}
             hoteDuSite={hoteDuSite}
+            installation={installation}
             modifier={() => setEnEdition(application)}
           />
         ),
@@ -113,10 +117,12 @@ export function Discord({
 function Carte({
   application,
   hoteDuSite,
+  installation,
   modifier,
 }: {
   application: ApplicationDiscord;
   hoteDuSite: string;
+  installation: Installation | null;
   modifier: () => void;
 }) {
   const [essai, setEssai] = useState<EssaiApplication | null | "aucune">(null);
@@ -203,7 +209,13 @@ function Carte({
         </ul>
       )}
 
-      {marche && <MarcheASuivre application={application} surLeSite={application.host === hoteDuSite} />}
+      {marche && (
+        <MarcheASuivre
+          application={application}
+          surLeSite={application.host === hoteDuSite}
+          installation={installation}
+        />
+      )}
 
       <CommandeDeLancement application={application} />
 
@@ -633,6 +645,8 @@ function Ligne({ titre, verdict }: { titre: string; verdict: Verdict }) {
   );
 }
 
+type Installation = { dossier: string; instance: string };
+
 /**
  * Ce qui se règle ailleurs que dans cette page, avec les valeurs à recopier.
  * Le portail Discord n'a pas d'API pour créer une application : c'est à la
@@ -641,18 +655,27 @@ function Ligne({ titre, verdict }: { titre: string; verdict: Verdict }) {
 function MarcheASuivre({
   application,
   surLeSite,
+  installation,
 }: {
   application: ApplicationDiscord;
   /** L'Activité est déclarée sur l'hôte du site : rien à préparer côté serveur. */
   surLeSite: boolean;
+  installation: Installation | null;
 }) {
   const t = useT().adminDiscord.marche;
   const hote = application.host;
+  // La commande telle qu'elle se tape sur ce serveur : son dossier, son
+  // instance, cet hôte. Seule l'adresse de contact reste à mettre.
+  const commande =
+    (installation ? `cd ${installation.dossier} && ` : "") +
+    "sudo ./deploiement/scripts/hote-activite.sh " +
+    (installation?.instance ? `--instance ${installation.instance} ` : "") +
+    `--domaine ${hote} --mail ${t.hote.adresseExemple}`;
 
   return (
     <ol className="flex list-decimal flex-col gap-2 border-t border-ink-800 pt-3 pl-5 text-sm text-ink-300 [&_code]:text-ink-50 [&_strong]:text-ink-100">
       <li>
-        <Prose texte={surLeSite ? t.hote.enPlace(hote) : t.hote.aPreparer(hote)} />
+        <Prose texte={surLeSite ? t.hote.enPlace(hote) : t.hote.aPreparer(hote, commande)} />
       </li>
       <li>
         <Prose texte={t.portail.titre(application.clientId)} />

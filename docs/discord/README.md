@@ -9,12 +9,12 @@ Discord. Pas d'inscription, pas de mot de passe, rien à installer.
 Cette page s'adresse à qui héberge le site et veut proposer un jeu — sa rom
 hack, sa traduction — dans son propre serveur Discord.
 
-> **État : prototype.** Essayé sur une ROM Game Boy Color, en local puis dans
-> Discord sur ordinateur : connexion, jeu, sauvegarde et horloge fonctionnent.
-> Pas encore essayé sur téléphone, ni avec un jeu GBA. Le verrou par serveur
-> est essayé sur des réponses simulées de Discord, pas sur une vraie instance.
-> Le jeu à deux, les touches et la manette sont essayés en local (deux comptes
-> d'essai), pas encore dans Discord.
+> **État.** L'Activité tourne sur un vrai serveur Discord, avec une application
+> vérifiée par Discord et un jeu Game Boy Color : lancement par le lanceur
+> d'applications et par une commande tapée, partie gardée par compte, verrou
+> sur plusieurs serveurs, rôles réservés, téléphone Android debout et couché.
+> Pas encore essayés dans Discord même : le jeu à deux, un jeu GBA, iOS, la
+> vibration des cartouches.
 
 ## En deux mots
 
@@ -195,16 +195,26 @@ Tant qu'aucune Activité n'est configurée pour un hôte, `/discord` et
 
 1. Chez le registrar : un enregistrement `A` (ou `CNAME`) qui fait pointer le
    nom d'hôte vers le serveur. Attendre qu'il soit visible (`nslookup`).
-2. Sur le serveur, en root, depuis le clone du dépôt :
+2. Sur le serveur, en root, depuis l'arbre de travail du site
+   (`/opt/online-emulators`) :
    `sudo ./deploiement/scripts/hote-activite.sh --domaine prism.exemple.com --mail toi@exemple.com`
    — même gabarit de vhost que le site, tout est relayé vers le même serveur
    Next, puis certbot. Sur une instance nommée (voir
    [deploiement.md](../deploiement.md#une-seconde-instance-sur-le-même-serveur)),
    ajouter `--instance <nom>` : sans lui, l'hôte relaierait vers l'instance
-   par défaut.
+   par défaut. Dans l'administration, la « Marche à suivre » de l'application
+   donne cette commande toute écrite pour le serveur : dossier, instance et
+   nom d'hôte, il ne reste que l'adresse de contact à mettre.
 3. Vérifier : `https://prism.exemple.com/` doit afficher l'Activité (page
    « Cette page s'ouvre depuis Discord ») et `…/connexion` répondre
    « Introuvable ».
+
+**C'est l'étape qu'on oublie**, parce qu'elle ne se fait ni dans
+l'administration ni chez Discord. Sans elle, le nom d'hôte ne répond pas en
+HTTPS : l'Activité reste blanche dans Discord, et la commande tapée refuse de
+s'activer (« Discord n'a pas pu vérifier l'adresse du site »). Elle ne
+concerne pas une Activité déclarée sur l'hôte du site lui-même, qui a déjà
+son vhost et son certificat.
 
 ### 7. Lancer dans Discord
 
@@ -232,8 +242,10 @@ Tant qu'aucune Activité n'est configurée pour un hôte, `/discord` et
 ### 9. Quand ça ne marche pas
 
 - **Écran blanc ou noir** : l'URL Mapping ne pointe pas vers le bon hôte, le
-  DNS n'est pas encore visible, ou le certificat manque. Ouvrir l'hôte dans un
-  navigateur pour voir lequel.
+  DNS n'est pas encore visible, ou le vhost et le certificat manquent
+  (étape 6). Ouvrir l'hôte dans un navigateur pour voir lequel.
+- **« Discord n'a pas pu vérifier l'adresse du site »**, en activant la
+  commande tapée : même cause, l'hôte ne répond pas encore en HTTPS (étape 6).
 - `invalid_client` dans le journal du serveur : identifiant faux, ou Public
   Key mise à la place du secret. `invalid_grant` : code périmé, relancer
   l'Activité.
@@ -642,12 +654,13 @@ utilisateurs par une autre voie que le portail.
 
 ## Ce qui reste à faire
 
-- L'essai sur iOS et Android.
-- L'essai du verrou sur une vraie instance.
+- L'essai sur iOS (Android est essayé).
 - La GBA (le cœur la gère, rien n'a été essayé).
-- Pause quand l'Activité passe en incrustation ; orientation sur téléphone.
+- Pause quand l'Activité passe en incrustation.
 - Le jeu à deux et la manette dans Discord même (essayés en local seulement) ;
   la latence du proxy de Discord sur l'image et le son.
+- La vibration des cartouches, à sentir sur un vrai téléphone et une manette
+  (les ordres partent, vérifié en local seulement).
 - Rattacher un compte existant du site à son utilisateur Discord, pour y
   retrouver sa partie.
 - Le bouton d'essai ne dit pas si un hôte est bien relayé jusqu'au site.

@@ -19,15 +19,21 @@ only what you have the right to share.
 - **In-browser player** (mGBA in WebAssembly): save synced per account,
   manual and automatic save states, fast-forward (list, key to hold or touch
   button), volume, customizable keys and controller (USB or Bluetooth),
-  touch controller on phones, screen bezels.
+  touch controller on phones, screen bezels. Cartridges with a rumble motor
+  (Pokémon Pinball, for instance) make an Android phone or the controller
+  vibrate.
 - **Link cable**: two players, two browsers, both consoles run on the
   server — TGB Dual for GB and GBC, mGBA Splitscreen for GBA. Trades and
   battles just like with a real cable. Public rooms or private ones with a
   code, up to five spectators per room, and the number of rooms capped at
-  what the server can handle.
-- **Discord Activity** (optional, experimental): a game from the site
-  playable inside Discord, emulated in the player's browser, with its save
-  kept per Discord user. See [docs/discord](docs/discord/README.en.md).
+  what the server can handle. A game played alone can be marked "solo" and
+  then offers none.
+- **Discord Activity** (optional): a game from the site playable inside
+  Discord, with no sign-up — progress is kept per Discord account. It is
+  launched from the app launcher or from a command typed in a channel, played
+  alone or with two in a voice channel, and can be restricted to certain
+  servers and certain roles. One Discord application per game, declared in
+  the administration. See [docs/discord](docs/discord/README.en.md).
 - **French and English**: the whole site, administration included. Each
   visitor sees it in their browser's language or in the one they choose; the
   administrator sets the default language. See
@@ -44,11 +50,13 @@ only what you have the right to share.
   all their saves.
 - **Catalog** by console, search, sorting by rating or popularity, ratings,
   play time per game and per account, a “My games” page.
-- **Administration**: accounts, library, play time, site name.
+- **Administration**: dashboard, accounts, library (scan, corrections to
+  the entries, covers), play time, settings (site name, language, e-mail,
+  captcha, showcase, link cable) and Discord Activities.
 
 ## Five-minute install
 
-You need [Node.js](https://nodejs.org) 22 or later, and `git`.
+You need [Node.js](https://nodejs.org) 22.18 or later, and `git`.
 
 ```bash
 git clone https://github.com/<you>/online-emulators.git
@@ -113,6 +121,9 @@ A few useful details:
   label.
 - **Screen bezels** can be dropped into `library/bezels/<console>/`: a PNG
   image with a transparent area in the center, detected automatically.
+- A **single-player** game: `"solo": true` in its `game.json`, or the
+  checkbox of the same name in Administration → Library. It then has no link
+  cable, neither on the site nor in a Discord Activity.
 - ROMs patched to be *batteryless* write their save to the cartridge's flash
   memory, which does not exist in an emulator: use the standard SRAM
   versions.
@@ -150,7 +161,8 @@ Settings.
 ## Tech stack
 
 Next.js, TypeScript, Drizzle ORM on SQLite, Tailwind. Player: mGBA in
-WebAssembly. Link cable: a WebSocket server in the same process as Next,
+WebAssembly, plus a second mGBA core for cartridges that rumble and for the
+Discord Activity. Link cable: a WebSocket server in the same process as Next,
 which runs TGB Dual (GB/GBC) or mGBA Splitscreen (GBA) in one worker thread
 per room. The reasons behind each choice are in
 [docs/decisions.en.md](docs/decisions.en.md).

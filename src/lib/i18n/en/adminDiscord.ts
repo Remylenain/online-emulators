@@ -170,10 +170,14 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
         `*The hostname.* Nothing to do: \`${hote}\` is the site's host, already in place. ` +
         "The site keeps answering there; Discord, for its part, finds the Activity there.",
       /** Le chemin est celui de la version anglaise du même document. */
-      aPreparer: (hote: string) =>
-        `*The hostname.* Point \`${hote}\` at this server (DNS), then give it a certificate and a vhost ` +
-        "that relays to the site, like the main host — see `docs/discord/README.en.md`. " +
-        "Until that is done, Discord cannot reach the Activity.",
+      aPreparer: (hote: string, commande: string) =>
+        `*The hostname.* \`${hote}\` must answer over HTTPS and relay to this site, which is set up neither here nor ` +
+        "at Discord. First the DNS, at your registrar: point it at this server. " +
+        `Then on the server, as root: \`${commande}\` — the script writes the Apache vhost and requests the certificate; ` +
+        "put your own address after `--mail`. " +
+        "Until that is done, Discord cannot reach the Activity and the typed command cannot be enabled. " +
+        "The details are in step 6 of the walkthrough.",
+      adresseExemple: "you@example.com",
     },
     portail: {
       titre: (application: string) => `*The Discord portal* (discord.com/developers, application ${application}):`,
@@ -349,9 +353,13 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
       points: [
         "At the registrar: an `A` (or `CNAME`) record pointing the hostname at this server. " +
           "Wait until it is visible (`nslookup`).",
-        "On the server, as root, from the clone of the repository: " +
+        "On the server, as root, from the site's working tree: " +
           "`sudo ./deploiement/scripts/hote-activite.sh --domaine prism.exemple.com --mail toi@exemple.com`. " +
-          "The script sets up the Apache vhost and requests the certificate.",
+          "The script sets up the Apache vhost and requests the certificate. On a named instance, add " +
+          "`--instance <name>`: without it, the host would relay to the default instance. " +
+          `The application's “${MARCHE}” gives the command fully written out for this server.`,
+        "This step is done neither here nor at Discord, and nothing works without it: the Activity stays blank, " +
+          "and the typed command refuses to be enabled (“Discord could not verify the site's address”).",
         // Le premier texte cité est celui de `activite.erreurs.horsDiscord` ; le second, la réponse brute
         // du site (`src/proxy.ts`), qui reste en français : d'où sa glose.
         "Check in a browser: `https://prism.exemple.com/` must display the Activity " +
@@ -375,7 +383,9 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
       titre: "8. When it doesn't work",
       points: [
         "*White or black screen*: the URL Mapping doesn't point to the right host, the DNS isn't visible yet, " +
-          "or the certificate is missing. Open the host in a browser to see which.",
+          "or the vhost and the certificate are missing (step 6). Open the host in a browser to see which.",
+        "*“Discord could not verify the site's address”*, when enabling the typed command: same cause, " +
+          "the host does not answer over HTTPS yet (step 6).",
         "`invalid_client` in the server log: wrong ID, or the Public Key put in place of the secret. " +
           "`invalid_grant`: expired code, relaunch the Activity.",
         "“This Activity can only be played in the Discord servers it is restricted to”: the lock is refusing; check the server ID " +
@@ -459,7 +469,8 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
     commandeTapeeAdresseRefusee: (detail?: string, adresse?: string) =>
       "Discord could not verify the site's address" +
       (adresse ? ` (${adresse})` : "") +
-      ". It must answer from the internet, over HTTPS, under the application's host name." +
+      ". It must answer from the internet, over HTTPS, under the application's host name. " +
+      `For a new host name, what is missing is most often the vhost and the certificate: see “${MARCHE}”, first item.` +
       (detail ? ` Discord says: ${detail}` : ""),
     commandeTapeeActivee: (nom: string) =>
       `/${nom} can now be typed in a channel. Discord may take a few minutes to offer it; restarting Discord speeds it up.`,

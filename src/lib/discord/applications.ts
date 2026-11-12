@@ -151,6 +151,22 @@ export function hoteDuSite(): string {
 }
 
 /**
+ * Où le site est installé, quand c'est par `deploiement/scripts/installation.sh` :
+ * l'arbre de travail (`/opt/online-emulators`, ou `/opt/online-emulators-<nom>`
+ * pour une instance nommée) et le nom de l'instance, vide pour celle par défaut.
+ * `null` ailleurs — en développement, ou installé à la main.
+ *
+ * Sert à écrire la commande du vhost d'une Activité telle qu'il faut la taper
+ * sur ce serveur-là, instance comprise : l'oublier relaierait l'hôte vers
+ * l'instance d'à côté.
+ */
+export function installationDuSite(): { dossier: string; instance: string } | null {
+  const dossier = process.cwd();
+  const trouve = /^\/opt\/online-emulators(?:-([a-z0-9][a-z0-9-]*))?$/.exec(dossier);
+  return trouve ? { dossier, instance: trouve[1] ?? "" } : null;
+}
+
+/**
  * Les hôtes réservés à une Activité. Sur l'un d'eux, le site ne sert que
  * l'Activité : ni connexion, ni catalogue (voir `src/proxy.ts`).
  *

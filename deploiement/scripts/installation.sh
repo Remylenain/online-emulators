@@ -167,7 +167,7 @@ done
 certbot plugins --noninteractive 2>/dev/null | grep -q apache \
     || echec "le plugin apache de certbot est absent (apt install python3-certbot-apache)."
 noeud="$(node -p 'process.versions.node.split(".")[0]')"
-[ "$noeud" -ge 20 ] || echec "Node 20 ou plus recent est requis (installe : $noeud)."
+[ "$noeud" -ge 22 ] || echec "Node 22 ou plus recent est requis (installe : $noeud)."
 echo "Node $(node -v), Apache present, certbot present."
 
 # Deux instances sur le meme port : la seconde ne demarrerait pas, et le vhost

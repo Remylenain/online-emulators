@@ -27,7 +27,8 @@ autre, dont tous les noms reçoivent un suffixe : voir
 ## Prérequis
 
 - Debian 12, Apache 2.4.47 ou plus récent (pour `upgrade=websocket`)
-- Node 20 ou plus récent, `npm`, `git`
+- Node 22.18 ou plus récent, `npm`, `git` — les scripts du projet sont en
+  TypeScript, que Node exécute tel quel à partir de cette version
 - `certbot` et son plugin Apache : `apt install certbot python3-certbot-apache`
 - un enregistrement DNS A du domaine vers le serveur, déjà en place
 
@@ -68,7 +69,7 @@ git push serveur main
 ```
 
 Le hook `post-receive` enchaîne : `git checkout`, `npm ci`, migrations Drizzle,
-`next build`, puis redémarrage du service. Le serveur n'a **aucun accès à la
+installation du cœur d'émulation, `next build`, puis redémarrage du service. Le serveur n'a **aucun accès à la
 forge** : rien à configurer côté GitHub, aucune clé de déploiement à lui confier.
 
 Le hook installé dans `/opt/online-emulators.git/hooks/` est une **copie** faite
@@ -110,9 +111,12 @@ joueurs, cela n'a pas paru valoir la complexité d'un déploiement sans coupure.
 
 ### Créer un compte
 
-L'inscription est fermée. Une fois le premier administrateur en place, les
-comptes suivants se créent **depuis la page Administration du site**. La ligne
-de commande sert au premier compte, et de secours.
+L'inscription est fermée tant qu'on ne l'ouvre pas. Une fois le premier
+administrateur en place, tout se fait dans **Administration → Comptes** :
+créer un compte directement, donner un lien d'invitation (valable un jour, une
+semaine ou un mois, pour un ou plusieurs comptes), ou ouvrir les inscriptions
+à tous — ce qui demande le relais SMTP et le captcha décrits plus bas. La
+ligne de commande sert au premier compte, et de secours.
 
 ```sh
 cd /opt/online-emulators
@@ -157,13 +161,16 @@ Puis `sudo systemctl restart online-emulators`.
 Même choix que pour le relais : les deux clés se saisissent dans
 **Administration → Réglages → Captcha**, ou dans le fichier d'environnement.
 
-Le formulaire de mot de passe oublié accepte un captcha Cloudflare Turnstile.
-Tant que `TURNSTILE_SECRET_KEY` est vide, il est contourné. Renseigner les deux
-clés depuis le tableau de bord Cloudflare suffit à l'activer.
+Le formulaire de mot de passe oublié accepte un captcha Cloudflare Turnstile,
+et les inscriptions ouvertes l'exigent : sans les deux clés, elles restent
+fermées. Tant que `TURNSTILE_SECRET_KEY` est vide, le captcha du mot de passe
+oublié est contourné. Renseigner les deux clés depuis le tableau de bord
+Cloudflare suffit à l'activer.
 
-Les en-têtes d'isolation cross-origin (`COOP`/`COEP`) ne couvrent que `/jouer` et
-`/mgba`, précisément pour que le widget Turnstile, chargé depuis Cloudflare,
-reste autorisé sur les pages d'authentification.
+Les en-têtes d'isolation cross-origin (`COOP`/`COEP`) ne couvrent que le
+lecteur (`/jouer`, `/partie` pour les invités) et son cœur (`/mgba`),
+précisément pour que le widget Turnstile, chargé depuis Cloudflare, reste
+autorisé sur les pages d'authentification.
 
 ### Déposer les jeux
 
@@ -324,6 +331,26 @@ s'applique aussitôt. La part du processeur laissée au câble link (65 % par
 défaut) se règle dans Administration → Réglages, qui montre aussi combien de
 salons restent possibles à l'instant. À refaire après un changement de
 machine ou de cœur d'émulation.
+
+### Proposer un jeu dans Discord
+
+Un jeu de la bibliothèque peut se jouer dans Discord, comme Activité : voir
+[discord/README.md](discord/README.md), qui donne le pas à pas complet.
+L'essentiel se règle dans **Administration → Discord** et dans le portail de
+Discord. Une seule étape revient au serveur, et c'est celle qu'on oublie :
+chaque Activité a son nom d'hôte, auquel il faut un DNS, un vhost et un
+certificat.
+
+```sh
+cd /opt/online-emulators
+sudo ./deploiement/scripts/hote-activite.sh \
+    --domaine prism.exemple.com --mail admin@exemple.com
+```
+
+Sur une instance nommée, depuis son arbre de travail et avec `--instance
+<nom>` (voir [Au quotidien](#au-quotidien)). L'administration écrit la
+commande exacte dans la « Marche à suivre » de chaque application. Une
+Activité déclarée sur l'hôte du site lui-même n'en a pas besoin.
 
 ## Sauvegardes
 

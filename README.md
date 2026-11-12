@@ -20,15 +20,20 @@ le droit de partager.
   synchronisée par compte, points de reprise manuels et automatiques,
   avance rapide (liste, touche à tenir ou bouton tactile), volume, touches
   et manette (USB ou Bluetooth) personnalisables, manette tactile sur
-  téléphone, habillages d'écran.
+  téléphone, habillages d'écran. Les cartouches à moteur (Pokémon Pinball,
+  par exemple) font vibrer le téléphone sous Android ou la manette.
 - **Câble link** : deux joueurs, deux navigateurs, les deux consoles tournent
   sur le serveur — TGB Dual pour GB et GBC, mGBA Splitscreen pour GBA.
   Échanges et combats comme avec un vrai câble. Salons publics ou privés
   avec code, jusqu'à cinq spectateurs par salon, nombre de salons limité
-  à ce que le serveur peut tenir.
-- **Activité Discord** (facultative, à l'essai) : un jeu du site jouable dans
-  Discord, émulé dans le navigateur du joueur, avec sa sauvegarde gardée par
-  utilisateur Discord. Voir [docs/discord](docs/discord/README.md).
+  à ce que le serveur peut tenir. Un jeu qui se joue seul se marque « solo »
+  et n'en propose pas.
+- **Activité Discord** (facultative) : un jeu du site jouable dans Discord,
+  sans inscription — la partie est gardée par compte Discord. Elle se lance
+  par le lanceur d'applications ou par une commande tapée dans un salon, se
+  joue seul ou à deux dans un salon vocal, et peut être réservée à certains
+  serveurs et à certains rôles. Une application Discord par jeu, déclarée
+  dans l'administration. Voir [docs/discord](docs/discord/README.md).
 - **Français et anglais** : tout le site, administration comprise. Chaque
   visiteur le voit dans la langue de son navigateur ou dans celle qu'il
   choisit ; l'administrateur règle la langue par défaut. Voir
@@ -45,11 +50,13 @@ le droit de partager.
   toutes ses sauvegardes en zip.
 - **Catalogue** par console, recherche, tri par note ou popularité, notes,
   temps de jeu par jeu et par compte, page « Mes jeux ».
-- **Administration** : comptes, bibliothèque, temps de jeu, nom du site.
+- **Administration** : tableau de bord, comptes, bibliothèque (scan,
+  corrections des fiches, jaquettes), temps de jeu, réglages (nom du site,
+  langue, e-mails, captcha, vitrine, câble link) et Activités Discord.
 
 ## Installation en cinq minutes
 
-Il faut [Node.js](https://nodejs.org) 22 ou plus récent, et `git`.
+Il faut [Node.js](https://nodejs.org) 22.18 ou plus récent, et `git`.
 
 ```bash
 git clone https://github.com/<toi>/online-emulators.git
@@ -112,6 +119,9 @@ Quelques détails utiles :
 - Des **habillages d'écran** (bezels) peuvent être déposés dans
   `library/bezels/<console>/` : une image PNG avec une zone transparente au
   centre, détectée automatiquement.
+- Un jeu **à un seul joueur** : `"solo": true` dans son `game.json`, ou la
+  case du même nom dans Administration → Bibliothèque. Il n'a alors pas de
+  câble link, ni sur le site ni dans une Activité Discord.
 - Les ROMs patchées *batteryless* écrivent leur sauvegarde dans la mémoire
   flash de la cartouche, qui n'existe pas dans un émulateur : utiliser les
   versions à SRAM standard.
@@ -150,7 +160,8 @@ Réglages.
 ## Pile technique
 
 Next.js, TypeScript, Drizzle ORM sur SQLite, Tailwind. Lecteur : mGBA en
-WebAssembly. Câble link : un serveur WebSocket dans le même processus que
+WebAssembly, et un second cœur mGBA pour les cartouches qui vibrent et pour
+l'Activité Discord. Câble link : un serveur WebSocket dans le même processus que
 Next, qui fait tourner TGB Dual (GB/GBC) ou mGBA Splitscreen (GBA) dans un fil
 de travail par salon. Les raisons de chaque choix sont dans
 [docs/decisions.md](docs/decisions.md).
