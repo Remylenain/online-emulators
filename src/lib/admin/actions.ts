@@ -25,6 +25,8 @@ import {
   INVITATION_TOKEN_DURATION_MS,
   newId,
 } from "@/lib/auth/session";
+import { headers } from "next/headers";
+import { adresseDuSite } from "@/lib/adresses";
 import { env } from "@/lib/env";
 import { definirMargeLink, MARGE_MAX, MARGE_MIN } from "@/lib/link/capacite";
 import {
@@ -190,7 +192,7 @@ async function preparerInvitation(
   invitePar: string,
 ): Promise<{ lien: string; mailEnvoye: boolean }> {
   const token = await createPasswordResetToken(userId, INVITATION_TOKEN_DURATION_MS);
-  const lien = `${env.PUBLIC_URL}/reinitialiser?token=${encodeURIComponent(token)}&bienvenue=1`;
+  const lien = `${adresseDuSite(await headers())}/reinitialiser?token=${encodeURIComponent(token)}&bienvenue=1`;
 
   if (!mailActif() || email === null) return { lien, mailEnvoye: false };
 
@@ -249,7 +251,7 @@ export async function creerInvitation(plafond: number, jours: number = INSCRIPTI
   return {
     ok: true,
     message: t.cree,
-    lien: `${env.PUBLIC_URL}/inscription?token=${encodeURIComponent(token)}`,
+    lien: `${adresseDuSite(await headers())}/inscription?token=${encodeURIComponent(token)}`,
     lienLibelle: t.aTransmettre(plafond, jours),
   };
 }

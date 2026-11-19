@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { attributsCookieSession, SESSION_COOKIE, SESSION_DURATION_MS } from "@/lib/auth/cookie";
-import { hoteDeLaRequete, hotesDesActivites } from "@/lib/discord/applications";
+import { hoteDeLaRequete, hotesRediriges } from "@/lib/adresses";
+import { hotesDesActivites } from "@/lib/discord/applications";
+import { env } from "@/lib/env";
 import { vitrineOuverte } from "@/lib/vitrine";
 
 /**
@@ -62,6 +64,13 @@ function hoteReserve(hote: string): boolean {
   return hotesActivite.has(hote);
 }
 
+/** Lus une fois : ils viennent de l'environnement, qui ne change pas sans redémarrage. */
+const REDIRIGES = new Set(hotesRediriges());
+
+function redirige(hote: string): boolean {
+  return REDIRIGES.has(hote);
+}
+
 function correspond(chemins: string[], pathname: string): boolean {
   return chemins.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
@@ -100,6 +109,17 @@ export default function proxy(request: NextRequest) {
    */
   if (reserve && !correspond(CHEMINS_ACTIVITE, pathname)) {
     return new NextResponse("Introuvable", { status: 404 });
+  }
+
+  /*
+   * Une adresse redirigée — l'ancien nom du site, un domaine nu vers son
+   * sous-domaine — renvoie vers l'adresse principale, chemin compris. Renvoi
+   * permanent, et qui garde la méthode : une page restée ouverte sur l'ancienne
+   * adresse continue d'enregistrer. Un hôte réservé à une Activité, traité
+   * ci-dessus, n'est jamais redirigé.
+   */
+  if (!reserve && redirige(hoteDeLaRequete(request.headers))) {
+    return NextResponse.redirect(`${env.PUBLIC_URL}${pathname}${search}`, 308);
   }
 
   const jeton = request.cookies.get(SESSION_COOKIE)?.value;

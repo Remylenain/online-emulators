@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { env } from "@/lib/env";
+import { adresseDuSite } from "@/lib/adresses";
 import { dictionnaire } from "@/lib/i18n/dictionnaires";
 import { langueDeLaRequete, textes } from "@/lib/i18n/serveur";
 import { sendPasswordReset, sendRegistrationConfirmation } from "@/lib/mail";
@@ -250,7 +250,7 @@ export async function requestRegistration(
     return { done: true, message: mailParti };
   }
 
-  const url = `${env.PUBLIC_URL}/inscription/confirmer?token=${encodeURIComponent(demande.token)}`;
+  const url = `${adresseDuSite(await headers())}/inscription/confirmer?token=${encodeURIComponent(demande.token)}`;
   try {
     await sendRegistrationConfirmation(parsed.data.email, parsed.data.pseudo, url, langue);
   } catch (error) {
@@ -338,7 +338,7 @@ export async function requestPasswordReset(
   // un moyen de savoir qui est inscrit.
   if (user && user.isActive && user.email) {
     const token = await createPasswordResetToken(user.id);
-    const url = `${env.PUBLIC_URL}/reinitialiser?token=${encodeURIComponent(token)}`;
+    const url = `${adresseDuSite(await headers())}/reinitialiser?token=${encodeURIComponent(token)}`;
     try {
       await sendPasswordReset(user.email, user.pseudo, url, langue);
     } catch (error) {

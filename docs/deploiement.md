@@ -550,6 +550,60 @@ la base de l'autre. Le script de sauvegarde le fait désormais de lui-même à
 chaque passage, et `installation.sh` aussi quand on le relance ; la commande
 ci-dessus évite seulement d'attendre.
 
+## Plusieurs adresses pour un même site
+
+Une instance a une adresse principale, `PUBLIC_URL`. Elle peut répondre sous
+d'autres noms d'hôte, de deux façons (`src/lib/adresses.ts`) :
+
+- une **adresse secondaire** (`PUBLIC_URL_SECONDAIRES`) sert le même site tel
+  quel, sans changer d'adresse dans la barre du navigateur : un second nom de
+  domaine pour le même catalogue ;
+- une **adresse redirigée** (`PUBLIC_URL_REDIRIGEES`) renvoie tout ce qui y
+  arrive vers l'adresse principale, chemin compris : l'ancien nom d'un site
+  qui en a changé, ou un domaine nu vers son sous-domaine.
+
+Dans les deux cas le nom d'hôte doit d'abord arriver jusqu'au site : un
+enregistrement DNS vers le serveur, puis un vhost et un certificat. Le script
+des hôtes d'Activité ne fait rien d'autre, et sert donc aussi ici :
+
+```sh
+cd /opt/online-emulators
+sudo ./deploiement/scripts/hote-activite.sh \
+    --domaine autre.exemple.com --mail admin@exemple.com
+```
+
+(`--instance <nom>` depuis l'arbre de travail d'une instance nommée.) Puis,
+dans `/etc/online-emulators.env`, les noms séparés par des virgules, et un
+redémarrage :
+
+```sh
+PUBLIC_URL_SECONDAIRES="https://autre.exemple.com"
+PUBLIC_URL_REDIRIGEES="https://ancien.exemple.com,https://exemple.com"
+```
+
+```sh
+sudo systemctl restart online-emulators
+```
+
+**Changer le nom du site** revient à cela : un vhost et un certificat pour le
+nouveau nom, `PUBLIC_URL` sur le nouveau, l'ancien dans
+`PUBLIC_URL_REDIRIGEES` — son vhost reste en place, c'est le site qui
+renvoie —, et un redémarrage. Les liens déjà partagés continuent de mener au
+bon endroit.
+
+Trois choses à savoir :
+
+- **La session tient à l'adresse.** Un cookie ne passe pas d'un domaine à
+  l'autre : chacun se reconnecte une fois sur la nouvelle adresse, et l'on se
+  connecte séparément sur une adresse secondaire.
+- **Les liens envoyés suivent l'adresse où ils sont demandés** : qui s'inscrit
+  ou demande un mot de passe sur une adresse secondaire reçoit un lien vers
+  elle, et l'administrateur qui y crée un lien d'invitation aussi. Partout
+  ailleurs, ils portent l'adresse principale.
+- **Un hôte réservé à une Activité Discord n'est jamais redirigé**, et une
+  Activité déclarée sur une adresse du site, principale ou secondaire, s'y
+  ajoute sans rien fermer (voir [discord/README.md](discord/README.md)).
+
 ## HSTS
 
 L'application envoie `Strict-Transport-Security: max-age=31536000`. Le

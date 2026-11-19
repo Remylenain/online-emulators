@@ -16,6 +16,15 @@ const schema = z.object({
     .url()
     .transform((value) => value.replace(/\/$/, "")),
 
+  /**
+   * D'autres noms d'hôte pour le même site, séparés par des virgules : le site
+   * y répond tel quel. Chacun demande son vhost et son certificat (voir
+   * `src/lib/adresses.ts` et `docs/deploiement.md`).
+   */
+  PUBLIC_URL_SECONDAIRES: z.string().default(""),
+  /** Des noms d'hôte renvoyés vers `PUBLIC_URL`, chemin compris : un ancien domaine, par exemple. */
+  PUBLIC_URL_REDIRIGEES: z.string().default(""),
+
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET doit faire au moins 32 caractères"),
 
   LIBRARY_DIR: z.string().min(1),

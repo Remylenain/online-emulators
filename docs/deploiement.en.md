@@ -549,6 +549,60 @@ database there. The backup script now does it by itself on every run, and so
 does `installation.sh` when you rerun it; the command above merely saves you
 the wait.
 
+## Several addresses for the same site
+
+An instance has one main address, `PUBLIC_URL`. It can answer under other
+host names, in two ways (`src/lib/adresses.ts`):
+
+- a **secondary address** (`PUBLIC_URL_SECONDAIRES`) serves the same site as
+  is, without changing the address in the browser bar: a second domain name
+  for the same catalog;
+- a **redirected address** (`PUBLIC_URL_REDIRIGEES`) sends everything that
+  reaches it to the main address, path included: the former name of a site
+  that changed names, or a bare domain to its subdomain.
+
+In both cases the host name must first reach the site: a DNS record pointing
+at the server, then a vhost and a certificate. The script for Activity hosts
+does nothing else, so it serves here too:
+
+```sh
+cd /opt/online-emulators
+sudo ./deploiement/scripts/hote-activite.sh \
+    --domaine autre.exemple.com --mail admin@exemple.com
+```
+
+(`--instance <name>` from the working tree of a named instance.) Then, in
+`/etc/online-emulators.env`, the names separated by commas, and a restart:
+
+```sh
+PUBLIC_URL_SECONDAIRES="https://autre.exemple.com"
+PUBLIC_URL_REDIRIGEES="https://ancien.exemple.com,https://exemple.com"
+```
+
+```sh
+sudo systemctl restart online-emulators
+```
+
+**Renaming the site** comes down to this: a vhost and a certificate for the
+new name, `PUBLIC_URL` set to the new one, the old one in
+`PUBLIC_URL_REDIRIGEES` — its vhost stays in place, the site does the
+redirecting — and a restart. Links already shared keep leading to the right
+place.
+
+Three things to know:
+
+- **The session belongs to the address.** A cookie does not travel from one
+  domain to another: everyone signs in again once on the new address, and you
+  sign in separately on a secondary address.
+- **Links sent out follow the address where they are requested**: whoever
+  signs up or asks for a password on a secondary address receives a link to
+  it, and so does the administrator who creates an invitation link there.
+  Everywhere else, they carry the main address.
+- **A host reserved for a Discord Activity is never redirected**, and an
+  Activity declared on one of the site's addresses, main or secondary, is
+  added to it without closing anything (see
+  [discord/README.en.md](discord/README.en.md)).
+
 ## HSTS
 
 The application sends `Strict-Transport-Security: max-age=31536000`. The

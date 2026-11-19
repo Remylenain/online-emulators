@@ -2,8 +2,12 @@ import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { discordApps, discordAppServers, discordTips, games } from "@/db/schema";
 import { newId } from "@/lib/auth/session";
+import { hoteDeLaRequete, hoteDuSite, hoteNormalise, hotesDuSite } from "@/lib/adresses";
 import { env } from "@/lib/env";
 import { lireRoles } from "./roles";
+
+// Les hôtes se lisent dans `src/lib/adresses.ts` ; ceux qui parlent d'Activités les trouvent aussi ici.
+export { hoteDeLaRequete, hoteDuSite, hoteNormalise };
 
 /**
  * Quelle Activité sert une requête ?
@@ -35,19 +39,6 @@ export type ConfigActivite = {
   /** Mot d'accueil ; vide : rien. L'environnement n'en a pas. */
   welcome: string;
 };
-
-/** Le nom d'hôte seul, en minuscules : sans port, ni crochets d'IPv6 superflus. */
-export function hoteNormalise(hote: string): string {
-  const propre = hote.trim().toLowerCase();
-  if (propre.startsWith("[")) return propre.slice(0, propre.indexOf("]") + 1);
-  return propre.replace(/:\d+$/, "");
-}
-
-/** L'hôte demandé, tel que le proxy inverse le transmet. */
-export function hoteDeLaRequete(entetes: { get(nom: string): string | null }): string {
-  const transmis = entetes.get("x-forwarded-host")?.split(",")[0];
-  return hoteNormalise(transmis || entetes.get("host") || "");
-}
 
 function depuisEnvironnement(): ConfigActivite | null {
   if (!env.DISCORD_CLIENT_ID || !env.DISCORD_CLIENT_SECRET || !env.DISCORD_JEU) return null;
@@ -145,10 +136,6 @@ export function configPourHote(hote: string): ConfigActivite | null {
   return ligne ? { ...ligne, serveurs: serveursDe(ligne.id) } : depuisEnvironnement();
 }
 
-/** L'hôte du site lui-même, tel que l'installation le déclare (`PUBLIC_URL`). */
-export function hoteDuSite(): string {
-  return hoteNormalise(new URL(env.PUBLIC_URL).host);
-}
 
 /**
  * Où le site est installé, quand c'est par `deploiement/scripts/installation.sh` :
@@ -170,7 +157,8 @@ export function installationDuSite(): { dossier: string; instance: string } | nu
  * Les hôtes réservés à une Activité. Sur l'un d'eux, le site ne sert que
  * l'Activité : ni connexion, ni catalogue (voir `src/proxy.ts`).
  *
- * L'hôte du site n'en fait jamais partie, même quand une Activité y est
+ * Une adresse du site — la principale ou une secondaire, voir
+ * `src/lib/adresses.ts` — n'en fait jamais partie, même quand une Activité y est
  * déclarée : elle s'y **ajoute**. Le site continue d'y répondre, et c'est
  * Discord, en ouvrant la racine avec `frame_id`, qui tombe sur l'Activité.
  * C'est le cas d'un site public consacré au jeu que l'Activité sert — une
@@ -178,13 +166,14 @@ export function installationDuSite(): { dossier: string; instance: string } | nu
  * l'administration qui permettrait d'y revenir.
  */
 export function hotesDesActivites(): string[] {
-  const site = hoteDuSite();
+  // Ni l'adresse principale ni une adresse secondaire : le site y répond.
+  const site = new Set(hotesDuSite());
   return db
     .select({ host: discordApps.host })
     .from(discordApps)
     .all()
     .map((ligne) => ligne.host)
-    .filter((hote) => hote !== site);
+    .filter((hote) => !site.has(hote));
 }
 
 // ---------------------------------------------------------------------------
