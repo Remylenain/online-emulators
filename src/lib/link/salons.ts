@@ -242,8 +242,8 @@ async function placer(salon: Salon, compte: Compte): Promise<0 | 1 | Refus> {
   const index = salon.places.findIndex((place) => place?.userId === compte.id);
   if (index !== -1) return index as 0 | 1;
   if (salon.etat !== "attente") return refus("salon-complet", "Ce salon est déjà complet.");
-  // L'invité doit lui aussi avoir accès au jeu : un compte restreint n'entre
-  // pas dans un salon sur un jeu qu'il ne voit pas.
+  // L'invité doit lui aussi avoir accès au jeu : un compte n'entre pas dans
+  // un salon sur un jeu que ses groupes ne lui ouvrent pas.
   if (!(await jeuAccessible(compte, salon.jeu.id))) return refus("jeu-introuvable", "Jeu introuvable.");
   if (salonDuCompte(compte.id)) return refus("deja-dans-un-autre-salon", "Tu es déjà dans un autre salon.");
   salon.places[1] = { userId: compte.id, pseudo: compte.pseudo, connexions: 0, absentDepuis: Date.now() };

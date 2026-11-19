@@ -76,7 +76,7 @@ export default async function TempsPage({
 
 async function Detail({ id, pseudo }: { id: string; pseudo: string }) {
   // Vue d'administration : tout le catalogue, quel que soit le mode du compte.
-  const lignes = await tempsDeJeu({ id, accessMode: "normal" });
+  const lignes = await tempsDeJeu({ id, role: "ADMIN" });
   const langue = await langueDeLaRequete();
   const t = (await textes()).adminGeneral.temps;
 

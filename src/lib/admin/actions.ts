@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { favorites, games, playSessions, ratings, saveFiles, saveStates, sessions, userGames, users } from "@/db/schema";
 import fs from "node:fs/promises";
-import { MODES_ACCES, type ModeAcces } from "@/lib/acces";
+import { rejoindreGroupeParDefaut } from "@/lib/acces";
 import { requireAdmin } from "@/lib/auth/guard";
 import { voirComme } from "@/lib/auth/session";
 import { paths } from "@/lib/paths";
@@ -156,6 +156,7 @@ export async function creerCompte(_etat: unknown, donnees: FormData): Promise<Re
       role: donnees.get("admin") === "on" ? "ADMIN" : "USER",
     })
     .run();
+  rejoindreGroupeParDefaut(db, id);
 
   const { lien, mailEnvoye } = await preparerInvitation(id, pseudo.data, email.data, admin.pseudo);
 
@@ -255,7 +256,7 @@ export async function creerInvitation(plafond: number, jours: number = INSCRIPTI
 
 /**
  * « Voir comme » : regarder le site avec les yeux d'un autre compte — son
- * catalogue selon son mode d'accès, ses parties, ses salons. Tout ce qu'on y
+ * catalogue selon ses groupes, ses parties, ses salons. Tout ce qu'on y
  * fait (jouer, noter) compte pour ce compte ; le bandeau le rappelle, et le
  * bouton du bandeau ramène à soi.
  */
@@ -443,24 +444,7 @@ export async function revoquerInvitation(id: string): Promise<Resultat> {
   return fait ? { ok: true, message: t.revoque } : { ok: false, message: t.dejaRevoque };
 }
 
-/** Ce que le compte voit du catalogue : normal, restreint ou testeur. */
-export async function definirModeAcces(userId: string, mode: string): Promise<Resultat> {
-  await requireAdmin();
-  const t = (await textes()).adminActions.comptes;
-  if (!MODES_ACCES.some((m) => m.valeur === mode)) return { ok: false, message: t.modeInconnu };
-  const resultat = db
-    .update(users)
-    .set({ accessMode: mode as ModeAcces, updatedAt: new Date() })
-    .where(eq(users.id, userId))
-    .run();
-  if (resultat.changes === 0) return { ok: false, message: t.introuvable };
-  revalidatePath("/admin/comptes");
-  // Une phrase entière par mode, lue dans le dictionnaire : les libellés de
-  // `MODES_ACCES` ne s'assemblent pas en phrase dans une autre langue.
-  return { ok: true, message: t.acces[mode as ModeAcces] };
-}
-
-/** Les jeux attribués à un compte restreint ou testeur : la liste cochée remplace l'ancienne. */
+/** Les jeux attribués à un compte en propre : la liste cochée remplace l'ancienne. */
 export async function definirJeuxAttribues(_etat: unknown, donnees: FormData): Promise<Resultat> {
   await requireAdmin();
   const t = (await textes()).adminActions.comptes;

@@ -29,6 +29,7 @@ export const adminGeneral = {
   onglets: {
     tableau: "Tableau de bord",
     comptes: "Comptes",
+    groupes: "Groupes",
     bibliotheque: "Bibliothèque",
     temps: "Temps de jeu",
     reglages: "Réglages",

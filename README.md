@@ -38,6 +38,11 @@ le droit de partager.
   visiteur le voit dans la langue de son navigateur ou dans celle qu'il
   choisit ; l'administrateur règle la langue par défaut. Voir
   [docs/langues.md](docs/langues.md).
+- **Groupes d'accès** : chaque compte voit ce que ses groupes lui ouvrent —
+  une liste de jeux cochés, toutes les rom hacks, ou toute la bibliothèque.
+  Un compte peut être dans plusieurs groupes, et les nouveaux comptes
+  entrent dans celui par défaut : de quoi n'ouvrir que quelques jeux aux
+  nouveaux venus et tout le catalogue aux proches, sur le même site.
 - **Vitrine** (facultative) : quelques jeux ouverts aux visiteurs sans
   compte, qui jouent en invités — leur partie reste dans leur navigateur, le
   serveur n'en garde rien. Voir [docs/vitrine.md](docs/vitrine.md).
@@ -50,7 +55,7 @@ le droit de partager.
   toutes ses sauvegardes en zip.
 - **Catalogue** par console, recherche, tri par note ou popularité, notes,
   temps de jeu par jeu et par compte, page « Mes jeux ».
-- **Administration** : tableau de bord, comptes, bibliothèque (scan,
+- **Administration** : tableau de bord, comptes, groupes, bibliothèque (scan,
   corrections des fiches, jaquettes), temps de jeu, réglages (nom du site,
   langue, e-mails, captcha, vitrine, câble link) et Activités Discord.
 

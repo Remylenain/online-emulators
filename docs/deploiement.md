@@ -128,6 +128,33 @@ Le mot de passe est tiré au hasard et affiché une seule fois. Passer par
 `sudo -u jeux` et non par root : root laisserait des fichiers `app.db-wal`
 appartenant à root, que le service ne pourrait plus écrire ensuite.
 
+### Dire qui voit quoi : les groupes
+
+Ce qu'un compte voit du catalogue dépend de ses **groupes**, dans
+**Administration → Groupes**. Un groupe ouvre, au choix :
+
+- **une liste de jeux**, que l'on coche — avec une recherche, des filtres par
+  console et par type, et de quoi cocher d'un coup tout ce qui est affiché ;
+- **toutes les rom hacks** : tous les jeux publiés qui ne sont pas des jeux
+  officiels, sans liste à tenir ;
+- **toute la bibliothèque** publiée.
+
+Un compte peut appartenir à plusieurs groupes : il voit la réunion de ce
+qu'ils ouvrent. Sans groupe, il ne voit rien — sauf les jeux qu'on lui a
+**attribués en propre** (Administration → Comptes → « Jeux attribués »), qu'il
+voit même non publiés : c'est ainsi qu'un jeu se fait tester avant sa sortie.
+Un administrateur voit tout le catalogue publié, quels que soient ses groupes.
+
+Un groupe, un seul, peut être **par défaut** : tout nouveau compte y entre,
+qu'il vienne d'un lien d'invitation, d'une inscription ouverte, de
+l'administration ou d'une Activité Discord. Une installation neuve a un
+groupe « Bibliothèque complète », par défaut : tant qu'on n'y touche pas,
+chacun voit tout.
+
+La même règle vaut partout — catalogue, fiches, lecteur, ROM, sauvegardes,
+câble link — et prend effet aussitôt (`src/lib/acces.ts`). Les visiteurs sans
+compte, eux, relèvent de la [vitrine](vitrine.md), qui a sa propre liste.
+
 ### Renseigner le relais SMTP
 
 Le plus simple est de le faire depuis le site : **Administration → Réglages →

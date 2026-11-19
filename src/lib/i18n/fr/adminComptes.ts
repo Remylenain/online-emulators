@@ -21,8 +21,10 @@ export const adminComptes = {
     desactive: "désactivé",
     /** Un compte rattaché à Discord : venu de l'Activité, son pseudo est son nom Discord. */
     discord: "discord",
-    /** Pour un compte restreint ou testeur ; `mode` est son libellé, pris dans `modes`. */
-    mode: (mode: string, jeux: number) => `${mode.toLowerCase()} · ${jeux} jeu${jeux > 1 ? "x" : ""}`,
+    /** Un compte qui n'est dans aucun groupe : il ne voit que les jeux qui lui sont attribués. */
+    sansGroupe: "sans groupe",
+    /** Les jeux attribués au compte en propre, en plus de ses groupes. */
+    jeuxAttribues: (jeux: number) => `+ ${jeux} jeu${jeux > 1 ? "x" : ""}`,
     /**
      * Sous le pseudo. Les « parties sauvegardées » sont les fichiers de
      * sauvegarde du compte : un par jeu auquel il a joué.
@@ -33,22 +35,12 @@ export const adminComptes = {
     fermer: "Fermer",
   },
 
-  /**
-   * Les modes d'accès au catalogue, dans la forme qu'attend `modesAcces()`
-   * (`src/lib/modes-acces.ts`). Le détail complète une phrase : pas de
-   * majuscule, pas de point.
-   */
-  modes: {
-    normal: { libelle: "Normal", detail: "tout le catalogue publié" },
-    restreint: { libelle: "Restreint", detail: "seulement les jeux cochés" },
-    testeur: { libelle: "Testeur", detail: "le catalogue publié, plus les jeux cochés" },
-  },
-
   acces: {
-    titre: "Accès au catalogue",
-    /** Un choix de la liste déroulante ; `mode` est son libellé, pris dans `modes`. */
-    option: (mode: string) => `Accès ${mode.toLowerCase()}`,
+    /** Les groupes du compte, une case chacun ; ils se créent dans l'onglet Groupes. */
+    titre: "Groupes d'accès",
+    aucunGroupe: "Aucun groupe : en créer dans l'onglet Groupes.",
     jeuxAttribues: (n: number) => `Jeux attribués (${n})`,
+    admin: "Un administrateur voit tout le catalogue, quels que soient ses groupes.",
   },
 
   connexion: {
@@ -88,10 +80,11 @@ export const adminComptes = {
     dossierInfobulle: "Nom du dossier de ses sauvegardes sur le serveur",
   },
 
-  /** Les jeux attribués à un compte restreint ou testeur. */
+  /** Les jeux attribués à un compte en propre. */
   attribution: {
-    testeur: "Jeux non publiés que ce testeur peut voir, en plus du catalogue.",
-    restreint: "Les seuls jeux que ce compte verra.",
+    explication:
+      "Jeux que ce compte voit en plus de ce que ses groupes lui ouvrent, publiés ou non : " +
+      "pour faire tester un jeu avant sa sortie, ou en ouvrir un de plus à une seule personne.",
     aucunJeu: "Aucun jeu à proposer.",
     nonPublie: "non publié",
     enregistrement: "Enregistrement…",

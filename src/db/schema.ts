@@ -41,17 +41,6 @@ export const users = sqliteTable(
       .notNull()
       .default("USER"),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
-    /**
-     * Ce que le compte voit du catalogue :
-     * - `normal` : tous les jeux publiés ;
-     * - `restreint` : seulement les jeux listés dans `user_games` — pour faire
-     *   essayer le site sans ouvrir toute la bibliothèque ;
-     * - `testeur` : les jeux publiés, plus ceux de `user_games` — pour faire
-     *   tester un jeu avant sa publication.
-     */
-    accessMode: text("access_mode", { enum: ["normal", "restreint", "testeur"] })
-      .notNull()
-      .default("normal"),
     /** Lien d'inscription par lequel le compte est né, s'il est né ainsi. */
     inviteId: text("invite_id"),
     /**
@@ -72,7 +61,11 @@ export const users = sqliteTable(
   ],
 );
 
-/** Les jeux attribués à un compte restreint ou testeur (voir `users.access_mode`). */
+/**
+ * Les jeux attribués à un compte en particulier, en plus de ce que ses groupes
+ * lui ouvrent — publiés ou non : c'est ainsi qu'un jeu se fait tester avant sa
+ * sortie, et qu'un compte né d'une Activité Discord voit le jeu de l'Activité.
+ */
 export const userGames = sqliteTable(
   "user_games",
   {
@@ -84,6 +77,63 @@ export const userGames = sqliteTable(
       .references(() => games.id, { onDelete: "cascade" }),
   },
   (table) => [primaryKey({ columns: [table.userId, table.gameId] })],
+);
+
+/**
+ * Les groupes d'accès : ce qu'un compte voit du catalogue.
+ *
+ * Un compte appartient à autant de groupes qu'on veut et voit la réunion de
+ * ce qu'ils ouvrent. Chaque groupe a une règle :
+ * - `liste` : les jeux cochés pour ce groupe (`access_group_games`) ;
+ * - `romhacks` : tous les jeux publiés qui ne sont pas des jeux officiels ;
+ * - `tout` : tout le catalogue publié.
+ *
+ * Un seul groupe au plus est « par défaut » : tout nouveau compte y entre.
+ * La règle d'accès elle-même est dans `src/lib/acces.ts`.
+ */
+export const accessGroups = sqliteTable(
+  "access_groups",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    rule: text("rule", { enum: ["liste", "romhacks", "tout"] })
+      .notNull()
+      .default("liste"),
+    isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (table) => [uniqueIndex("access_groups_name_unique").on(sql`lower(${table.name})`)],
+);
+
+/** Les jeux cochés pour un groupe à liste. */
+export const accessGroupGames = sqliteTable(
+  "access_group_games",
+  {
+    groupId: text("group_id")
+      .notNull()
+      .references(() => accessGroups.id, { onDelete: "cascade" }),
+    gameId: text("game_id")
+      .notNull()
+      .references(() => games.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.groupId, table.gameId] })],
+);
+
+/** Les groupes d'un compte. */
+export const userAccessGroups = sqliteTable(
+  "user_access_groups",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    groupId: text("group_id")
+      .notNull()
+      .references(() => accessGroups.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.groupId] }),
+    index("user_access_groups_group_idx").on(table.groupId),
+  ],
 );
 
 export const sessions = sqliteTable(

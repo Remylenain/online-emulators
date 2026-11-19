@@ -13,7 +13,8 @@ import { salons } from "./link/registre";
  * vivent en mémoire dans le serveur.
  *
  * On ne montre que les jeux que le visiteur a le droit de voir — un compte
- * restreint n'apprend pas l'existence d'un jeu par ce biais — et jamais les
+ * n'apprend pas par ce biais l'existence d'un jeu que ses groupes ne lui
+ * ouvrent pas — et jamais les
  * salons privés, dont le principe est de ne pas s'afficher.
  */
 

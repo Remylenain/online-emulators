@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { userGames, users } from "@/db/schema";
-import type { Visiteur } from "@/lib/acces";
+import { rejoindreGroupeParDefaut, type Visiteur } from "@/lib/acces";
 import { newId } from "@/lib/auth/session";
 import { lireJeton } from "./jeton";
 import type { ProfilDiscord } from "./oauth";
@@ -9,10 +9,11 @@ import type { ProfilDiscord } from "./oauth";
 /**
  * Le compte du site derrière un utilisateur Discord.
  *
- * Au premier lancement de l'Activité, le compte est créé : **restreint**, avec
- * pour seul jeu attribué celui de l'Activité. Toutes les règles de
- * `src/lib/acces.ts` s'appliquent alors telles quelles — ce compte ne voit
- * rien d'autre du catalogue, ni par l'Activité ni autrement.
+ * Au premier lancement de l'Activité, le compte est créé comme tout nouveau
+ * compte — dans le groupe par défaut — et le jeu de l'Activité lui est
+ * attribué en propre. Toutes les règles de `src/lib/acces.ts` s'appliquent
+ * alors telles quelles : l'Activité sert son jeu, que le groupe par défaut
+ * l'ouvre ou non.
  *
  * Il n'a pas de mot de passe : l'empreinte enregistrée n'en est pas une, et
  * aucune saisie ne peut lui correspondre. On n'y entre que par Discord.
@@ -82,16 +83,16 @@ export function compteDiscord(profil: ProfilDiscord, gameId: string): { id: stri
         id: cree.id,
         pseudo: cree.pseudo,
         passwordHash: SANS_MOT_DE_PASSE,
-        accessMode: "restreint",
         discordId: profil.id,
       })
       .run();
+    rejoindreGroupeParDefaut(db, cree.id);
     compte = cree;
   }
   if (!compte.isActive) return null;
 
-  // Sans effet sur un compte « normal » déjà rattaché : il voit le jeu de
-  // toute façon s'il est publié, et l'attribution le lui garde sinon.
+  // Le jeu de l'Activité est attribué au compte en propre : il le voit quels
+  // que soient ses groupes, y compris s'il n'est pas dans le groupe par défaut.
   db.insert(userGames).values({ userId: compte.id, gameId }).onConflictDoNothing().run();
 
   return { id: compte.id, pseudo: compte.pseudo };
@@ -114,7 +115,7 @@ export function compteDepuisRequete(request: Request): Visiteur | null {
   if (!userId) return null;
 
   const compte = db
-    .select({ id: users.id, accessMode: users.accessMode })
+    .select({ id: users.id, role: users.role })
     .from(users)
     .where(and(eq(users.id, userId), eq(users.isActive, true)))
     .get();

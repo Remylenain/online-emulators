@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { pendingRegistrations, users } from "@/db/schema";
 import { newId } from "./session";
 import { generateToken, hashToken } from "./tokens";
+import { rejoindreGroupeParDefaut } from "@/lib/acces";
 
 /**
  * Inscription ouverte : n'importe qui peut demander un compte avec son
@@ -125,6 +126,7 @@ export function confirmerInscription(token: string): Confirmation {
         role: "USER",
       })
       .run();
+    rejoindreGroupeParDefaut(tx, userId);
     tx.delete(pendingRegistrations).where(eq(pendingRegistrations.id, demande.id)).run();
     return { ok: true, userId } as const;
   });

@@ -15,6 +15,7 @@ export const adminGeneral: Dictionnaire["adminGeneral"] = {
   onglets: {
     tableau: "Dashboard",
     comptes: "Accounts",
+    groupes: "Groups",
     bibliotheque: "Library",
     temps: "Play time",
     reglages: "Settings",

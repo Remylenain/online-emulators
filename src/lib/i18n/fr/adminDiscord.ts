@@ -470,7 +470,7 @@ export const adminDiscord = {
         "Ouvrir le *lanceur d'activités* (l'icône de fusée dans le salon vocal, ou le bouton « Activités »), " +
           "chercher l'application par son nom.",
         "Au premier lancement, Discord demande l'autorisation de connaître ton identité : accepter. " +
-          "Le site crée alors ton compte restreint à ce jeu.",
+          "Le site crée alors ton compte, avec ce jeu.",
         "Pour qu'un ami l'essaie avant la vérification : onglet *App Testers* du portail, inviter son compte (50 au plus).",
       ),
     },

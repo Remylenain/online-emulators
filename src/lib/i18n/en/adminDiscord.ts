@@ -374,7 +374,7 @@ export const adminDiscord: Dictionnaire["adminDiscord"] = {
         "Open the *activity launcher* (the rocket icon in the voice channel, or the “Activities” button) " +
           "and search for the application by name.",
         "On first launch, Discord asks for permission to know your identity: accept. " +
-          "The site then creates your account, restricted to this game.",
+          "The site then creates your account, with this game.",
         "For a friend to try it before verification: *App Testers* tab of the portal, invite their account (50 at most).",
       ],
     },

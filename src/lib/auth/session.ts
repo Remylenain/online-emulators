@@ -53,8 +53,6 @@ export type SessionUser = {
   email: string | null;
   avatarPath: string | null;
   role: "USER" | "ADMIN";
-  /** Ce que le compte voit du catalogue (voir `src/lib/acces.ts`). */
-  accessMode: "normal" | "restreint" | "testeur";
   /**
    * Posé quand un administrateur regarde le site comme ce compte (« voir
    * comme ») : les pages servent ce compte, mais c'est l'administrateur qui
@@ -70,7 +68,6 @@ const COLONNES_COMPTE = {
   avatarPath: users.avatarPath,
   role: users.role,
   isActive: users.isActive,
-  accessMode: users.accessMode,
 };
 
 /**
@@ -126,7 +123,6 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
         email: autre.email,
         avatarPath: autre.avatarPath,
         role: autre.role,
-        accessMode: autre.accessMode,
         vuPar: { id: row.id, pseudo: row.pseudo },
       };
     }
@@ -139,7 +135,6 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     email: row.email,
     avatarPath: row.avatarPath,
     role: row.role,
-    accessMode: row.accessMode,
   };
 }
 

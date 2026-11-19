@@ -22,7 +22,6 @@ export type Compte = {
   id: string;
   pseudo: string;
   role: "USER" | "ADMIN";
-  accessMode: "normal" | "restreint" | "testeur";
 };
 
 export async function compteDepuisCookie(enTete: string | undefined): Promise<Compte | null> {
@@ -42,7 +41,6 @@ export async function compteDepuisCookie(enTete: string | undefined): Promise<Co
       pseudo: users.pseudo,
       role: users.role,
       isActive: users.isActive,
-      accessMode: users.accessMode,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -55,15 +53,15 @@ export async function compteDepuisCookie(enTete: string | undefined): Promise<Co
   // site comme un autre compte entre aussi dans les salons sous ce compte.
   if (ligne.actingAsUserId && ligne.role === "ADMIN") {
     const autre = await db
-      .select({ id: users.id, pseudo: users.pseudo, role: users.role, isActive: users.isActive, accessMode: users.accessMode })
+      .select({ id: users.id, pseudo: users.pseudo, role: users.role, isActive: users.isActive })
       .from(users)
       .where(eq(users.id, ligne.actingAsUserId))
       .get();
     if (autre && autre.isActive) {
-      return { id: autre.id, pseudo: autre.pseudo, role: autre.role, accessMode: autre.accessMode };
+      return { id: autre.id, pseudo: autre.pseudo, role: autre.role };
     }
   }
-  return { id: ligne.id, pseudo: ligne.pseudo, role: ligne.role, accessMode: ligne.accessMode };
+  return { id: ligne.id, pseudo: ligne.pseudo, role: ligne.role };
 }
 
 /** Le compte derrière un jeton de l'Activité Discord ; `null` s'il est faux, périmé, ou le compte désactivé. */
@@ -72,12 +70,12 @@ export async function compteDepuisJeton(jeton: string | null | undefined): Promi
   const userId = lireJeton(jeton);
   if (!userId) return null;
   const ligne = await db
-    .select({ id: users.id, pseudo: users.pseudo, role: users.role, isActive: users.isActive, accessMode: users.accessMode })
+    .select({ id: users.id, pseudo: users.pseudo, role: users.role, isActive: users.isActive })
     .from(users)
     .where(eq(users.id, userId))
     .get();
   if (!ligne || !ligne.isActive) return null;
-  return { id: ligne.id, pseudo: ligne.pseudo, role: ligne.role, accessMode: ligne.accessMode };
+  return { id: ligne.id, pseudo: ligne.pseudo, role: ligne.role };
 }
 
 /**

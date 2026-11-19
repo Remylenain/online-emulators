@@ -8,7 +8,6 @@ import {
   creerInvitation,
   definirInscriptions,
   definirJeuxAttribues,
-  definirModeAcces,
   importerSauvegarde,
   reinitialiserMotDePasse,
   remettreAZero,
@@ -18,7 +17,7 @@ import {
   voirLeSiteComme,
   type Resultat,
 } from "@/lib/admin/actions";
-import { modesAcces, type ModeAcces } from "@/lib/modes-acces";
+import { definirGroupesDuCompte } from "@/lib/admin/actions-groupes";
 import { INSCRIPTION_DUREE_PAR_DEFAUT, INSCRIPTION_DUREES_JOURS, INSCRIPTION_PLAFONDS } from "@/lib/auth/inscription";
 import type { LienInscription } from "@/lib/auth/invitations";
 import { formatDate } from "@/lib/format";
@@ -31,14 +30,17 @@ export type Compte = {
   email: string | null;
   role: string;
   isActive: boolean;
-  accessMode: ModeAcces;
   createdAt: Date;
   /** Rattaché à un compte Discord : né de l'Activité, en général. */
   discord: boolean;
   parties: number;
-  /** Jeux attribués, pour un compte restreint ou testeur. */
+  /** Ses groupes d'accès (voir l'onglet Groupes). */
+  groupes: string[];
+  /** Jeux attribués à ce compte en propre, en plus de ses groupes. */
   jeux: string[];
 };
+
+export type GroupeCompte = { id: string; nom: string; parDefaut: boolean };
 
 /**
  * Gestion des comptes.
@@ -53,12 +55,14 @@ export function Comptes({
   comptes,
   moi,
   jeux,
+  groupes,
   liens,
   inscriptions,
 }: {
   comptes: Compte[];
   moi: string;
   jeux: JeuImportable[];
+  groupes: GroupeCompte[];
   liens: LienInscription[];
   inscriptions: { ouvertes: boolean; ouvrables: boolean };
 }) {
@@ -93,6 +97,7 @@ export function Comptes({
             compte={compte}
             moi={moi}
             jeux={jeux}
+            groupes={groupes}
             ouverte={ouvert === compte.id}
             surOuverture={() => {
               setOuvert(ouvert === compte.id ? null : compte.id);
@@ -245,6 +250,7 @@ function FicheCompte({
   compte,
   moi,
   jeux,
+  groupes,
   ouverte,
   surOuverture,
   enCours,
@@ -258,6 +264,7 @@ function FicheCompte({
   compte: Compte;
   moi: string;
   jeux: JeuImportable[];
+  groupes: GroupeCompte[];
   ouverte: boolean;
   surOuverture: () => void;
   enCours: boolean;
@@ -280,9 +287,16 @@ function FicheCompte({
             {compte.role === "ADMIN" && <Badge tone="accent">{t.ligne.admin}</Badge>}
             {!compte.isActive && <Badge tone="danger">{t.ligne.desactive}</Badge>}
             {compte.discord && <Badge>{t.ligne.discord}</Badge>}
-            {compte.accessMode !== "normal" && (
-              <Badge>{t.ligne.mode(t.modes[compte.accessMode].libelle, compte.jeux.length)}</Badge>
-            )}
+            {/* Un administrateur voit tout : ses groupes n'y changent rien. */}
+            {compte.role !== "ADMIN" &&
+              (compte.groupes.length === 0 ? (
+                <Badge tone="danger">{t.ligne.sansGroupe}</Badge>
+              ) : (
+                groupes
+                  .filter((groupe) => compte.groupes.includes(groupe.id))
+                  .map((groupe) => <Badge key={groupe.id}>{groupe.nom}</Badge>)
+              ))}
+            {compte.jeux.length > 0 && <Badge>{t.ligne.jeuxAttribues(compte.jeux.length)}</Badge>}
           </div>
           <div className="truncate text-xs text-ink-700">
             {t.ligne.resume(compte.email, compte.parties, formatDate(compte.createdAt, true, langue))}
@@ -305,27 +319,39 @@ function FicheCompte({
       {ouverte && (
         <div className="grid gap-5 border-t border-ink-800 bg-ink-950/40 px-4 py-4 sm:grid-cols-2">
           <Groupe titre={t.acces.titre}>
-            <select
-              value={compte.accessMode}
-              onChange={(e) => agir(() => definirModeAcces(compte.id, e.target.value))}
-              disabled={enCours}
-              aria-label={t.acces.titre}
-              className="rounded border border-ink-700 bg-ink-950 px-2 py-1 text-xs text-ink-200"
-            >
-              {modesAcces(t.modes).map((m) => (
-                <option key={m.valeur} value={m.valeur}>
-                  {t.acces.option(m.libelle)}
-                </option>
-              ))}
-            </select>
-            {compte.accessMode !== "normal" && (
-              <Petit
-                onClick={() => setAttribuerPour(attribuerPour === compte.id ? null : compte.id)}
-                disabled={enCours}
-              >
-                {t.acces.jeuxAttribues(compte.jeux.length)}
-              </Petit>
+            {/* Une case par groupe : cocher enregistre aussitôt. */}
+            {groupes.length === 0 ? (
+              <span className="text-xs text-ink-700">{t.acces.aucunGroupe}</span>
+            ) : (
+              groupes.map((groupe) => (
+                <label key={groupe.id} className="flex items-center gap-1.5 rounded border border-ink-700 px-2 py-1 text-xs text-ink-200">
+                  <input
+                    type="checkbox"
+                    className="size-3.5"
+                    checked={compte.groupes.includes(groupe.id)}
+                    disabled={enCours}
+                    onChange={(e) =>
+                      agir(() =>
+                        definirGroupesDuCompte(
+                          compte.id,
+                          e.target.checked
+                            ? [...compte.groupes, groupe.id]
+                            : compte.groupes.filter((id) => id !== groupe.id),
+                        ),
+                      )
+                    }
+                  />
+                  {groupe.nom}
+                </label>
+              ))
             )}
+            <Petit
+              onClick={() => setAttribuerPour(attribuerPour === compte.id ? null : compte.id)}
+              disabled={enCours}
+            >
+              {t.acces.jeuxAttribues(compte.jeux.length)}
+            </Petit>
+            {compte.role === "ADMIN" && <span className="basis-full text-xs text-ink-700">{t.acces.admin}</span>}
           </Groupe>
 
           <Groupe titre={t.connexion.titre}>
@@ -412,7 +438,7 @@ function FicheCompte({
               <ImportSauvegarde compte={compte} jeux={jeux} surFin={() => setImportPour(null)} />
             </div>
           )}
-          {attribuerPour === compte.id && compte.accessMode !== "normal" && (
+          {attribuerPour === compte.id && (
             <div className="sm:col-span-2">
               <AttributionJeux compte={compte} jeux={jeux} surFin={() => setAttribuerPour(null)} />
             </div>
@@ -494,10 +520,9 @@ function LigneLien({
 }
 
 /**
- * Les jeux attribués à un compte restreint ou testeur.
- *
- * Un compte restreint choisit parmi tous les jeux ; un testeur voit déjà le
- * catalogue publié, on ne lui propose donc que les jeux non publiés.
+ * Les jeux attribués à un compte en propre : il les voit quels que soient ses
+ * groupes, publiés ou non — de quoi faire tester un jeu avant sa sortie, ou
+ * ouvrir un jeu de plus à une seule personne.
  */
 function AttributionJeux({
   compte,
@@ -512,14 +537,14 @@ function AttributionJeux({
     definirJeuxAttribues,
     null,
   );
-  const proposes = compte.accessMode === "testeur" ? jeux.filter((j) => !j.publie) : jeux;
+  const proposes = jeux;
   const t = useT().adminComptes.attribution;
 
   return (
     <form action={action} className="flex w-full flex-col gap-3 rounded-lg border border-ink-800 p-3">
       <input type="hidden" name="userId" value={compte.id} />
       <span className="text-xs text-ink-400">
-        {compte.accessMode === "testeur" ? t.testeur : t.restreint}
+        {t.explication}
       </span>
       {resultat && <Alert tone={resultat.ok ? "success" : "error"}>{resultat.message}</Alert>}
       {proposes.length === 0 ? (

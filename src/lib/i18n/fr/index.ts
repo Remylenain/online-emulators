@@ -4,6 +4,7 @@ import { adminBibliotheque } from "./adminBibliotheque";
 import { adminComptes } from "./adminComptes";
 import { adminDiscord } from "./adminDiscord";
 import { adminGeneral } from "./adminGeneral";
+import { adminGroupes } from "./adminGroupes";
 import { adminReglages } from "./adminReglages";
 import { catalogue } from "./catalogue";
 import { commandes } from "./commandes";
@@ -44,6 +45,7 @@ export const fr = {
   link,
   adminGeneral,
   adminComptes,
+  adminGroupes,
   adminBibliotheque,
   adminReglages,
   adminDiscord,

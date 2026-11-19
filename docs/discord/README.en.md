@@ -59,9 +59,11 @@ The path of a launch:
 4. The server exchanges that code with Discord — this is where the
    application's secret is used — then asks Discord who the user is. What the
    page claims is never taken at its word.
-5. On first launch, a site account is created: **restricted**, with only this
-   game assigned, and no password (`users.discord_id`). The ordinary access
-   rules (`src/lib/acces.ts`) apply to this account. Its username is the
+5. On first launch, a site account is created, with no password
+   (`users.discord_id`). It joins the default group like any new account,
+   and the Activity's game is assigned to it individually: it sees that game
+   whether or not the group opens it. The ordinary access rules
+   (`src/lib/acces.ts`) apply to this account. Its username is the
    player's Discord name, and follows it when it changes. In the admin, the
    account carries a "discord" tag, and its play time counts as on the site
    (Play time, "who is playing"): the Activity reports the game every minute
@@ -219,7 +221,7 @@ and certificate.
 2. Open the **activity launcher** (the voice channel's rocket icon, or the
    "Activities" button) and search for the application by name.
 3. On first launch, Discord asks for permission to know your identity:
-   accept. The site then creates your account, restricted to this game.
+   accept. The site then creates your account, with this game.
 4. For a friend to try it before verification: **App Testers** tab, invite
    their account (50 at most).
 

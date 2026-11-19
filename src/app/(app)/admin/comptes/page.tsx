@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { games, saveFiles, userGames, users } from "@/db/schema";
+import { accessGroups, games, saveFiles, userAccessGroups, userGames, users } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/guard";
 import { listerLiensInscription } from "@/lib/auth/invitations";
 import { textes } from "@/lib/i18n/serveur";
@@ -22,7 +22,6 @@ export default async function ComptesPage() {
       email: users.email,
       role: users.role,
       isActive: users.isActive,
-      accessMode: users.accessMode,
       createdAt: users.createdAt,
       // Un compte venu de l'Activité Discord : son pseudo est son nom Discord.
       discord: sql<number>`${users.discordId} is not null`,
@@ -45,11 +44,18 @@ export default async function ComptesPage() {
     .orderBy(asc(games.consoleSlug), asc(games.searchText))
     .all();
 
-  // Les jeux attribués, pour les comptes restreints ou testeurs.
+  // Ce que chaque compte voit : ses groupes, et les jeux qu'on lui a attribués en propre.
+  const groupes = db
+    .select({ id: accessGroups.id, nom: accessGroups.name, parDefaut: accessGroups.isDefault })
+    .from(accessGroups)
+    .orderBy(asc(accessGroups.createdAt), asc(accessGroups.name))
+    .all();
+  const appartenances = db.select().from(userAccessGroups).all();
   const attributions = await db.select().from(userGames).all();
   const comptesAvecJeux = comptes.map((compte) => ({
     ...compte,
     discord: Boolean(compte.discord),
+    groupes: appartenances.filter((a) => a.userId === compte.id).map((a) => a.groupId),
     jeux: attributions.filter((a) => a.userId === compte.id).map((a) => a.gameId),
   }));
 
@@ -60,6 +66,7 @@ export default async function ComptesPage() {
       comptes={comptesAvecJeux}
       moi={admin.id}
       jeux={jeux}
+      groupes={groupes}
       liens={liens}
       inscriptions={{ ouvertes: inscriptionsOuvertes(), ouvrables: inscriptionsOuvrables() }}
     />

@@ -87,6 +87,10 @@ db.insert(schema.users)
     role: values.admin ? "ADMIN" : "USER",
   })
   .run();
+// Comme tout nouveau compte : dans le groupe par défaut, s'il y en a un.
+sqlite
+  .prepare("insert or ignore into user_access_groups (user_id, group_id) select ?, id from access_groups where is_default = 1")
+  .run(id);
 
 sqlite.close();
 

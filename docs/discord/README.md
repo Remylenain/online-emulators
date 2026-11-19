@@ -60,9 +60,11 @@ Le trajet d'un lancement :
 4. Le serveur échange ce code auprès de Discord — c'est là que sert le secret
    de l'application —, puis demande à Discord qui est l'utilisateur. Ce que la
    page affirme n'est jamais cru sur parole.
-5. Au premier lancement, un compte du site est créé : **restreint**, avec ce
-   seul jeu attribué, sans mot de passe (`users.discord_id`). Les règles
-   d'accès ordinaires (`src/lib/acces.ts`) s'appliquent à ce compte. Son
+5. Au premier lancement, un compte du site est créé, sans mot de passe
+   (`users.discord_id`). Il entre dans le groupe par défaut comme tout
+   nouveau compte, et le jeu de l'Activité lui est attribué en propre : il le
+   voit que ce groupe l'ouvre ou non. Les règles d'accès ordinaires
+   (`src/lib/acces.ts`) s'appliquent à ce compte. Son
    pseudo est le nom Discord du joueur, et le suit s'il en change. Dans
    l'administration, le compte porte l'étiquette « discord », et son temps de
    jeu se compte comme sur le site (Temps de jeu, « qui joue ») : l'Activité
@@ -223,7 +225,7 @@ son vhost et son certificat.
 2. Ouvrir le **lanceur d'activités** (l'icône de fusée du salon vocal, ou le
    bouton « Activités ») et chercher l'application par son nom.
 3. Au premier lancement, Discord demande l'autorisation de connaître ton
-   identité : accepter. Le site crée alors ton compte restreint à ce jeu.
+   identité : accepter. Le site crée alors ton compte, avec ce jeu.
 4. Pour qu'un ami l'essaie avant la vérification : onglet **App Testers**,
    inviter son compte (50 au plus).
 

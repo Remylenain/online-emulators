@@ -4,6 +4,7 @@ import { invites, users } from "@/db/schema";
 import { dureeEnMs, INSCRIPTION_DUREES_JOURS, INSCRIPTION_PLAFONDS } from "./inscription";
 import { generateToken, hashToken } from "./tokens";
 import { newId } from "./session";
+import { rejoindreGroupeParDefaut } from "@/lib/acces";
 
 /**
  * Lien d'inscription : un jeton que l'administrateur donne à quelqu'un, et
@@ -148,6 +149,7 @@ export function inscrireAvecJeton(
     tx.insert(users)
       .values({ id: userId, pseudo, email: null, passwordHash, role: "USER", inviteId: invitation.id })
       .run();
+    rejoindreGroupeParDefaut(tx, userId);
     tx.update(invites)
       .set({
         usedAt: new Date(),

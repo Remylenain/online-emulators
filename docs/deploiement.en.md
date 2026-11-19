@@ -133,6 +133,33 @@ The password is randomly generated and shown only once. Go through
 `sudo -u jeux` and not root: root would leave behind `app.db-wal` files owned
 by root, which the service could no longer write to afterwards.
 
+### Say who sees what: groups
+
+What an account sees of the catalog depends on its **groups**, in
+**Administration → Groups**. A group opens, as you choose:
+
+- **a list of games**, which you tick — with a search, filters by console and
+  by type, and a way to tick everything shown at once;
+- **all rom hacks**: every published game that is not an official game, with
+  no list to maintain;
+- **the whole** published **library**.
+
+An account can belong to several groups: it sees everything they open,
+combined. With no group, it sees nothing — except the games **assigned to it
+individually** (Administration → Accounts → "Assigned games"), which it sees
+even unpublished: this is how a game gets tested before its release. An
+administrator sees the whole published catalog, whatever their groups.
+
+One group, and only one, can be the **default**: every new account joins it,
+whether it comes from an invitation link, an open sign-up, the administration
+or a Discord Activity. A fresh installation has a "Bibliothèque complète"
+(whole library) group, set as default: until you change it, everyone sees
+everything.
+
+The same rule applies everywhere — catalog, game pages, player, ROM, saves,
+link cable — and takes effect at once (`src/lib/acces.ts`). Visitors without
+an account fall under the [showcase](vitrine.en.md), which has its own list.
+
 ### Configure the SMTP relay
 
 The simplest way is to do it from the site: **Administration → Settings →

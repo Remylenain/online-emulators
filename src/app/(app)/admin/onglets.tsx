@@ -8,6 +8,7 @@ import { useT } from "@/components/langue";
 const ONGLETS = [
   { href: "/admin/tableau", onglet: "tableau" },
   { href: "/admin/comptes", onglet: "comptes" },
+  { href: "/admin/groupes", onglet: "groupes" },
   { href: "/admin/bibliotheque", onglet: "bibliotheque" },
   { href: "/admin/temps", onglet: "temps" },
   { href: "/admin/reglages", onglet: "reglages" },

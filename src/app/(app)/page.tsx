@@ -257,7 +257,7 @@ async function Salons({
   const candidats = [...salons().values()]
     .filter((s) => s.etat === "attente" && !s.prive && s.id !== mien?.id)
     .sort((a, b) => b.creeLe - a.creeLe);
-  // Un compte restreint ne voit que les salons des jeux qu'il peut lancer.
+  // Un compte ne voit que les salons des jeux que ses groupes lui ouvrent.
   const visibles = await Promise.all(candidats.map((s) => jeuAccessible(moi, s.jeu.id)));
   const ouverts = candidats.filter((_, i) => visibles[i]);
   // Et les parties en cours qu'on peut regarder.

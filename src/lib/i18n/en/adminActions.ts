@@ -18,13 +18,6 @@ export const adminActions: Dictionnaire["adminActions"] = {
     nouveauLien: (pseudo: string) => `New link for ${pseudo}.`,
     nouveauMotDePasse: (pseudo: string) => `New password for ${pseudo}.`,
 
-    modeInconnu: "Unknown mode.",
-    /** « Checked » : les jeux cochés dans la liste du même écran. */
-    acces: {
-      normal: "Normal access: the whole published catalog.",
-      restreint: "Restricted access: only the checked games.",
-      testeur: "Tester access: the published catalog, plus the checked games.",
-    },
     jeuxAttribues: (nombre: number) => `${nombre} game${nombre === 1 ? "" : "s"} assigned.`,
 
     remisAZero: (pseudo: string) => `${pseudo}'s account has been reset.`,

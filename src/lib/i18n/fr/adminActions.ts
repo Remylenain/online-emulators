@@ -33,17 +33,6 @@ export const adminActions = {
     nouveauLien: (pseudo: string) => `Nouveau lien pour ${pseudo}.`,
     nouveauMotDePasse: (pseudo: string) => `Nouveau mot de passe pour ${pseudo}.`,
 
-    modeInconnu: "Mode inconnu.",
-    /**
-     * Le mode d'accès qui vient d'être donné, et ce qu'il laisse voir. Les
-     * « jeux cochés » sont ceux attribués au compte, dans la liste à cocher
-     * du même écran.
-     */
-    acces: {
-      normal: "Accès normal : tout le catalogue publié.",
-      restreint: "Accès restreint : seulement les jeux cochés.",
-      testeur: "Accès testeur : le catalogue publié, plus les jeux cochés.",
-    },
     jeuxAttribues: (nombre: number) =>
       `${nombre} jeu${nombre > 1 ? "x" : ""} attribué${nombre > 1 ? "s" : ""}.`,
 

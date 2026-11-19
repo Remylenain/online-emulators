@@ -10,7 +10,8 @@ export const adminComptes: Dictionnaire["adminComptes"] = {
     admin: "admin",
     desactive: "deactivated",
     discord: "discord",
-    mode: (mode: string, jeux: number) => `${mode.toLowerCase()} · ${jeux} game${s(jeux)}`,
+    sansGroupe: "no group",
+    jeuxAttribues: (jeux: number) => `+ ${jeux} game${s(jeux)}`,
     /** « save files » : ce qui est compté, ce sont les fichiers de sauvegarde du compte. */
     resume: (email: string | null, parties: number, depuis: string) =>
       `${email ?? "no email address"} · ${parties} save file${s(parties)} · since ${depuis}`,
@@ -18,17 +19,11 @@ export const adminComptes: Dictionnaire["adminComptes"] = {
     fermer: "Close",
   },
 
-  modes: {
-    normal: { libelle: "Normal", detail: "the whole published catalog" },
-    restreint: { libelle: "Restricted", detail: "only the checked games" },
-    testeur: { libelle: "Tester", detail: "the published catalog, plus the checked games" },
-  },
-
   acces: {
-    titre: "Catalog access",
-    /** Le libellé garde sa majuscule : il ouvre le texte. */
-    option: (mode: string) => `${mode} access`,
+    titre: "Access groups",
+    aucunGroupe: "No group: create some in the Groups tab.",
     jeuxAttribues: (n: number) => `Assigned games (${n})`,
+    admin: "An administrator sees the whole catalog, whatever their groups.",
   },
 
   connexion: {
@@ -65,8 +60,9 @@ export const adminComptes: Dictionnaire["adminComptes"] = {
   },
 
   attribution: {
-    testeur: "Unpublished games this tester can see, on top of the catalog.",
-    restreint: "The only games this account will see.",
+    explication:
+      "Games this account sees on top of what its groups open to it, published or not: " +
+      "to have a game tested before its release, or to open one more to a single person.",
     aucunJeu: "No games to offer.",
     nonPublie: "unpublished",
     enregistrement: "Saving…",

@@ -38,6 +38,11 @@ only what you have the right to share.
   visitor sees it in their browser's language or in the one they choose; the
   administrator sets the default language. See
   [docs/langues.en.md](docs/langues.en.md).
+- **Access groups**: each account sees what its groups open to it — a list
+  of ticked games, all rom hacks, or the whole library. An account can be in
+  several groups, and new accounts join the default one: enough to open only
+  a few games to newcomers and the whole catalog to close friends, on the
+  same site.
 - **Showcase** (optional): a few games opened to visitors without an
   account, who play as guests — their progress stays in their browser, and
   the server keeps nothing of it. See [docs/vitrine.en.md](docs/vitrine.en.md).
@@ -50,7 +55,7 @@ only what you have the right to share.
   all their saves.
 - **Catalog** by console, search, sorting by rating or popularity, ratings,
   play time per game and per account, a “My games” page.
-- **Administration**: dashboard, accounts, library (scan, corrections to
+- **Administration**: dashboard, accounts, groups, library (scan, corrections to
   the entries, covers), play time, settings (site name, language, e-mail,
   captcha, showcase, link cable) and Discord Activities.
 
